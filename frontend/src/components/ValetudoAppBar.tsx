@@ -292,9 +292,9 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
     {
         kind: "MenuEntry",
         route: "/valetudo/about",
-        title: "About Valetudo",
+        title: "About Valetudo+",
         menuIcon: AboutIcon,
-        menuText: "About Valetudo"
+        menuText: "About Valetudo+"
     },
 ];
 

@@ -1,6 +1,7 @@
 import {
     Avatar,
     Box,
+    Button,
     CircularProgress,
     Container,
     Divider,
@@ -22,7 +23,6 @@ import {
 } from "@mui/icons-material";
 import DetailPageHeaderRow from "../components/DetailPageHeaderRow";
 import { RawMapLayer, RawMapLayerType, useRobotMapQuery, useSegmentCleanOrderMutation } from "../api";
-import { LoadingButton } from "@mui/lab";
 import InfoBox from "../components/InfoBox";
 
 const SegmentCleanOrderContent = (): React.ReactElement => {
@@ -175,7 +175,7 @@ const SegmentCleanOrderContent = (): React.ReactElement => {
 
             <Grid2 container>
                 <Grid2 style={{marginLeft: "auto"}}>
-                    <LoadingButton
+                    <Button
                         loading={cleanOrderUpdating}
                         color="primary"
                         variant="outlined"
@@ -191,7 +191,7 @@ const SegmentCleanOrderContent = (): React.ReactElement => {
                         }}
                     >
                         Save configuration
-                    </LoadingButton>
+                    </Button>
                 </Grid2>
             </Grid2>
         </>

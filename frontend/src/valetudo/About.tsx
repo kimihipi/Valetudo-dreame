@@ -16,7 +16,7 @@ const About = (): React.ReactElement => {
             <Grid2 container direction="row">
                 <Box style={{width: "100%"}}>
                     <DetailPageHeaderRow
-                        title="About Valetudo"
+                        title="About Valetudo+"
                         icon={<AboutIcon/>}
                     />
 

@@ -1,5 +1,4 @@
-import { LoadingButton } from "@mui/lab";
-import { Grid2 } from "@mui/material";
+import { Button, Grid2 } from "@mui/material";
 import React, {FunctionComponent} from "react";
 import {
     Capability,
@@ -56,7 +55,7 @@ const PlayAudioControl: FunctionComponent = () => {
                     loadError={audioListIsError}
                 />
                 <Grid2>
-                    <LoadingButton
+                    <Button
                         disabled={currentValue.value === "-1"}
                         loading={isTriggering}
                         variant="outlined"
@@ -66,7 +65,7 @@ const PlayAudioControl: FunctionComponent = () => {
                         }}
                     >
                         Play
-                    </LoadingButton>
+                    </Button>
                 </Grid2>
             </Grid2>
         </CapabilityItem>

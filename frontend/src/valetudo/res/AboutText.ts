@@ -1,5 +1,5 @@
 export const AboutText = `
-Valetudo+ is developed by <a href="https://github.com/Algid" rel="noopener" target="_blank">Algid</a>.
+Valetudo+ is a fork of Valetudo with some extra features developed by <a href="https://github.com/Algid" rel="noopener" target="_blank">Algid</a>.
 
 This project would not exist without Valetudo, read more information about it below.
 

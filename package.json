@@ -1,6 +1,6 @@
 {
   "name": "valetudo",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Self-contained control webinterface for vacuum robots",
   "license": "Apache-2.0",
   "engines": {
@@ -27,7 +27,6 @@
     "generate_changelog": "npx auto-changelog --commit-limit false --tag-pattern .+ --handlebars-setup ./util/res/auto_changelog_handlebars_helpers.js --template ./util/res/auto_changelog_template.hbs --output ./build/changelog.md",
     "generate_nightly_changelog": "npx auto-changelog --commit-limit false --tag-pattern .+ --unreleased-only --handlebars-setup ./util/res/auto_changelog_handlebars_helpers.js --template ./util/res/auto_changelog_template.hbs --output ./build/changelog_nightly.md",
     "generate_eslintrc_flavors": "node util/generate_eslintrc_flavors.js",
-
     "postinstall": "patch-package"
   },
   "devDependencies": {
