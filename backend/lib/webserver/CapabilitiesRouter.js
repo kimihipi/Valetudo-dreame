@@ -105,6 +105,8 @@ const CAPABILITY_TYPE_TO_ROUTER_MAPPING = {
     [capabilities.MapSegmentMaterialControlCapability.TYPE]: capabilityRouters.MapSegmentMaterialControlCapabilityRouter,
     [capabilities.FloorMaterialDirectionAwareNavigationControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
     [capabilities.CleanRouteControlCapability.TYPE]: capabilityRouters.CleanRouteControlCapabilityRouter,
+    [capabilities.MopDockMopDryingTimeControlCapability.TYPE]: capabilityRouters.MopDockMopDryingTimeControlCapabilityRouter,
+    [capabilities.AutoEmptyDockAutoEmptyDurationControlCapability.TYPE]: capabilityRouters.AutoEmptyDockAutoEmptyDurationControlCapabilityRouter,
 };
 
 module.exports = CapabilitiesRouter;

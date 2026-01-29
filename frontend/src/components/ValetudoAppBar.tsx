@@ -382,8 +382,12 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
                                 return (
                                     <ListSubheader
                                         key={`${idx}`}
-                                        sx={{background: "transparent"}}
+                                        sx={{
+                                            background: "transparent",
+                                            userSelect: "none"
+                                        }}
                                         disableSticky={true}
+                                        onClick={(e) => e.stopPropagation()}
                                     >
                                         {value.title}
                                     </ListSubheader>
@@ -435,7 +439,12 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
                     })}
 
                     <Divider/>
-                    <ListItem>
+                    <ListItem
+                        onClick={(e) => e.stopPropagation()}
+                        sx={{
+                            userSelect: "none"
+                        }}
+                    >
                         <ListItemIcon>
                             <DarkModeIcon/>
                         </ListItemIcon>
@@ -451,7 +460,12 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
 
 
                     <ListSubheader
-                        sx={{background: "transparent"}}>
+                        sx={{
+                            background: "transparent",
+                            userSelect: "none"
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         Links
                     </ListSubheader>
                     <ListItemButton
@@ -459,6 +473,7 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
                         href="./swagger/"
                         target="_blank"
                         rel="noopener"
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <ListItemIcon>
                             <SwaggerUIIcon/>
@@ -471,6 +486,7 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
                         href="https://github.com/Algid/Valetudo-plus"
                         target="_blank"
                         rel="noopener"
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <ListItemIcon>
                             <GithubIcon/>
@@ -482,6 +498,7 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
                         href="https://github.com/sponsors/Hypfer"
                         target="_blank"
                         rel="noopener"
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <ListItemIcon>
                             <DonateIcon/>

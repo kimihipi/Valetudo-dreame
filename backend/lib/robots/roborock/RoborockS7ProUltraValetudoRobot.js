@@ -23,7 +23,6 @@ class RoborockS7ProUltraValetudoRobot extends RoborockGen4ValetudoRobot {
                 options,
                 {
                     waterGrades: WATER_GRADES,
-                    supportedAttachments: SUPPORTED_ATTACHMENTS,
                     dockType: RoborockConst.DOCK_TYPE.ULTRA
                 }
             )
@@ -57,6 +56,7 @@ class RoborockS7ProUltraValetudoRobot extends RoborockGen4ValetudoRobot {
             capabilities.RoborockKeyLockCapability,
             capabilities.RoborockMappingPassCapability,
             capabilities.RoborockCleanRouteControlCapability,
+            capabilities.RoborockAutoEmptyDockAutoEmptyDurationControlCapability,
         ].forEach(capability => {
             this.registerCapability(new capability({robot: this}));
         });
@@ -67,7 +67,6 @@ class RoborockS7ProUltraValetudoRobot extends RoborockGen4ValetudoRobot {
         this.registerCapability(new QuirksCapability({
             robot: this,
             quirks: [
-                quirkFactory.getQuirk(RoborockQuirkFactory.KNOWN_QUIRKS.AUTO_EMPTY_DURATION),
                 quirkFactory.getQuirk(RoborockQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_MOP_CLEANING_MODE),
                 quirkFactory.getQuirk(RoborockQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_MOP_CLEANING_FREQUENCY),
                 quirkFactory.getQuirk(RoborockQuirkFactory.KNOWN_QUIRKS.BUTTON_LEDS),
@@ -77,6 +76,19 @@ class RoborockS7ProUltraValetudoRobot extends RoborockGen4ValetudoRobot {
 
     getModelName() {
         return "S7 Pro Ultra";
+    }
+
+    getModelDetails() {
+        return Object.assign(
+            {},
+            super.getModelDetails(),
+            {
+                supportedAttachments: [
+                    entities.state.attributes.AttachmentStateAttribute.TYPE.WATERTANK,
+                    entities.state.attributes.AttachmentStateAttribute.TYPE.MOP,
+                ]
+            }
+        );
     }
 
     static IMPLEMENTATION_AUTO_DETECTION_HANDLER() {
@@ -92,11 +104,5 @@ const WATER_GRADES = {
     [entities.state.attributes.PresetSelectionStateAttribute.INTENSITY.MEDIUM]: 202,
     [entities.state.attributes.PresetSelectionStateAttribute.INTENSITY.HIGH]: 203
 };
-
-const SUPPORTED_ATTACHMENTS = [
-    entities.state.attributes.AttachmentStateAttribute.TYPE.WATERTANK,
-    entities.state.attributes.AttachmentStateAttribute.TYPE.MOP,
-];
-
 
 module.exports = RoborockS7ProUltraValetudoRobot;

@@ -2,6 +2,9 @@ import axios from "axios";
 import { RawMapData } from "./RawMapData";
 import {PresetSelectionState, PresetValue, RobotAttribute} from "./RawRobotState";
 import {
+    AutoEmptyDockAutoEmptyDuration,
+    AutoEmptyDockAutoEmptyDurationControlProperties,
+    AutoEmptyDockAutoEmptyDurationPayload,
     AutoEmptyDockAutoEmptyInterval,
     AutoEmptyDockAutoEmptyIntervalPayload,
     AutoEmptyDockAutoEmptyIntervalProperties,
@@ -31,6 +34,9 @@ import {
     MapSegmentMaterialControlRequestParameters,
     MapSegmentRenameRequestParameters,
     MultipleMapRenameRequestParameters,
+    MopDockMopDryingDuration,
+    MopDockMopDryingTimeControlProperties,
+    MopDockMopDryingTimePayload,
     MopDockMopWashTemperature,
     MopDockMopWashTemperaturePayload,
     MopDockMopWashTemperatureProperties,
@@ -1402,6 +1408,62 @@ export const fetchCleanRouteControlProperties = async (): Promise<CleanRouteCont
     return valetudoAPI
         .get<CleanRouteControlProperties>(
             `/robot/capabilities/${Capability.CleanRouteControl}/properties`
+        )
+        .then(({data}) => {
+            return data;
+        });
+};
+
+export const sendMopDockMopDryingTime = async (payload: MopDockMopDryingTimePayload): Promise<void> => {
+    return valetudoAPI
+        .put(`/robot/capabilities/${Capability.MopDockMopDryingTimeControl}`, payload)
+        .then(({status}) => {
+            if (status !== 200) {
+                throw new Error("Could not send mop dock mop drying time");
+            }
+        });
+};
+
+export const fetchMopDockMopDryingTime = async (): Promise<MopDockMopDryingDuration> => {
+    return valetudoAPI
+        .get<MopDockMopDryingTimePayload>(`/robot/capabilities/${Capability.MopDockMopDryingTimeControl}`)
+        .then(({data}) => {
+            return data.duration;
+        });
+};
+
+export const fetchMopDockMopDryingTimeControlProperties = async (): Promise<MopDockMopDryingTimeControlProperties> => {
+    return valetudoAPI
+        .get<MopDockMopDryingTimeControlProperties>(
+            `/robot/capabilities/${Capability.MopDockMopDryingTimeControl}/properties`
+        )
+        .then(({data}) => {
+            return data;
+        });
+};
+
+export const sendAutoEmptyDockAutoEmptyDuration = async (payload: AutoEmptyDockAutoEmptyDurationPayload): Promise<void> => {
+    return valetudoAPI
+        .put(`/robot/capabilities/${Capability.AutoEmptyDockAutoEmptyDurationControl}`, payload)
+        .then(({status}) => {
+            if (status !== 200) {
+                throw new Error("Could not send auto empty dock auto empty duration");
+            }
+        });
+};
+
+export const fetchAutoEmptyDockAutoEmptyDuration = async (): Promise<AutoEmptyDockAutoEmptyDuration> => {
+    return valetudoAPI
+        .get<AutoEmptyDockAutoEmptyDurationPayload>(`/robot/capabilities/${Capability.AutoEmptyDockAutoEmptyDurationControl}`)
+        .then(({data}) => {
+            return data.duration;
+        });
+};
+
+export const fetchAutoEmptyDockAutoEmptyDurationControlProperties = async (): Promise<AutoEmptyDockAutoEmptyDurationControlProperties> => {
+    return valetudoAPI
+        .get<AutoEmptyDockAutoEmptyDurationControlProperties>(
+            `/robot/capabilities/${Capability.AutoEmptyDockAutoEmptyDurationControl}/properties`
         )
         .then(({data}) => {
             return data;

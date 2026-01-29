@@ -642,7 +642,7 @@ module.exports = {
                 HIGH_RES_WATER_USAGE: {
                     PIID: 1
                 },
-                CLEAN_CARPETS_FIRST: {
+                CLEAN_CARPET_FIRST: {
                     PIID: 2
                 },
                 HIGH_RES_MOP_DOCK_HEATER: {

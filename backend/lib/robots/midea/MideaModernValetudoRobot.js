@@ -75,10 +75,7 @@ class MideaModernValetudoRobot extends MideaValetudoRobot {
             value: entities.state.attributes.DockStatusStateAttribute.VALUE.IDLE
         }));
 
-        this.state.upsertFirstMatchingAttribute(new entities.state.attributes.AttachmentStateAttribute({
-            type: entities.state.attributes.AttachmentStateAttribute.TYPE.MOP,
-            attached: false
-        }));
+
     }
 
 
@@ -134,6 +131,23 @@ class MideaModernValetudoRobot extends MideaValetudoRobot {
         if (parsedActiveZonesResponse instanceof dtos.MSmartActiveZonesDTO) {
             await this.handleMapUpdate("evt_active_zones", parsedActiveZonesResponse);
         }
+    }
+
+    getModelDetails() {
+        return Object.assign(
+            {},
+            super.getModelDetails(),
+            {
+                supportedAttachments: [
+                    entities.state.attributes.AttachmentStateAttribute.TYPE.MOP,
+                ],
+                supportedDockComponents: [
+                    entities.state.attributes.DockComponentStateAttribute.TYPE.WATER_TANK_CLEAN,
+                    entities.state.attributes.DockComponentStateAttribute.TYPE.WATER_TANK_DIRTY,
+                    entities.state.attributes.DockComponentStateAttribute.TYPE.DUSTBAG,
+                ]
+            }
+        );
     }
 }
 

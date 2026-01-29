@@ -1,4 +1,6 @@
 module.exports = {
+    MideaAutoEmptyDockAutoEmptyDurationControlCapabilityV1: require("./MideaAutoEmptyDockAutoEmptyDurationControlCapabilityV1"),
+    MideaAutoEmptyDockAutoEmptyDurationControlCapabilityV2: require("./MideaAutoEmptyDockAutoEmptyDurationControlCapabilityV2"),
     MideaAutoEmptyDockAutoEmptyIntervalControlCapabilityV1: require("./MideaAutoEmptyDockAutoEmptyIntervalControlCapabilityV1"),
     MideaAutoEmptyDockAutoEmptyIntervalControlCapabilityV2: require("./MideaAutoEmptyDockAutoEmptyIntervalControlCapabilityV2"),
     MideaAutoEmptyDockAutoEmptyIntervalControlCapabilityV3: require("./MideaAutoEmptyDockAutoEmptyIntervalControlCapabilityV3"),
@@ -31,6 +33,8 @@ module.exports = {
     MideaMapSegmentEditCapabilityV1: require("./MideaMapSegmentEditCapabilityV1"),
     MideaMapSegmentEditCapabilityV2: require("./MideaMapSegmentEditCapabilityV2"),
     MideaMapSegmentMaterialControlCapability: require("./MideaMapSegmentMaterialControlCapability"),
+    MideaMapSegmentRenameCapabilityV1: require("./MideaMapSegmentRenameCapabilityV1"),
+    MideaMapSegmentRenameCapabilityV2: require("./MideaMapSegmentRenameCapabilityV2"),
     MideaMapSegmentationCapabilityV1: require("./MideaMapSegmentationCapabilityV1"),
     MideaMapSegmentationCapabilityV2: require("./MideaMapSegmentationCapabilityV2"),
     MideaMappingPassCapabilityV1: require("./MideaMappingPassCapabilityV1"),
@@ -38,6 +42,7 @@ module.exports = {
     MideaMopDockCleanManualTriggerCapability: require("./MideaMopDockCleanManualTriggerCapability"),
     MideaMopDockDryManualTriggerCapability: require("./MideaMopDockDryManualTriggerCapability"),
     MideaMopDockMopAutoDryingControlCapability: require("./MideaMopDockMopAutoDryingControlCapability"),
+    MideaMopDockMopDryingTimeControlCapability: require("./MideaMopDockMopDryingTimeControlCapability"),
     MideaMopDockMopWashTemperatureControlCapability: require("./MideaMopDockMopWashTemperatureControlCapability"),
     MideaMopExtensionControlCapability: require("./MideaMopExtensionControlCapability"),
     MideaMopExtensionFurnitureLegHandlingControlCapability: require("./MideaMopExtensionFurnitureLegHandlingControlCapability"),

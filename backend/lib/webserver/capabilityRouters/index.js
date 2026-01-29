@@ -1,4 +1,5 @@
 module.exports = {
+    AutoEmptyDockAutoEmptyDurationControlCapabilityRouter: require("./AutoEmptyDockAutoEmptyDurationControlCapabilityRouter"),
     AutoEmptyDockAutoEmptyIntervalControlCapabilityRouter: require("./AutoEmptyDockAutoEmptyIntervalControlCapabilityRouter"),
     AutoEmptyDockManualTriggerCapabilityRouter: require("./AutoEmptyDockManualTriggerCapabilityRouter"),
     BasicControlCapabilityRouter: require("./BasicControlCapabilityRouter"),
@@ -21,6 +22,7 @@ module.exports = {
     MappingPassCapabilityRouter: require("./MappingPassCapabilityRouter"),
     MopDockCleanManualTriggerCapabilityRouter: require("./MopDockCleanManualTriggerCapabilityRouter"),
     MopDockDryManualTriggerCapabilityRouter: require("./MopDockDryManualTriggerCapabilityRouter"),
+    MopDockMopDryingTimeControlCapabilityRouter: require("./MopDockMopDryingTimeControlCapabilityRouter"),
     MopDockMopWashTemperatureControlCapabilityRouter : require("./MopDockMopWashTemperatureControlCapabilityRouter"),
     MultipleMapCapabilityRouter: require("./MultipleMapCapabilityRouter"),
     MultipleMapDeleteCapabilityRouter: require("./MultipleMapDeleteCapabilityRouter"),

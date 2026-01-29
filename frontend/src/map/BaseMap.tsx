@@ -53,7 +53,7 @@ const SCROLL_PARAMETERS = {
 };
 
 abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState > {
-    protected readonly canvasRef: React.RefObject<HTMLCanvasElement>;
+    protected readonly canvasRef: React.RefObject<HTMLCanvasElement | null>;
     protected structureManager: StructureManager;
     protected mapLayerManager: MapLayerManager;
     protected canvas!: HTMLCanvasElement;
@@ -74,6 +74,7 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
     protected activeScrollEvent = false;
     protected pendingInternalDrawableStateUpdate = false;
     protected scrollTimeout: NodeJS.Timeout | undefined;
+    private aprilFoolsValetudoIsActivated: boolean;
 
 
     protected constructor(props : MapProps) {
@@ -94,6 +95,8 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
             dialogBody: "This should never be visible",
         } as Readonly<S & MapState>;
 
+
+        this.aprilFoolsValetudoIsActivated = !!localStorage.getItem("aprilfools-valetudo-activation");
 
         this.resizeListener = () => {
             // Save the current transformation and recreate it
@@ -373,7 +376,7 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
                     );
                 });
 
-                if (isAprilFools) {
+                if (isAprilFools && !this.aprilFoolsValetudoIsActivated) {
                     this.drawValetudoGenuineAdvantage(ctx);
                 }
 

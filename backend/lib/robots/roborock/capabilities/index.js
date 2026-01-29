@@ -1,4 +1,5 @@
 module.exports = {
+    RoborockAutoEmptyDockAutoEmptyDurationControlCapability: require("./RoborockAutoEmptyDockAutoEmptyDurationControlCapability"),
     RoborockAutoEmptyDockAutoEmptyIntervalControlCapability: require("./RoborockAutoEmptyDockAutoEmptyIntervalControlCapability"),
     RoborockAutoEmptyDockManualTriggerCapability: require("./RoborockAutoEmptyDockManualTriggerCapability"),
     RoborockBasicControlCapability: require("./RoborockBasicControlCapability"),
@@ -28,6 +29,7 @@ module.exports = {
     RoborockMopDockCleanManualTriggerCapability: require("./RoborockMopDockCleanManualTriggerCapability"),
     RoborockMopDockDryManualTriggerCapability: require("./RoborockMopDockDryManualTriggerCapability"),
     RoborockMopDockMopAutoDryingControlCapability: require("./RoborockMopDockMopAutoDryingControlCapability"),
+    RoborockMopDockMopDryingTimeControlCapability: require("./RoborockMopDockMopDryingTimeControlCapability"),
     RoborockMultiMapMapResetCapability: require("./RoborockMultiMapMapResetCapability"),
     RoborockMultiMapPersistentMapControlCapability: require("./RoborockMultiMapPersistentMapControlCapability"),
     RoborockObstacleAvoidanceControlCapability: require("./RoborockObstacleAvoidanceControlCapability"),
