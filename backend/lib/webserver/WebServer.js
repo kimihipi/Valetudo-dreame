@@ -9,8 +9,6 @@ const path = require("path");
 const swaggerUi = require("swagger-ui-express");
 const swaggerValidation = require("openapi-validator-middleware");
 
-const listEndpoints = require("express-list-endpoints");
-
 const Logger = require("../Logger");
 
 const env = require("../res/env");
@@ -187,24 +185,6 @@ class WebServer {
 
         this.app.use(express.static(path.join(__dirname, "../../..", "frontend/build")));
 
-        this.app.get("/api/v2", (req, res) => {
-            let endpoints = listEndpoints(this.app);
-            let endpointsMap;
-            endpoints = endpoints.sort((a,b) => {
-                if (a.path > b.path) {
-                    return 1;
-                } else if (b.path > a.path) {
-                    return -1;
-                } else {
-                    return 0;
-                }
-            });
-            endpointsMap = endpoints.reduce((acc, curr) => {
-                acc[curr.path] = {methods: curr.methods}; return acc;
-            }, {});
-
-            res.json(endpointsMap);
-        });
 
         this.robot.initModelSpecificWebserverRoutes(this.app);
 
