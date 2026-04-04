@@ -757,7 +757,7 @@ class DreameQuirkFactory {
                     id: id,
                     title: "Multi Map",
                     description: "Select if you want the robot to store multiple maps.",
-                    options: ["On", "Off"],
+                    options: ["on", "off"],
                     getter: async () => {
                         const res = await this.robot.miotHelper.readProperty(
                             DreameMiotServices["GEN2"].MAP.SIID,
@@ -766,9 +766,9 @@ class DreameQuirkFactory {
 
                         switch (res) {
                             case 1:
-                                return "On";
+                                return "on";
                             case 0:
-                                return "Off";
+                                return "off";
                             default:
                                 throw new Error(`Received invalid value ${res}`);
                         }
@@ -777,10 +777,10 @@ class DreameQuirkFactory {
                         let val;
 
                         switch (value) {
-                            case "On":
+                            case "on":
                                 val = 1;
                                 break;
-                            case "Off":
+                            case "off":
                                 val = 0;
                                 break;
                             default:
@@ -799,7 +799,7 @@ class DreameQuirkFactory {
                     id: id,
                     title: "Intelligent Map Recognition",
                     description: "Select if you want the robot to automatically switch map based on its location.",
-                    options: ["On", "Off"],
+                    options: ["on", "off"],
                     getter: async () => {
                         const res = await this.robot.miotHelper.readProperty(
                             DreameMiotServices["GEN2"].VACUUM_2.SIID,
@@ -808,9 +808,9 @@ class DreameQuirkFactory {
 
                         switch (res) {
                             case 1:
-                                return "On";
+                                return "on";
                             case 0:
-                                return "Off";
+                                return "off";
                             default:
                                 throw new Error(`Received invalid value ${res}`);
                         }
@@ -819,10 +819,10 @@ class DreameQuirkFactory {
                         let val;
 
                         switch (value) {
-                            case "On":
+                            case "on":
                                 val = 1;
                                 break;
-                            case "Off":
+                            case "off":
                                 val = 0;
                                 break;
                             default:
@@ -841,7 +841,7 @@ class DreameQuirkFactory {
                     id: id,
                     title: "Suction Boost",
                     description: "Select if you want the robot to boost suction for the next cleaning operation.",
-                    options: ["On", "Off"],
+                    options: ["on", "off"],
                     getter: async () => {
                         const res = await this.robot.miotHelper.readProperty(
                             DreameMiotServices["GEN2"].VACUUM_2.SIID,
@@ -851,9 +851,9 @@ class DreameQuirkFactory {
                         const deserializedResponse = DreameUtils.DESERIALIZE_MISC_TUNABLES(res);
                         switch (deserializedResponse.SuctionMax) {
                             case 1:
-                                return "On";
+                                return "on";
                             case 0:
-                                return "Off";
+                                return "off";
                             default:
                                 throw new Error(`Received invalid value ${deserializedResponse.SuctionMax}`);
                         }
@@ -862,10 +862,10 @@ class DreameQuirkFactory {
                         let val;
 
                         switch (value) {
-                            case "On":
+                            case "on":
                                 val = 1;
                                 break;
-                            case "Off":
+                            case "off":
                                 val = 0;
                                 break;
                             default:
