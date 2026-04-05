@@ -35,7 +35,7 @@ Please read the supported devices section for more information.
 
 ### Some devices
 
-- Multiple map / floor capabilities.
+- Multiple map / floor capabilities (be sure to enable in quirks!).
 - Map rotation.
 - Segment clean order.
 - View robot camera stream in the UI (via go2rtc).
@@ -54,6 +54,7 @@ Please let me know if you have tested this on your robot and what you got workin
 
 - Dreame X40 Ultra
 - Dreame X40 Master (Untested but similar to Ultra)
+- Dreame L40 Ultra (Tested in https://github.com/Algid/Valetudo-plus/discussions/6)
 
 ## Screenshots
 
