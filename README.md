@@ -53,7 +53,7 @@ Some of the functionality such as multiple map support will likely work on other
 Please let me know if you have tested this on your robot and what you got working + if you encountered any issues.
 
 - Dreame X40 Ultra
-- Dreame X40 Master (Untested but similar to Ultra)
+- Dreame X40 Master (Tested in https://github.com/Algid/Valetudo-plus/discussions/6)
 - Dreame L40 Ultra (Tested in https://github.com/Algid/Valetudo-plus/discussions/6)
 
 ## Screenshots
