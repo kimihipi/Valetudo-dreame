@@ -57,13 +57,13 @@ const CollapsedHeader = (): React.ReactElement => {
 
         if (status.value === "paused") {
             return [
-                {command: "start", enabled: !isMapEditorOpen, Icon: StartIcon, color: palette.green},
+                {command: "start", enabled: !hasPendingMapAction && !isMapEditorOpen, Icon: StartIcon, color: palette.green},
                 {command: "stop", enabled: !isMapEditorOpen, Icon: StopIcon, color: palette.crimson},
             ];
         }
 
         return [
-            {command: "start", enabled: !isMapEditorOpen, Icon: StartIcon, color: palette.green},
+            {command: "start", enabled: !hasPendingMapAction && !isMapEditorOpen, Icon: StartIcon, color: palette.green},
             {command: "home", enabled: status.value !== "docked" && !isMapEditorOpen, Icon: HomeIcon, color: palette.teal},
         ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
