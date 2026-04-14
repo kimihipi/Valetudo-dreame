@@ -199,7 +199,7 @@ class ValetudoRouter {
         };
         const LogMessageEventType = Logger.getProperties().EVENTS.LogMessage;
 
-        Logger.onLogMessage((line) => {
+        this.logMessageListener = (line) => {
             /**
              * To be parsed correctly, one line needs to be one sse event.
              *
@@ -214,7 +214,9 @@ class ValetudoRouter {
                     actualLine
                 );
             });
-        });
+        };
+
+        Logger.onLogMessage(this.logMessageListener);
 
         this.router.get(
             "/log/content/sse",
@@ -234,6 +236,11 @@ class ValetudoRouter {
     }
 
     shutdown() {
+        // Remove event listeners to prevent memory leaks
+        if (this.logMessageListener) {
+            Logger.offLogMessage(this.logMessageListener);
+        }
+
         Object.values(this.sseHubs).forEach(hub => {
             hub.shutdown();
         });

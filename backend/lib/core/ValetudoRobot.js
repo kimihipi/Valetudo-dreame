@@ -352,6 +352,30 @@ class ValetudoRobot {
     }
 
     /**
+     * @public
+     * @param {() => void} listener
+     */
+    offStateUpdated(listener) {
+        this.eventEmitter.off(ValetudoRobot.EVENTS.StateUpdated, listener);
+    }
+
+    /**
+     * @public
+     * @param {() => void} listener
+     */
+    offStateAttributesUpdated(listener) {
+        this.eventEmitter.off(ValetudoRobot.EVENTS.StateAttributesUpdated, listener);
+    }
+
+    /**
+     * @public
+     * @param {() => void} listener
+     */
+    offMapUpdated(listener) {
+        this.eventEmitter.off(ValetudoRobot.EVENTS.MapUpdated, listener);
+    }
+
+    /**
      *
      * This very badly named function is used for the implementation autodetection feature
      *

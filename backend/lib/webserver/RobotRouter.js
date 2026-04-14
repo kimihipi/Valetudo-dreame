@@ -80,26 +80,30 @@ class RobotRouter {
             map: new SSEHub({name: "Map"})
         };
 
-        this.robot.onStateUpdated(() => {
+        this.stateUpdateListener = () => {
             this.sseHubs.state.event(
                 ValetudoRobot.EVENTS.StateUpdated,
                 JSON.stringify(this.robot.state)
             );
-        });
+        };
 
-        this.robot.onStateAttributesUpdated(() => {
+        this.stateAttributesUpdateListener = () => {
             this.sseHubs.attributes.event(
                 ValetudoRobot.EVENTS.StateAttributesUpdated,
                 JSON.stringify(this.robot.state.attributes)
             );
-        });
+        };
 
-        this.robot.onMapUpdated(() => {
+        this.mapUpdateListener = () => {
             this.sseHubs.map.event(
                 ValetudoRobot.EVENTS.MapUpdated,
                 JSON.stringify(this.robot.state.map)
             );
-        });
+        };
+
+        this.robot.onStateUpdated(this.stateUpdateListener);
+        this.robot.onStateAttributesUpdated(this.stateAttributesUpdateListener);
+        this.robot.onMapUpdated(this.mapUpdateListener);
 
         this.router.get(
             "/state/sse",
@@ -143,6 +147,17 @@ class RobotRouter {
     }
 
     shutdown() {
+        // Remove event listeners to prevent memory leaks
+        if (this.stateUpdateListener) {
+            this.robot.offStateUpdated(this.stateUpdateListener);
+        }
+        if (this.stateAttributesUpdateListener) {
+            this.robot.offStateAttributesUpdated(this.stateAttributesUpdateListener);
+        }
+        if (this.mapUpdateListener) {
+            this.robot.offMapUpdated(this.mapUpdateListener);
+        }
+
         Object.values(this.sseHubs).forEach(hub => {
             hub.shutdown();
         });

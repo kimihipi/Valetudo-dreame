@@ -164,6 +164,14 @@ class Logger {
 
     /**
      * @public
+     * @param {any} listener
+     */
+    offLogMessage(listener) {
+        this._logEventEmitter.off("LogMessage", listener);
+    }
+
+    /**
+     * @public
      * @see console.trace
      * @param  {...any} args
      */
