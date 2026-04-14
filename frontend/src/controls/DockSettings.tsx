@@ -35,10 +35,14 @@ import {
     useRobotAttributeQuery,
     RobotAttributeClass,
     capabilityToPresetType,
+    useMaintenancePropertiesQuery,
+    useMaintenanceMutation,
 } from "../api";
 import {SelectListMenuItem, SelectListMenuItemOption} from "../components/list_menu/SelectListMenuItem";
 import {ToggleSwitchListMenuItem} from "../components/list_menu/ToggleSwitchListMenuItem";
 import {SpacerListMenuItem} from "../components/list_menu/SpacerListMenuItem";
+import {SubHeaderListMenuItem} from "../components/list_menu/SubHeaderListMenuItem";
+import {ButtonListMenuItem} from "../components/list_menu/ButtonListMenuItem";
 import {
     Air as MopDockMopAutoDryingControlIcon,
     AvTimer as MopDockMopDryingTimeControlIcon,
@@ -48,6 +52,12 @@ import {
     Loop as MopDockMopCleaningFrequencyControlIcon,
     Science as MopDockDetergentControlIcon,
     WaterDrop as MopDockMopWashIntensityControlIcon,
+    Build as BuildIcon,
+    Plumbing as PlumbingIcon,
+    Opacity as OpacityIcon,
+    CleaningServices as CleaningServicesIcon,
+    Settings as SettingsIcon,
+    Construction as ConstructionIcon,
 } from "@mui/icons-material";
 import {presetFriendlyNames, sortPresets} from "../presetUtils";
 
@@ -544,6 +554,66 @@ const MopWashIntensitySetting = () => {
     );
 };
 
+// Maintenance Actions Setting
+const MaintenanceSetting = () => {
+    const {
+        data: maintenanceProperties,
+    } = useMaintenancePropertiesQuery();
+
+    const {mutate, isPending: isPerformingAction} = useMaintenanceMutation();
+
+    const actionDefinitions: Record<string, { primary: string; secondary: string; icon: React.ReactElement }> = {
+        "mop_dock_auto_repair": {
+            primary: "Dock Auto Repair",
+            secondary: "Manuallt purge air from the dock and robot which would prevent the water tank in the robot from being filled. Trigger until the issue is resolved.",
+            icon: <BuildIcon/>
+        },
+        "mop_dock_water_hookup_test": {
+            primary: "Dock Water Hookup Test",
+            secondary: "Test or initialize the permanent water hookup installation. Listen to the robot voice prompts. If errors occur, they will be raised as Events.",
+            icon: <PlumbingIcon/>
+        },
+        "robot_drain_internal_water_tank": {
+            primary: "Drain Robot Water Tank",
+            secondary: "Drain the internal water tank of the robot into the dock. This can be useful if the robot is to be transported or stored for a while. May take up to 3 minutes.",
+            icon: <OpacityIcon/>
+        },
+        "mop_dock_self_cleaning": {
+            primary: "Dock Self Cleaning",
+            secondary: "Trigger a manual base self-cleaning. Robot must be docked with and mop pads present or attached.",
+            icon: <CleaningServicesIcon/>
+        },
+    };
+
+    if (!maintenanceProperties?.supportedActions || maintenanceProperties.supportedActions.length === 0) {
+        return null;
+    }
+
+    return (
+        <>
+            <SpacerListMenuItem halfHeight={true} />
+            {maintenanceProperties.supportedActions.map(action => {
+                const def = actionDefinitions[action];
+                if (!def) {
+                    return null;
+                }
+
+                return (
+                    <ButtonListMenuItem
+                        key={action}
+                        primaryLabel={def.primary}
+                        secondaryLabel={def.secondary}
+                        icon={def.icon}
+                        buttonLabel="Go"
+                        actionLoading={isPerformingAction}
+                        action={() => mutate(action)}
+                    />
+                );
+            })}
+        </>
+    );
+};
+
 const DockSettings: React.FC<{
     open: boolean;
     onClose: () => void;
@@ -557,6 +627,7 @@ const DockSettings: React.FC<{
         mopCleaningFrequencySupported,
         detergentSupported,
         mopWashIntensitySupported,
+        maintenanceSupported,
     ] = useCapabilitiesSupported(
         Capability.AutoEmptyDockAutoEmptyIntervalControl,
         Capability.AutoEmptyDockAutoEmptyDurationControl,
@@ -566,10 +637,19 @@ const DockSettings: React.FC<{
         Capability.MopDockMopCleaningFrequencyControl,
         Capability.MopDockDetergentControl,
         Capability.MopDockMopWashIntensityControl,
+        Capability.Maintenance,
     );
 
     const dockListItems = React.useMemo(() => {
         const items = [];
+
+        const hasGeneralSettings = autoEmptyIntervalSupported || autoEmptyDurationSupported ||
+            mopWashTemperatureSupported || mopAutoDryingSupported || mopDryingTimeSupported ||
+            mopCleaningFrequencySupported || detergentSupported || mopWashIntensitySupported;
+
+        if (hasGeneralSettings) {
+            items.push(<SubHeaderListMenuItem key="general-header" primaryLabel="General" icon={<SettingsIcon/>}/>);
+        }
 
         if (autoEmptyIntervalSupported) {
             items.push(<AutoEmptyIntervalSetting key="autoEmptyInterval" />);
@@ -607,6 +687,11 @@ const DockSettings: React.FC<{
             items.push(<MopWashIntensitySetting key="mopWashIntensity" />);
         }
 
+        if (maintenanceSupported) {
+            items.push(<SubHeaderListMenuItem key="maintenance-header" primaryLabel="Maintenance" icon={<ConstructionIcon/>}/>);
+            items.push(<MaintenanceSetting key="maintenance" />);
+        }
+
         return items;
     }, [
         autoEmptyIntervalSupported,
@@ -617,6 +702,7 @@ const DockSettings: React.FC<{
         mopCleaningFrequencySupported,
         detergentSupported,
         mopWashIntensitySupported,
+        maintenanceSupported,
     ]);
 
     return (

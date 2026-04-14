@@ -33,12 +33,13 @@ export interface PresetSelectionProps {
     onPresetReselect?: (value: string) => void;
     onPresetChange?: (value: string) => void;
     valueBadge?: { value: string; color: string };
+    noHeader?: boolean;
 }
 
 const PresetSelectionControl = (props: PresetSelectionProps): React.ReactElement => {
     const [presetSelectionOpen, setPresetSelectionOpen] = React.useState(false);
 
-    const { capability, label, icon, noPaper = false, iconColor, onPresetReselect, onPresetChange, valueBadge } = props;
+    const { capability, label, icon, noPaper = false, iconColor, onPresetReselect, onPresetChange, valueBadge, noHeader = false } = props;
     const { data: preset } = useRobotAttributeQuery(
         RobotAttributeClass.PresetSelectionState,
         (attributes) => {
@@ -122,16 +123,20 @@ const PresetSelectionControl = (props: PresetSelectionProps): React.ReactElement
     if (noPaper) {
         return (
             <Grid2>
-                <Box sx={{display: "flex", alignItems: "center", gap: "8px", px: 0.5, py: 0.5}}>
-                    {icon}
-                    <Typography variant="body2" id={`${capability}-slider-label`}>{label}</Typography>
-                    <LoadingFade in={pending} transitionDelay={pending ? "500ms" : "0ms"} size={16}/>
-                    {!pending && (
-                        <Typography variant="caption" sx={{ml: "auto", fontWeight: "bold", color: "text.secondary"}}>
-                            {preset?.value ? presetFriendlyNames[preset.value] : ""}
+                {!noHeader && (
+                    <Box sx={{display: "flex", alignItems: "center", gap: "4px", px: 0.5, pt: 0, pb: 1}}>
+                        {icon}
+                        <Typography variant="subtitle2" id={`${capability}-slider-label`}>
+                            {label}
                         </Typography>
-                    )}
-                </Box>
+                        <LoadingFade in={pending} transitionDelay={pending ? "500ms" : "0ms"} size={16}/>
+                        {!pending && (
+                            <Typography variant="caption" color="text.secondary" sx={{ml: "auto", fontWeight: 600}}>
+                                {preset?.value ? presetFriendlyNames[preset.value] : ""}
+                            </Typography>
+                        )}
+                    </Box>
+                )}
                 <Box sx={{px: 0.5, pb: 0.5}}>
                     {body}
                 </Box>

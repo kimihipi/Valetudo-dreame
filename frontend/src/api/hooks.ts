@@ -21,6 +21,7 @@ import {
     fetchDoNotDisturbConfiguration,
     fetchHTTPBasicAuthConfiguration,
     fetchKeyLockState,
+    fetchMaintenanceProperties,
     fetchManualControlProperties,
     fetchManualControlState,
     fetchMap,
@@ -67,6 +68,7 @@ import {
     sendJoinSegmentsCommand,
     sendKeyLockEnable,
     sendLocateCommand,
+    sendMaintenanceCommand,
     sendManualControlInteraction,
     sendMapReset,
     sendMQTTConfiguration,
@@ -299,6 +301,8 @@ enum QueryKey {
     SuctionBoostControl = "suction_boost_control",
     MultipleMapControl = "multiple_map_control",
     IntelligentMapRecognitionControl = "intelligent_map_recognition_control",
+    MaintenanceControl = "maintenance_control",
+    MaintenanceControlProperties = "maintenance_control_properties",
 }
 
 const useOnCommandError = (capability: Capability | string): ((error: unknown) => void) => {
@@ -2072,6 +2076,24 @@ export const useAutoEmptyDockAutoEmptyDurationControlPropertiesQuery = () => {
         queryFn: fetchAutoEmptyDockAutoEmptyDurationControlProperties,
 
         staleTime: Infinity
+    });
+};
+
+export const useMaintenancePropertiesQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.MaintenanceControlProperties],
+        queryFn: fetchMaintenanceProperties,
+        staleTime: Infinity
+    });
+};
+
+export const useMaintenanceMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.MaintenanceControlProperties],
+        mutationFn: (action: string) => {
+            return sendMaintenanceCommand(action);
+        },
+        onError: useOnCommandError(Capability.Maintenance)
     });
 };
 

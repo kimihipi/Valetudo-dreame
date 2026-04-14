@@ -15,6 +15,7 @@ module.exports = {
     MockGoToLocationCapability: require("./MockGoToLocationCapability"),
     MockKeyLockCapability: require("./MockKeyLockCapability"),
     MockLocateCapability: require("./MockLocateCapability"),
+    MockMaintenanceCapability: require("./MockMaintenanceCapability"),
     MockManualControlCapability: require("./MockManualControlCapability"),
     MockMapResetCapability: require("./MockMapResetCapability"),
     MockMapSegmentCleanOrderCapability: require("./MockMapSegmentCleanOrderCapability"),

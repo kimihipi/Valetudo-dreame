@@ -116,6 +116,7 @@ const CAPABILITY_TYPE_TO_ROUTER_MAPPING = {
     [capabilities.MopDockMopDryingTimeControlCapability.TYPE]: capabilityRouters.MopDockMopDryingTimeControlCapabilityRouter,
     [capabilities.AutoEmptyDockAutoEmptyDurationControlCapability.TYPE]: capabilityRouters.AutoEmptyDockAutoEmptyDurationControlCapabilityRouter,
     [capabilities.SuctionBoostControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
+    [capabilities.MaintenanceCapability.TYPE]: capabilityRouters.MaintenanceCapabilityRouter,
 };
 
 module.exports = CapabilitiesRouter;

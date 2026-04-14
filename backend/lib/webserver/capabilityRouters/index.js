@@ -13,6 +13,7 @@ module.exports = {
     GoToLocationCapabilityRouter: require("./GoToLocationCapabilityRouter"),
     HighResolutionManualControlCapabilityRouter: require("./HighResolutionManualControlCapabilityRouter"),
     LocateCapabilityRouter: require("./LocateCapabilityRouter"),
+    MaintenanceCapabilityRouter: require("./MaintenanceCapabilityRouter"),
     ManualControlCapabilityRouter: require("./ManualControlCapabilityRouter"),
     MapResetCapabilityRouter: require("./MapResetCapabilityRouter"),
     MapSegmentCleanOrderCapabilityRouter: require("./MapSegmentCleanOrderCapabilityRouter"),

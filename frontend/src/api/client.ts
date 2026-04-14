@@ -9,6 +9,8 @@ import {
     AutoEmptyDockAutoEmptyIntervalPayload,
     AutoEmptyDockAutoEmptyIntervalProperties,
     Capability,
+    MaintenanceAction,
+    MaintenanceProperties,
     CarpetSensorMode,
     CarpetSensorModeControlProperties,
     CarpetSensorModePayload,
@@ -1569,5 +1571,23 @@ export const fetchAutoEmptyDockAutoEmptyDurationControlProperties = async (): Pr
         )
         .then(({data}) => {
             return data;
+        });
+};
+
+export const fetchMaintenanceProperties = async (): Promise<MaintenanceProperties> => {
+    return valetudoAPI
+        .get<MaintenanceProperties>(`/robot/capabilities/${Capability.Maintenance}`)
+        .then(({data}) => {
+            return data;
+        });
+};
+
+export const sendMaintenanceCommand = async (action: MaintenanceAction): Promise<void> => {
+    return valetudoAPI
+        .put(`/robot/capabilities/${Capability.Maintenance}`, {action: action})
+        .then(({status}) => {
+            if (status !== 200) {
+                throw new Error("Could not send maintenance command");
+            }
         });
 };

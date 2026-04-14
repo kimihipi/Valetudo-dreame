@@ -2,6 +2,7 @@ import {
     Box,
     Button,
     DialogContentText,
+    Divider,
     Grid2,
     Icon,
     IconButton,
@@ -67,6 +68,7 @@ import ConfirmationDialog from "../components/ConfirmationDialog";
 import LoadingFade from "../components/LoadingFade";
 import {usePendingMapAction, useMapEditorOpen} from "../map/BaseMap";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
+import {useLiveMapMode} from "../map/LiveMap";
 import MapModeControls from "./MapModeControls";
 import PresetSelectionControl from "./PresetSelection";
 import {DeepRouteIcon, FanSpeedMediumIcon, IntensiveRouteIcon, NormalRouteIcon, QuickRouteIcon, WaterGradeLowIcon} from "../components/CustomIcons";
@@ -178,12 +180,12 @@ const CleanRouteControl = ({ iconColor }: { iconColor: string }): React.ReactEle
 
     return (
         <Grid2>
-            <Box sx={{display: "flex", alignItems: "center", gap: "8px", px: 0.5, py: 0.5}}>
-                <CleanRouteIcon fontSize="small" sx={{color: iconColor}} />
-                <Typography variant="body2">Route</Typography>
+            <Box sx={{display: "flex", alignItems: "center", gap: "4px", px: 0.5, pt: 0, pb: 1}}>
+                <CleanRouteIcon style={{height: "14px", width: "auto", color: iconColor}} />
+                <Typography variant="subtitle2">Route</Typography>
                 <LoadingFade in={pending} transitionDelay={pending ? "500ms" : "0ms"} size={16}/>
                 {!pending && currentRoute && (
-                    <Typography variant="caption" sx={{ml: "auto", fontWeight: "bold", color: "text.secondary"}}>
+                    <Typography variant="caption" color="text.secondary" sx={{ml: "auto", fontWeight: 600}}>
                         {CLEAN_ROUTE_LABELS[currentRoute]}
                     </Typography>
                 )}
@@ -319,18 +321,20 @@ const PresetsSubmenu = ({ operationMode, fanSpeed, waterControl, cleanRoute }: P
                 {operationMode && (
                     <PresetSelectionControl
                         noPaper
+                        noHeader
                         capability={Capability.OperationModeControl}
                         label="Mode"
                         icon={<OperationModeIcon fontSize="small" sx={{color: palette.teal}} />}
                         iconColor={palette.teal}
                     />
                 )}
+                {operationMode && fanSpeed && <Divider sx={{my: 1}} />}
                 {fanSpeed && (
                     <PresetSelectionControl
                         noPaper
                         capability={Capability.FanSpeedControl}
                         label="Fan"
-                        icon={<FanSpeedMediumIcon fontSize="small" sx={{color: palette.green}} />}
+                        icon={<FanSpeedMediumIcon style={{height: "14px", width: "auto", color: palette.green}} />}
                         iconColor={palette.green}
                         onPresetReselect={suctionBoostSupported ? (value) => {
                             if (value === maxFanPreset) {
@@ -345,15 +349,17 @@ const PresetsSubmenu = ({ operationMode, fanSpeed, waterControl, cleanRoute }: P
                         valueBadge={boostActive ? {value: maxFanPreset, color: palette.yellow} : undefined}
                     />
                 )}
+                {fanSpeed && waterControl && <Divider sx={{my: 1}} />}
                 {waterControl && (
                     <PresetSelectionControl
                         noPaper
                         capability={Capability.WaterUsageControl}
                         label="Water"
-                        icon={<WaterGradeLowIcon fontSize="small" sx={{color: palette.lightBlue}} />}
+                        icon={<WaterGradeLowIcon style={{height: "14px", width: "auto", color: palette.lightBlue}} />}
                         iconColor={palette.lightBlue}
                     />
                 )}
+                {(waterControl || fanSpeed || operationMode) && cleanRoute && <Divider sx={{my: 1}} />}
                 {cleanRoute && (
                     <CleanRouteControl iconColor={palette.purple} />
                 )}
@@ -540,6 +546,7 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
     } = useBasicControlMutation();
     const {hasPendingMapAction} = usePendingMapAction();
     const {isMapEditorOpen} = useMapEditorOpen();
+    const {setMode} = useLiveMapMode();
 
     const getBatteryColor = (level: number) => {
         if (level > 75) {return palette.green;}
@@ -550,6 +557,11 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
     const sendCommand = (command: BasicControlCommand) => {
         if (command === "start" && hasPendingMapAction) {
             setStartConfirmationDialogOpen(true);
+        } else if (command === "start") {
+            if (setMode) {
+                setMode("all");
+            }
+            executeBasicControlCommand(command);
         } else {
             executeBasicControlCommand(command);
         }
@@ -665,6 +677,9 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
                     setStartConfirmationDialogOpen(false);
                 }}
                 onAccept={() => {
+                    if (setMode) {
+                        setMode("all");
+                    }
                     executeBasicControlCommand("start");
                 }}>
                 <DialogContentText>

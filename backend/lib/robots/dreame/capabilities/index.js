@@ -40,6 +40,7 @@ module.exports = {
     DreameMapSegmentRenameCapability: require("./DreameMapSegmentRenameCapability"),
     DreameMapSegmentationCapability: require("./DreameMapSegmentationCapability"),
     DreameMappingPassCapability: require("./DreameMappingPassCapability"),
+    DreameMaintenanceCapability: require("./DreameMaintenanceCapability"),
     DreameMopDockCleanManualTriggerCapability: require("./DreameMopDockCleanManualTriggerCapability"),
     DreameMopDockDetergentControlCapability: require("./DreameMopDockDetergentControlCapability"),
     DreameMopDockDryManualTriggerCapability: require("./DreameMopDockDryManualTriggerCapability"),

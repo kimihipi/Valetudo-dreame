@@ -66,6 +66,15 @@ class MockValetudoRobot extends ValetudoRobot {
         this.registerCapability(new capabilities.MockMopDockMopCleaningFrequencyControlCapability({robot: this}));
         this.registerCapability(new capabilities.MockMopDockMopWashIntensityControlCapability({robot: this}));
         this.registerCapability(new capabilities.MockSuctionBoostControlCapability({robot: this}));
+        this.registerCapability(new capabilities.MockMaintenanceCapability({
+            robot: this,
+            supportedActions: [
+                "mop_dock_auto_repair",
+                "robot_drain_internal_water_tank",
+                "mop_dock_self_cleaning",
+                "mop_dock_water_hookup_test"
+            ]
+        }));
 
         // Raise events to make them visible in the UI
         options.valetudoEventStore.raise(new DustBinFullValetudoEvent({}));

@@ -61,6 +61,7 @@ module.exports = {
     SuctionBoostControlCapability: require("./SuctionBoostControlCapability"),
     TotalStatisticsCapability: require("./TotalStatisticsCapability"),
     VoicePackManagementCapability: require("./VoicePackManagementCapability"),
+    MaintenanceCapability: require("./MaintenanceCapability"),
     WaterUsageControlCapability: require("./WaterUsageControlCapability"),
     WifiConfigurationCapability: require("./WifiConfigurationCapability"),
     WifiScanCapability: require("./WifiScanCapability"),

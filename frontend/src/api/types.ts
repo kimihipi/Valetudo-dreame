@@ -64,7 +64,8 @@ export enum Capability {
     ZoneCleaning = "ZoneCleaningCapability",
     Quirks = "QuirksCapability",
     ObstacleImages = "ObstacleImagesCapability",
-    Curtains = "CurtainsCapability"
+    Curtains = "CurtainsCapability",
+    Maintenance = "MaintenanceCapability"
 }
 
 export type Point = {
@@ -724,4 +725,10 @@ export interface AutoEmptyDockAutoEmptyDurationPayload {
 
 export interface AutoEmptyDockAutoEmptyDurationControlProperties {
     supportedDurations: Array<AutoEmptyDockAutoEmptyDuration>,
+}
+
+export type MaintenanceAction = string;
+
+export interface MaintenanceProperties {
+    supportedActions: Array<MaintenanceAction>;
 }
