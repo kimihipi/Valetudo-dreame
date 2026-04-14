@@ -25,7 +25,6 @@ import {
     Menu as MenuIcon,
     ArrowBack as BackIcon,
     Hub as ConnectivityIcon,
-    GitHub as GithubIcon,
     Favorite as DonateIcon,
     Wysiwyg as SystemInformationIcon,
     Info as AboutIcon,
@@ -38,7 +37,6 @@ import {Capability, useValetudoCustomizationsQuery} from "../api";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import {
     RobotMonochromeIcon,
-    SwaggerUIIcon,
     ValetudoMonochromeIcon
 } from "./CustomIcons";
 
@@ -397,31 +395,6 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
                     >
                         Links
                     </ListSubheader>
-                    <ListItemButton
-                        component="a"
-                        href="./swagger/"
-                        target="_blank"
-                        rel="noopener"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <ListItemIcon>
-                            <SwaggerUIIcon/>
-                        </ListItemIcon>
-                        <ListItemText primary="Swagger UI"/>
-                    </ListItemButton>
-                    <Divider/>
-                    <ListItemButton
-                        component="a"
-                        href="https://github.com/Algid/Valetudo-plus"
-                        target="_blank"
-                        rel="noopener"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <ListItemIcon>
-                            <GithubIcon/>
-                        </ListItemIcon>
-                        <ListItemText primary="Algid/Valetudo-plus"/>
-                    </ListItemButton>
                     <ListItemButton
                         component="a"
                         href="https://github.com/sponsors/Hypfer"

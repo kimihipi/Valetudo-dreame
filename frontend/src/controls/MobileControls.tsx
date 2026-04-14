@@ -20,6 +20,7 @@ import {
 } from "../api";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import {useValetudoColorsInverse} from "../hooks/useValetudoColors";
+import {usePendingMapAction, useMapEditorOpen} from "../map/BaseMap";
 
 const ActiveStates = ["cleaning", "returning", "moving"];
 
@@ -39,6 +40,8 @@ const CollapsedHeader = (): React.ReactElement => {
     );
     const [basicControlSupported] = useCapabilitiesSupported(Capability.BasicControl);
     const {mutate: sendCommand, isPending} = useBasicControlMutation();
+    const {hasPendingMapAction} = usePendingMapAction();
+    const {isMapEditorOpen} = useMapEditorOpen();
 
     const statusText = status ? status.value.replace(/_/g, " ") : "—";
 
@@ -47,24 +50,24 @@ const CollapsedHeader = (): React.ReactElement => {
 
         if (ActiveStates.includes(status.value)) {
             return [
-                {command: "pause", enabled: true, Icon: PauseIcon, color: palette.yellow},
-                {command: "stop", enabled: true, Icon: StopIcon, color: palette.crimson},
+                {command: "pause", enabled: !hasPendingMapAction && !isMapEditorOpen, Icon: PauseIcon, color: palette.yellow},
+                {command: "stop", enabled: !isMapEditorOpen, Icon: StopIcon, color: palette.crimson},
             ];
         }
 
         if (status.value === "paused") {
             return [
-                {command: "start", enabled: true, Icon: StartIcon, color: palette.green},
-                {command: "stop", enabled: true, Icon: StopIcon, color: palette.crimson},
+                {command: "start", enabled: !isMapEditorOpen, Icon: StartIcon, color: palette.green},
+                {command: "stop", enabled: !isMapEditorOpen, Icon: StopIcon, color: palette.crimson},
             ];
         }
 
         return [
-            {command: "start", enabled: true, Icon: StartIcon, color: palette.green},
-            {command: "home", enabled: status.value !== "docked", Icon: HomeIcon, color: palette.teal},
+            {command: "start", enabled: !isMapEditorOpen, Icon: StartIcon, color: palette.green},
+            {command: "home", enabled: status.value !== "docked" && !isMapEditorOpen, Icon: HomeIcon, color: palette.teal},
         ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [status, palette]);
+    }, [status, palette, hasPendingMapAction, isMapEditorOpen]);
 
     return (
         <>

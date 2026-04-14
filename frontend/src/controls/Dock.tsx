@@ -18,7 +18,8 @@ import {
     Icon,
     Paper,
     styled,
-    Typography
+    Typography,
+    IconButton
 } from "@mui/material";
 import {
     CheckCircle as StatusOkIcon,
@@ -29,7 +30,8 @@ import {
     WindPower as DryMopIcon,
     Help as DockComponentUnknownIcon,
     ExpandMore as OpenIcon,
-    ExpandLess as CloseIcon
+    ExpandLess as CloseIcon,
+    Settings as SettingsIcon
 } from "@mui/icons-material";
 import React from "react";
 import ControlsCard from "./ControlsCard";
@@ -41,6 +43,7 @@ import {
     DockComponentDustbag,
 } from "../components/CustomIcons";
 import {useValetudoColorsInverse} from "../hooks/useValetudoColors";
+import DockSettings from "./DockSettings";
 
 const DockComponentTile = ({ label, icon: IconComponent, statusText, statusColor }: { label: string, icon: React.ElementType, statusText: string, statusColor: string }) => {
     return (
@@ -210,6 +213,8 @@ const DockComponents = ({ supportedTypes, dockComponents }: { supportedTypes: Do
 };
 
 const Dock = (): React.ReactElement => {
+    const [settingsDialogOpen, setSettingsDialogOpen] = React.useState(false);
+
     const { data: robotStatus, isPending: isRobotStatusPending } = useRobotStatusQuery();
     const { data: robotInfo, isPending: isRobotInfoPending } = useRobotInformationQuery();
     const {
@@ -384,15 +389,27 @@ const Dock = (): React.ReactElement => {
 
 
     return (
-        <ControlsCard
-            title="Dock"
-            subtitle={isPending ? undefined : dockState}
-            pending={feedbackPending}
-            icon={DockIcon}
-            isLoading={isPending}
-        >
-            {body}
-        </ControlsCard>
+        <>
+            <ControlsCard
+                title="Dock"
+                subtitle={isPending ? undefined : dockState}
+                pending={feedbackPending}
+                icon={DockIcon}
+                isLoading={isPending}
+                headerExtra={
+                    <IconButton
+                        size="small"
+                        onClick={() => setSettingsDialogOpen(true)}
+                        sx={{ color: "inherit" }}
+                    >
+                        <SettingsIcon fontSize="small" />
+                    </IconButton>
+                }
+            >
+                {body}
+            </ControlsCard>
+            <DockSettings open={settingsDialogOpen} onClose={() => setSettingsDialogOpen(false)} />
+        </>
     );
 };
 
