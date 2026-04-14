@@ -12,6 +12,7 @@ import {ActionButton} from "./Styled";
 import {ArrowBack as ArrowBackIcon, Equalizer as StatisticsIcon} from "@mui/icons-material";
 import MapEditorPage from "./MapEditorPage";
 import {useValetudoColors} from "../hooks/useValetudoColors";
+import {useMapEditorOpen} from "./BaseMap";
 
 const Container = styled(Box)({
     flex: "1",
@@ -71,6 +72,10 @@ const LiveMapPage = (): React.ReactElement => {
     const [manualControlOpen, setManualControlOpen] = React.useState(false);
     const [statisticsOpen, setStatisticsOpen] = React.useState(false);
     const [mapEditorOpen, setMapEditorOpen] = React.useState(false);
+
+    React.useEffect(() => {
+        useMapEditorOpen.setState({isMapEditorOpen: mapEditorOpen});
+    }, [mapEditorOpen]);
 
     // If the capability is supported, we prefetch the properties now, so that the image size
     // is already available once the user opens a dialog

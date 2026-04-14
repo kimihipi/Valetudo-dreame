@@ -63,7 +63,7 @@ import {
 } from "@mui/icons-material";
 import ConfirmationDialog from "../components/ConfirmationDialog";
 import LoadingFade from "../components/LoadingFade";
-import {usePendingMapAction} from "../map/BaseMap";
+import {usePendingMapAction, useMapEditorOpen} from "../map/BaseMap";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import MapModeControls from "./MapModeControls";
 import PresetSelectionControl from "./PresetSelection";
@@ -536,6 +536,7 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
         isPending: basicControlIsExecuting,
     } = useBasicControlMutation();
     const {hasPendingMapAction} = usePendingMapAction();
+    const {isMapEditorOpen} = useMapEditorOpen();
 
     const getBatteryColor = (level: number) => {
         if (level > 75) {return palette.green;}
@@ -601,18 +602,18 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
         if (status.value === "paused") {
             // Robot is paused: Resume/Start + Stop
             return [
-                {command: "start", enabled: true, label: status.flag === "resumable" ? "Resume" : "Start", Icon: StartIcon, color: palette.green},
+                {command: "start", enabled: !hasPendingMapAction, label: status.flag === "resumable" ? "Resume" : "Start", Icon: StartIcon, color: palette.green},
                 {command: "stop", enabled: true, Icon: StopIcon, label: "Stop", color: palette.crimson},
             ];
         }
 
         // idle, docked, error, or any other state: Start + Dock
         return [
-            {command: "start", enabled: true, label: "Start", Icon: StartIcon, color: palette.green},
+            {command: "start", enabled: !hasPendingMapAction, label: "Start", Icon: StartIcon, color: palette.green},
             {command: "home", enabled: status.value !== "docked", Icon: HomeIcon, label: "Dock", color: palette.teal},
         ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [status, palette]);
+    }, [status, palette, hasPendingMapAction]);
 
     return (
         <>
@@ -632,15 +633,15 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
                                     <Button
                                         variant="outlined"
                                         size="medium"
-                                        disabled={!enabled || basicControlIsExecuting}
+                                        disabled={!enabled || basicControlIsExecuting || isMapEditorOpen}
                                         onClick={() => sendCommand(command)}
                                         sx={{
                                             width: "100%",
-                                            color: enabled ? color : undefined,
-                                            borderColor: enabled ? color : undefined,
+                                            color: enabled && !isMapEditorOpen ? color : undefined,
+                                            borderColor: enabled && !isMapEditorOpen ? color : undefined,
                                             "&:hover": {
-                                                borderColor: enabled ? color : undefined,
-                                                backgroundColor: enabled ? `${color}18` : undefined,
+                                                borderColor: enabled && !isMapEditorOpen ? color : undefined,
+                                                backgroundColor: enabled && !isMapEditorOpen ? `${color}18` : undefined,
                                             },
                                         }}
                                     >

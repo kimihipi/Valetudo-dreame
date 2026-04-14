@@ -91,6 +91,8 @@ import {
     subscribeToLogMessages,
     subscribeToMap,
     subscribeToQuirks,
+    subscribeToSuctionBoostControl,
+    subscribeToCleanRouteControl,
     subscribeToStateAttributes,
     updatePresetSelection,
     fetchValetudoInformation,
@@ -1953,11 +1955,13 @@ export const useMopDockMopAutoDryingControlMutation = () => {
 };
 
 export const useSuctionBoostControlQuery = () => {
+    useSSECacheUpdater(QueryKey.SuctionBoostControl, subscribeToSuctionBoostControl);
+
     return useQuery( {
         queryKey: [QueryKey.SuctionBoostControl],
         queryFn: fetchSuctionBoostControlState,
 
-        staleTime: Infinity
+        staleTime: 1000
     });
 };
 
@@ -1991,9 +1995,12 @@ export const useFloorMaterialDirectionAwareNavigationControlMutation = () => {
 };
 
 export const useCleanRouteQuery = () => {
+    useSSECacheUpdater(QueryKey.CleanRouteControl, subscribeToCleanRouteControl);
+
     return useQuery({
         queryKey: [QueryKey.CleanRouteControl],
-        queryFn: fetchCleanRoute
+        queryFn: fetchCleanRoute,
+        staleTime: 1000
     });
 };
 

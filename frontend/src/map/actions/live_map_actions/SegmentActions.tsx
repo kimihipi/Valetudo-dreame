@@ -5,6 +5,7 @@ import {ActionButton} from "../../Styled";
 import IntegrationHelpDialog from "../../../components/IntegrationHelpDialog";
 import {useLongPress} from "use-long-press";
 import {IterationsIcon} from "../../../assets/icon_components/IterationsIcon";
+import {useValetudoColorsInverse} from "../../../hooks/useValetudoColors";
 import {
     Clear as ClearIcon,
     PlayArrow as GoIcon,
@@ -20,6 +21,7 @@ const SegmentActions = (
     props: SegmentActionsProperties
 ): React.ReactElement => {
     const {segments, onClear} = props;
+    const palette = useValetudoColorsInverse();
     const [iterationCount, setIterationCount] = React.useState(1);
     const [integrationHelpDialogOpen, setIntegrationHelpDialogOpen] = React.useState(false);
     const [integrationHelpDialogPayload, setIntegrationHelpDialogPayload] = React.useState("");
@@ -131,6 +133,7 @@ const SegmentActions = (
                         color="inherit"
                         size="medium"
                         variant="extended"
+                        sx={didSelectSegments ? {color: palette.green, borderColor: palette.green} : undefined}
                         {...setupClickHandlers()}
                     >
                         <GoIcon style={{marginRight: "0.25rem", marginLeft: "-0.25rem"}}/>

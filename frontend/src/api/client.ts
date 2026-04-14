@@ -251,6 +251,30 @@ export const subscribeToQuirks = (
     );
 };
 
+export const subscribeToSuctionBoostControl = (
+    listener: (data: SimpleToggleState) => void
+): (() => void) => {
+    return subscribeToSSE<SimpleToggleState>(
+        `/robot/capabilities/${Capability.SuctionBoostControl}/sse`,
+        "SimpleToggleUpdated",
+        (data) => {
+            return listener(data);
+        }
+    );
+};
+
+export const subscribeToCleanRouteControl = (
+    listener: (data: {route: CleanRoute}) => void
+): (() => void) => {
+    return subscribeToSSE<{route: CleanRoute}>(
+        `/robot/capabilities/${Capability.CleanRouteControl}/sse`,
+        "CleanRouteUpdated",
+        (data) => {
+            return listener(data);
+        }
+    );
+};
+
 export const fetchPresetSelections = async (
     capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl
 ): Promise<Array<PresetValue>> => {

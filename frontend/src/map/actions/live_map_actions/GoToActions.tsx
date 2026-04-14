@@ -10,6 +10,7 @@ import IntegrationHelpDialog from "../../../components/IntegrationHelpDialog";
 import {useLongPress} from "use-long-press";
 import {floorObject} from "../../../api/utils";
 import {PointCoordinates} from "../../utils/types";
+import {useValetudoColorsInverse} from "../../../hooks/useValetudoColors";
 import {
     Clear as ClearIcon,
     PlayArrow as GoIcon
@@ -27,6 +28,7 @@ const GoToActions = (
     props: GoToActionsProperties
 ): React.ReactElement => {
     const {goToTarget, convertPixelCoordinatesToCMSpace, onClear} = props;
+    const palette = useValetudoColorsInverse();
     const [integrationHelpDialogOpen, setIntegrationHelpDialogOpen] = React.useState(false);
     const [integrationHelpDialogPayload, setIntegrationHelpDialogPayload] = React.useState("");
 
@@ -85,6 +87,7 @@ const GoToActions = (
                         color="inherit"
                         size="medium"
                         variant="extended"
+                        sx={goToTarget ? {color: palette.green, borderColor: palette.green} : undefined}
                         {...setupClickHandlers()}
                     >
                         <GoIcon style={{marginRight: "0.25rem", marginLeft: "-0.25rem"}}/>

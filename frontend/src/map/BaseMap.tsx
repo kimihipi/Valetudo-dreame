@@ -40,6 +40,14 @@ export const usePendingMapAction = create<{
     };
 });
 
+export const useMapEditorOpen = create<{
+    isMapEditorOpen: boolean
+}>()(() => {
+    return {
+        isMapEditorOpen: false
+    };
+});
+
 export const MapContainer = styled(Box)({
     position: "relative",
     height: "100%",

@@ -12,6 +12,7 @@ import ZoneClientStructure from "../../structures/client_structures/ZoneClientSt
 import IntegrationHelpDialog from "../../../components/IntegrationHelpDialog";
 import {PointCoordinates} from "../../utils/types";
 import {IterationsIcon} from "../../../assets/icon_components/IterationsIcon";
+import {useValetudoColorsInverse} from "../../../hooks/useValetudoColors";
 import {
     Clear as ClearIcon,
     PlayArrow as GoIcon,
@@ -32,6 +33,7 @@ const ZoneActions = (
     props: ZoneActionsProperties
 ): React.ReactElement => {
     const { zones, convertPixelCoordinatesToCMSpace, onClear, onAdd } = props;
+    const palette = useValetudoColorsInverse();
     const [iterationCount, setIterationCount] = React.useState(1);
     const [integrationHelpDialogOpen, setIntegrationHelpDialogOpen] = React.useState(false);
     const [integrationHelpDialogPayload, setIntegrationHelpDialogPayload] = React.useState("");
@@ -163,6 +165,7 @@ const ZoneActions = (
                         color="inherit"
                         size="medium"
                         variant="extended"
+                        sx={didSelectZones ? {color: palette.green, borderColor: palette.green} : undefined}
                         {...setupClickHandlers()}
                     >
                         <GoIcon style={{marginRight: "0.25rem", marginLeft: "-0.25rem"}}/>
