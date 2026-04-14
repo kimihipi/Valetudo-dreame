@@ -32,8 +32,6 @@ import PaperContainer from "../components/PaperContainer";
 import { Joystick } from "react-joystick-component";
 import { IJoystickUpdateEvent } from "react-joystick-component/build/lib/Joystick";
 import CameraStream from "../controls/CameraStream";
-import {ActionButton} from "../map/Styled";
-
 const SideButton = styled(Button)({
     width: "30%",
     height: "100%",
@@ -56,19 +54,15 @@ const ControlEnableButton = () => {
     const enabled = manualControlState?.enabled || false;
 
     return (
-        <ActionButton
-            color="inherit"
-            size="medium"
-            variant="extended"
+        <Button
+            variant="outlined"
             disabled={isPending || interacting}
             onClick={() => sendInteraction({action: enabled ? "disable" : "enable"})}
+            startIcon={enabled ? <VideogameAssetOffIcon /> : <VideogameAssetIcon />}
+            endIcon={interacting ? <CircularProgress color="inherit" size={18} /> : undefined}
         >
-            {enabled ?
-                <><VideogameAssetOffIcon style={{marginRight: "0.4rem"}}/> Disable Manual Control</> :
-                <><VideogameAssetIcon style={{marginRight: "0.4rem"}}/> Enable Manual Control</>
-            }
-            {interacting && <CircularProgress color="inherit" size={18} style={{marginLeft: 10}}/>}
-        </ActionButton>
+            {enabled ? "Disable Manual Control" : "Enable Manual Control"}
+        </Button>
     );
 };
 
@@ -78,19 +72,15 @@ const HighResolutionEnableButton = () => {
     const enabled = manualControlState?.enabled || false;
 
     return (
-        <ActionButton
-            color="inherit"
-            size="medium"
-            variant="extended"
+        <Button
+            variant="outlined"
             disabled={isPending || interacting}
             onClick={() => sendInteraction({action: enabled ? "disable" : "enable"})}
+            startIcon={enabled ? <VideogameAssetOffIcon /> : <VideogameAssetIcon />}
+            endIcon={interacting ? <CircularProgress color="inherit" size={18} /> : undefined}
         >
-            {enabled ?
-                <><VideogameAssetOffIcon style={{marginRight: "0.4rem"}}/> Disable Manual Control</> :
-                <><VideogameAssetIcon style={{marginRight: "0.4rem"}}/> Enable Manual Control</>
-            }
-            {interacting && <CircularProgress color="inherit" size={18} style={{marginLeft: 10}}/>}
-        </ActionButton>
+            {enabled ? "Disable Manual Control" : "Enable Manual Control"}
+        </Button>
     );
 };
 
@@ -396,6 +386,9 @@ const ManualControl = (): React.ReactElement => {
                 />
                 <Box sx={{ px: 1, pb: 1 }}>
                     {controls}
+                    <Box sx={{ mt: 1, display: "flex", justifyContent: "center" }}>
+                        <ManualControlEnableButton />
+                    </Box>
                 </Box>
             </Box>
         </PaperContainer>

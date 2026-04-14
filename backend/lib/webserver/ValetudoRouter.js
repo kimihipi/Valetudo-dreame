@@ -70,12 +70,13 @@ class ValetudoRouter {
 
                 res.sendStatus(200);
             } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
                 Logger.warn(`${this.constructor.name}: Error while handling route "${req.path}"`, {
                     body: req.body,
-                    message: err.message
+                    message: message
                 });
 
-                res.status(500).json(err.message);
+                res.status(500).json(message);
             }
         });
 
@@ -194,11 +195,13 @@ class ValetudoRouter {
     }
 
     initSSE() {
-        this.sseHubs = {
+        const sseHubs = {
             log: new SSEHub({name: "Log"}),
         };
+        this.sseHubs = sseHubs;
         const LogMessageEventType = Logger.getProperties().EVENTS.LogMessage;
 
+        /** @param {string} line */
         this.logMessageListener = (line) => {
             /**
              * To be parsed correctly, one line needs to be one sse event.
@@ -209,7 +212,7 @@ class ValetudoRouter {
              * To not waste CPU cycles for nothing, we therefore do the splitting here
              */
             line.split("\n").forEach(actualLine => {
-                this.sseHubs.log.event(
+                sseHubs.log.event(
                     LogMessageEventType,
                     actualLine
                 );
@@ -241,11 +244,16 @@ class ValetudoRouter {
             Logger.offLogMessage(this.logMessageListener);
         }
 
-        Object.values(this.sseHubs).forEach(hub => {
-            hub.shutdown();
-        });
+        if (this.sseHubs) {
+            Object.values(this.sseHubs).forEach(hub => {
+                hub.shutdown();
+            });
+        }
     }
 
+    /**
+     * @param {any} obj
+     */
     static MAP_MQTT_CONFIG(obj) {
         return {
             enabled: obj.enabled,

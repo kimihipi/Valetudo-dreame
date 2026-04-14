@@ -44,7 +44,7 @@ class RobotRouter {
 
                 res.json(polledState);
             } catch (err) {
-                res.status(500).send(err.toString());
+                res.status(500).send(String(err));
             }
         });
 
@@ -54,7 +54,7 @@ class RobotRouter {
 
                 res.json(polledState.attributes);
             } catch (err) {
-                res.status(500).send(err.toString());
+                res.status(500).send(String(err));
             }
         });
 
@@ -62,7 +62,7 @@ class RobotRouter {
             try {
                 res.json(this.robot.state.map);
             } catch (err) {
-                res.status(500).send(err.toString());
+                res.status(500).send(String(err));
             }
         });
 
@@ -74,28 +74,29 @@ class RobotRouter {
     }
 
     initSSE() {
-        this.sseHubs = {
+        const sseHubs = {
             state: new SSEHub({name: "State"}),
             attributes: new SSEHub({name: "Attributes"}),
             map: new SSEHub({name: "Map"})
         };
+        this.sseHubs = sseHubs;
 
         this.stateUpdateListener = () => {
-            this.sseHubs.state.event(
+            sseHubs.state.event(
                 ValetudoRobot.EVENTS.StateUpdated,
                 JSON.stringify(this.robot.state)
             );
         };
 
         this.stateAttributesUpdateListener = () => {
-            this.sseHubs.attributes.event(
+            sseHubs.attributes.event(
                 ValetudoRobot.EVENTS.StateAttributesUpdated,
                 JSON.stringify(this.robot.state.attributes)
             );
         };
 
         this.mapUpdateListener = () => {
-            this.sseHubs.map.event(
+            sseHubs.map.event(
                 ValetudoRobot.EVENTS.MapUpdated,
                 JSON.stringify(this.robot.state.map)
             );
@@ -158,9 +159,11 @@ class RobotRouter {
             this.robot.offMapUpdated(this.mapUpdateListener);
         }
 
-        Object.values(this.sseHubs).forEach(hub => {
-            hub.shutdown();
-        });
+        if (this.sseHubs) {
+            Object.values(this.sseHubs).forEach(hub => {
+                hub.shutdown();
+            });
+        }
     }
 }
 

@@ -4,7 +4,7 @@ import LiveMap from "./LiveMap";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import React from "react";
 import {useQueryClient} from "@tanstack/react-query";
-import ManualControl, {ManualControlEnableButton} from "../robot/ManualControl";
+import ManualControl from "../robot/ManualControl";
 import {TotalStatisticsInternal} from "../robot/TotalStatistics";
 import CurrentStatistics from "../controls/CurrentStatistics";
 import ControlsCard from "../controls/ControlsCard";
@@ -126,9 +126,7 @@ const LiveMapPage = (): React.ReactElement => {
                 >
                     <ArrowBackIcon/>
                 </ActionButton>
-                <Box style={{ position: "absolute", bottom: "16px", right: "16px", zIndex: 1000, pointerEvents: "auto" }}>
-                    <ManualControlEnableButton />
-                </Box>
+
             </Box>
         );
     }

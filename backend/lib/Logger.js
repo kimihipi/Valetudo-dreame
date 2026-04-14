@@ -13,13 +13,15 @@ class Logger {
         this.logFileMaxSize = 4 * 1024 * 1024; //4MiB
         this.logLevel = Logger.LogLevels["info"];
 
+        /** @type {string} */
         this.logFilePath = os.type() === "Windows_NT" ? Logger.DEFAULT_LOGFILE_PATHS.WINNT : Logger.DEFAULT_LOGFILE_PATHS.POSIX;
+        /** @type {import('fs').WriteStream | null} */
         this.logFileWriteStream = fs.createWriteStream(this.logFilePath, Logger.LogFileOptions);
     }
 
     /**
      * @public
-     * @return {string}
+     * @return {string | undefined}
      */
     getLogLevel() {
         return Object.keys(Logger.LogLevels).find(key => {
@@ -230,7 +232,7 @@ Logger.EVENTS = {
     LogMessage: "LogMessage",
 };
 
-Logger.LogLevels = Object.freeze({
+Logger.LogLevels = /** @type {Readonly<Record<string, {level: number, callback: Function}>>} */ (Object.freeze({
     // eslint-disable-next-line no-console
     "trace": {"level": -2, "callback": console.debug},
     // eslint-disable-next-line no-console
@@ -241,7 +243,7 @@ Logger.LogLevels = Object.freeze({
     "warn": {"level": 1, "callback": console.warn},
     // eslint-disable-next-line no-console
     "error": {"level": 2, "callback": console.error},
-});
+}));
 
 Logger.LogFileOptions = Object.freeze({
     flags: "as"
