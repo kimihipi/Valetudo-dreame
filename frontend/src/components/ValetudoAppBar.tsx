@@ -27,8 +27,6 @@ import {
     Hub as ConnectivityIcon,
     Favorite as DonateIcon,
     Wysiwyg as SystemInformationIcon,
-    Info as AboutIcon,
-    Help as HelpIcon,
     SvgIconComponent
 } from "@mui/icons-material";
 import {Link, useLocation} from "react-router-dom";
@@ -203,20 +201,6 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
         title: "System Information",
         menuIcon: SystemInformationIcon,
         menuText: "System Information"
-    },
-    {
-        kind: "MenuEntry",
-        route: "/valetudo/help",
-        title: "General Help",
-        menuIcon: HelpIcon,
-        menuText: "General Help"
-    },
-    {
-        kind: "MenuEntry",
-        route: "/valetudo/about",
-        title: "About Valetudo+",
-        menuIcon: AboutIcon,
-        menuText: "About Valetudo+"
     },
 ];
 

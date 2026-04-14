@@ -4,6 +4,7 @@ import {
     DialogContentText,
     Grid2,
     Icon,
+    IconButton,
     LinearProgress,
     Paper,
     ToggleButton,
@@ -58,6 +59,7 @@ import {
     Pause as PauseIcon,
     PlayArrow as StartIcon,
     Route as CleanRouteIcon,
+    Settings as SettingsIcon,
     Stop as StopIcon,
     SvgIconComponent,
 } from "@mui/icons-material";
@@ -70,6 +72,7 @@ import PresetSelectionControl from "./PresetSelection";
 import {DeepRouteIcon, FanSpeedMediumIcon, IntensiveRouteIcon, NormalRouteIcon, QuickRouteIcon, WaterGradeLowIcon} from "../components/CustomIcons";
 import {getPresetIconOrLabel, presetFriendlyNames, sortPresets} from "../presetUtils";
 import {getConsumableName} from "../utils";
+import RobotSettings from "./RobotSettings";
 
 const ActiveStates: StatusState["value"][] = ["cleaning", "returning", "moving"];
 
@@ -678,6 +681,8 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
 };
 
 const RobotStatus = (): React.ReactElement => {
+    const [settingsDialogOpen, setSettingsDialogOpen] = React.useState(false);
+
     const {
         data: attachments,
     } = useRobotAttributeQuery(RobotAttributeClass.AttachmentState);
@@ -700,23 +705,34 @@ const RobotStatus = (): React.ReactElement => {
     const hasPresets = operationMode || fanSpeed || waterControl || cleanRouteControlSupported;
 
     return (
-        <RobotStatusCard>
-            <MapModeControls />
-            {hasPresets && (
-                <PresetsSubmenu
-                    operationMode={operationMode}
-                    fanSpeed={fanSpeed}
-                    waterControl={waterControl}
-                    cleanRoute={cleanRouteControlSupported}
-                />
-            )}
-            {mop !== undefined && (
-                <AttachmentsSubmenu mop={mop} />
-            )}
-            {consumableMonitoringSupported && (
-                <ConsumablesSubmenu />
-            )}
-        </RobotStatusCard>
+        <>
+            <RobotStatusCard trailing={
+                <IconButton
+                    size="small"
+                    onClick={() => setSettingsDialogOpen(true)}
+                    sx={{color: "inherit"}}
+                >
+                    <SettingsIcon fontSize="small"/>
+                </IconButton>
+            }>
+                <MapModeControls />
+                {hasPresets && (
+                    <PresetsSubmenu
+                        operationMode={operationMode}
+                        fanSpeed={fanSpeed}
+                        waterControl={waterControl}
+                        cleanRoute={cleanRouteControlSupported}
+                    />
+                )}
+                {mop !== undefined && (
+                    <AttachmentsSubmenu mop={mop} />
+                )}
+                {consumableMonitoringSupported && (
+                    <ConsumablesSubmenu />
+                )}
+            </RobotStatusCard>
+            <RobotSettings open={settingsDialogOpen} onClose={() => setSettingsDialogOpen(false)} />
+        </>
     );
 };
 
