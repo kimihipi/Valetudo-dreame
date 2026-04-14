@@ -19,3 +19,9 @@ build/
 
 /docs/vendor
 /docs/_site
+
+.claude/
+.codesight
+CLAUDE.MD
+codex.md
+AGENTS.MD
