@@ -22,12 +22,15 @@ Please read the supported devices section for more information.
 - MQTT support for mop cleaning / drying.
 - Updated postboot script with iptables rules.
 - Various other small tweaks.
+- UI tweaks.
 
 ### Some devices
 
-- Multiple map / floor capabilities (be sure to enable in quirks!).
-- Map rotation.
+- Multiple map capabilities.
+- Map rotation and rename.
 - Segment clean order.
+- Segment hiding.
+- Threshhold and curtain editing.
 - View robot camera stream in the UI (via go2rtc).
 - On-demand playback of custom audio.
 - MQTT support for map switching.
@@ -37,10 +40,6 @@ Please read the supported devices section for more information.
 ## Supported robots
 
 Below are the robots that the extra functionality offered is currently known to work on.
-
-Some of the functionality such as multiple map support will likely work on other Dreame robots but is currently only enabled for a few robots. If you wish to test it on your vacuum let me know and I can point you in the right direction to try it out.
-
-Please let me know if you have tested this on your robot and what you got working + if you encountered any issues.
 
 - Dreame X40 Ultra
 - Dreame X40 Master (Tested)
@@ -58,8 +57,8 @@ Before following these steps it is expected that you have already rooted your va
 
 ### Part 1 (Valetudo+)
 
-1. Get a copy of Valetudo+ from a release build or build your own following instructions under "Development"
-2. SCP the Valetudo+ binary to your robot
+1. Build a copy of Valetudo Dreame following the instructions under "Development"
+2. SCP the Valetudo Dreame binary to your robot
 3. Run `mkdir /data/valetudo`
 4. Move the `valetudo` binary into `/data/valetudo`
 5. If you have previously run upstream Valetudo be sure to move your config from `/data/valetudo_config.json` to the new `/data/valetudo` folder
