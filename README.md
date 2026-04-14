@@ -1,18 +1,8 @@
-<div align="center">
-    <img src="resources/docs/valetudo_plus_logo_with_name.svg" width="600" alt="Valetudo+">
-    <p align="center"><h2>Re-free your vacuum from the cloud</h2></p>
-</div>
+> Fork of [Algid/Valetudo-plus](github.com/Algid/Valetudo-plus) based on [Hypfer/Valetudo](github.com/Hypfer/Valetudo)
 
-> Fork of [Hypfer/Valetudo](github.com/Hypfer/Valetudo)
+Valetudo Dreame is a fork of Valetudo+ adding extra functionality for Dreame vacuums specifically. Frontend changes should still work with other vacuums.
 
-Valetudo+ is a fork of Valetudo adding extra functionality I desired that was not offered by the original project. These changes were made initially for the Dreame X40 Ultra. In theory this project should work on any robot Valetudo works on but most of the new functionality will require a supported robot (more details below).
-
-When writing the extra functionality offered by this project I did my best to:
-- Make it as easy as possible to pull in changes from upstream in the future.
-- Stick to the patterns set in the original project wherever possible.
-- Avoid breaking compatibility with other robots even if they don't support some of the features added.
-
-If you want the most polished experience possible I suggest that you stick with the upstream project, this fork has had far less testing and is almost certainly far less polished.
+For the most polished version, please stick with the upstream project as this has only been tested on two robots.
 
 ## Before reading on
 
@@ -53,8 +43,8 @@ Some of the functionality such as multiple map support will likely work on other
 Please let me know if you have tested this on your robot and what you got working + if you encountered any issues.
 
 - Dreame X40 Ultra
-- Dreame X40 Master (Untested but similar to Ultra)
-- Dreame L40 Ultra (Tested in https://github.com/Algid/Valetudo-plus/discussions/6)
+- Dreame X40 Master (Tested)
+- Dreame L40 Ultra (Tested)
 
 ## Screenshots
 
