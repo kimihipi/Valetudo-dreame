@@ -12,15 +12,12 @@ const CameraStream = (props: { iframeStyle?: React.CSSProperties; setVisible?: (
         }
     });
 
-    const StreamIFrame: React.FunctionComponent = (): React.ReactElement => {
-        return (
-            <Grid2 display="flex">
-                <iframe
-                    style={{flexGrow: 1, border: 0, ...props.iframeStyle}}
-                    src={`/streamer/stream.html?src=${firstStreamKey}`}
-                />
-            </Grid2>
-        );
+    const handleIFrameLoad = (e: React.SyntheticEvent<HTMLIFrameElement>) => {
+        const video = e.currentTarget.contentDocument?.querySelector("video");
+        if (video) {
+            video.muted = true;
+            video.removeAttribute("controls");
+        }
     };
 
     if (!firstStreamKey) {
@@ -28,7 +25,13 @@ const CameraStream = (props: { iframeStyle?: React.CSSProperties; setVisible?: (
     }
 
     return (
-        <StreamIFrame />
+        <Grid2 display="flex">
+            <iframe
+                style={{flexGrow: 1, border: 0, ...props.iframeStyle}}
+                src={`/streamer/stream.html?src=${firstStreamKey}`}
+                onLoad={handleIFrameLoad}
+            />
+        </Grid2>
     );
 };
 

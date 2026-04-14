@@ -183,7 +183,7 @@ const materialToPixelPatternHandler: {[key in RawMapLayerMaterial]: PixelPattern
     [RawMapLayerMaterial.WoodVertical]: createPlankPixelPatternHandler(false),
 };
 
-export function PROCESS_LAYERS(layers: Array<RawMapLayer>, pixelSize: number, paletteMode: PaletteMode, selectedSegmentIds: string[]) {
+export function PROCESS_LAYERS(layers: Array<RawMapLayer>, pixelSize: number, paletteMode: PaletteMode, selectedSegmentIds: string[], alwaysDimUnselectedSegments = false) {
     const dimensions = CALCULATE_REQUIRED_DIMENSIONS(layers);
     const width = dimensions.x.sum;
     const height = dimensions.y.sum;
@@ -195,7 +195,7 @@ export function PROCESS_LAYERS(layers: Array<RawMapLayer>, pixelSize: number, pa
     const colorFinder = new FourColorTheoremSolver(layers, pixelSize);
 
 
-    const hasSelectedSegments = selectedSegmentIds.length === 0;
+    const hasSelectedSegments = !alwaysDimUnselectedSegments && selectedSegmentIds.length === 0;
 
     let colors: LayerColors = COLORS;
     let backgroundColors: LayerColors = BACKGROUND_COLORS;
@@ -214,6 +214,7 @@ export function PROCESS_LAYERS(layers: Array<RawMapLayer>, pixelSize: number, pa
     }).forEach(layer => {
         let color: RGBColor = {r: 128, g: 128, b: 128};
         let accentColor: RGBColor = {r: 64, g: 192, b: 128};
+        let alpha = 255;
 
         switch (layer.type) {
             case "floor":
@@ -237,12 +238,16 @@ export function PROCESS_LAYERS(layers: Array<RawMapLayer>, pixelSize: number, pa
             case "segment": {
                 const colorId = colorFinder.getColor((layer.metaData.segmentId ?? ""));
 
-                if (hasSelectedSegments || selectedSegmentIds.includes(layer.metaData.segmentId ?? "")) {
+                if (!layer.metaData.hidden && (hasSelectedSegments || selectedSegmentIds.includes(layer.metaData.segmentId ?? ""))) {
                     color = colors.segments[colorId];
                     accentColor = accentColors.segments[colorId];
                 } else {
                     color = backgroundColors.segments[colorId];
                     accentColor = backgroundAccentColors.segments[colorId];
+                }
+
+                if (layer.metaData.hidden) {
+                    alpha = 100;
                 }
                 break;
             }
@@ -274,7 +279,7 @@ export function PROCESS_LAYERS(layers: Array<RawMapLayer>, pixelSize: number, pa
             pixelData[imgDataOffset] = pixelColor.r;
             pixelData[imgDataOffset + 1] = pixelColor.g;
             pixelData[imgDataOffset + 2] = pixelColor.b;
-            pixelData[imgDataOffset + 3] = 255;
+            pixelData[imgDataOffset + 3] = alpha;
 
             segmentLookupData[offset] = segmentLookupId;
         }

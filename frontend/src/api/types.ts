@@ -11,6 +11,7 @@ export enum Capability {
     CleanRouteControl = "CleanRouteControlCapability",
     CollisionAvoidantNavigation = "CollisionAvoidantNavigationControlCapability",
     CombinedVirtualRestrictions = "CombinedVirtualRestrictionsCapability",
+    CombinedVirtualThresholds = "CombinedVirtualThresholdsCapability",
     ConsumableMonitoring = "ConsumableMonitoringCapability",
     CurrentStatistics = "CurrentStatisticsCapability",
     DoNotDisturb = "DoNotDisturbCapability",
@@ -24,13 +25,16 @@ export enum Capability {
     MapReset = "MapResetCapability",
     MapSegmentCleanOrder = "MapSegmentCleanOrderCapability",
     MapSegmentEdit = "MapSegmentEditCapability",
+    MapSegmentHide = "MapSegmentHideCapability",
     MapSegmentRename = "MapSegmentRenameCapability",
     MapSegmentMaterialControl = "MapSegmentMaterialControlCapability",
     MapSegmentation = "MapSegmentationCapability",
     MultipleMap = "MultipleMapCapability",
+    MultipleMapControl = "MultipleMapControlCapability",
     MultipleMapDelete = "MultipleMapDeleteCapability",
     MultipleMapRename = "MultipleMapRenameCapability",
     MultipleMapRotate = "MultipleMapRotateCapability",
+    IntelligentMapRecognitionControl = "IntelligentMapRecognitionControlCapability",
     MapSnapshot = "MapSnapshotCapability",
     MappingPass = "MappingPassCapability",
     MopDockMopWashTemperatureControl = "MopDockMopWashTemperatureControlCapability",
@@ -43,11 +47,15 @@ export enum Capability {
     MopDockCleanManualTrigger = "MopDockCleanManualTriggerCapability",
     MopDockDryManualTrigger = "MopDockDryManualTriggerCapability",
     MopDockMopAutoDryingControl = "MopDockMopAutoDryingControlCapability",
+    MopDockMopCleaningFrequencyControl = "MopDockMopCleaningFrequencyControlCapability",
+    MopDockDetergentControl = "MopDockDetergentControlCapability",
+    MopDockMopWashIntensityControl = "MopDockMopWashIntensityControlCapability",
     OperationModeControl = "OperationModeControlCapability",
     PersistentMapControl = "PersistentMapControlCapability",
     SpeakerPlayAudio = "SpeakerPlayAudioCapability",
     SpeakerTest = "SpeakerTestCapability",
     SpeakerVolumeControl = "SpeakerVolumeControlCapability",
+    SuctionBoostControl = "SuctionBoostControlCapability",
     TotalStatistics = "TotalStatisticsCapability",
     VoicePackManagement = "VoicePackManagementCapability",
     WaterUsageControl = "WaterUsageControlCapability",
@@ -55,7 +63,8 @@ export enum Capability {
     WifiScan = "WifiScanCapability",
     ZoneCleaning = "ZoneCleaningCapability",
     Quirks = "QuirksCapability",
-    ObstacleImages = "ObstacleImagesCapability"
+    ObstacleImages = "ObstacleImagesCapability",
+    Curtains = "CurtainsCapability"
 }
 
 export type Point = {
@@ -565,6 +574,31 @@ export interface CombinedVirtualRestrictionsUpdateRequestParameters {
 
 export interface CombinedVirtualRestrictionsProperties {
     supportedRestrictedZoneTypes: Array<ValetudoRestrictedZoneType>
+}
+
+export interface CombinedVirtualThresholdsUpdateRequestParameters {
+    passableThresholds: Array<{
+        points: {
+            pA: Point,
+            pB: Point
+        }
+    }>,
+    impassableThresholds: Array<{
+        points: {
+            pA: Point,
+            pB: Point
+        }
+    }>,
+    ramps: Array<never>
+}
+
+export interface CurtainsUpdateRequestParameters {
+    curtains: Array<{
+        points: {
+            pA: Point,
+            pB: Point
+        }
+    }>
 }
 
 export interface UpdaterConfiguration {

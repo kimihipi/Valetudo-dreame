@@ -14,16 +14,23 @@ import {
     UpdateDisabled as UpdaterDisabledIcon,
     CheckCircle as NoUpdateRequiredIcon,
     HourglassTop as BusyIcon,
+    Help as HelpIcon,
+    Refresh as RefreshIcon,
 } from "@mui/icons-material";
 import {
     Accordion,
     AccordionDetails,
     AccordionSummary,
+    Avatar,
     Box,
     Button,
     Divider,
     Grid2,
+    IconButton,
     LinearProgress,
+    ListItem,
+    ListItemAvatar,
+    ListItemText,
     Skeleton,
     Typography
 } from "@mui/material";
@@ -36,9 +43,9 @@ import gfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import PaperContainer from "../components/PaperContainer";
 import {UpdaterHelp} from "./res/UpdaterHelp";
-import DetailPageHeaderRow from "../components/DetailPageHeaderRow";
+import HelpDialog from "../components/HelpDialog";
 
-const Updater = (): React.ReactElement => {
+export const UpdaterSection = (): React.ReactElement => {
     const {
         data: updaterState,
         isPending: updaterStatePending,
@@ -46,30 +53,58 @@ const Updater = (): React.ReactElement => {
         isError: updaterStateError,
         refetch: refetchUpdaterState,
     } = useUpdaterStateQuery();
+    const [helpDialogOpen, setHelpDialogOpen] = React.useState(false);
 
     return (
-        <PaperContainer>
-            <Grid2 container direction="row">
-                <Box style={{width: "100%"}}>
-                    <DetailPageHeaderRow
-                        title="Updater"
-                        icon={<UpdaterIcon/>}
-                        helpText={UpdaterHelp}
-                        onRefreshClick={() => {
-                            refetchUpdaterState().catch(() => {
-                                /* intentional */
-                            });
-                        }}
-                        isRefreshing={updaterStateFetching}
-                    />
+        <Box>
+            <ListItem
+                style={{userSelect: "none"}}
+                secondaryAction={
+                    <>
+                        <IconButton onClick={() => setHelpDialogOpen(true)} title="Help">
+                            <HelpIcon/>
+                        </IconButton>
+                        <IconButton
+                            onClick={() => {
+                                refetchUpdaterState().catch(() => {/* intentional */});
+                            }}
+                            disabled={updaterStateFetching}
+                            title="Refresh"
+                        >
+                            <RefreshIcon/>
+                        </IconButton>
+                    </>
+                }
+            >
+                <ListItemAvatar>
+                    <Avatar>
+                        <UpdaterIcon/>
+                    </Avatar>
+                </ListItemAvatar>
+                <ListItemText
+                    primary="Updater"
+                    secondary="Check for and apply Valetudo updates"
+                />
+            </ListItem>
+            <Divider/>
+            <UpdaterStateComponent
+                state={updaterState}
+                stateLoading={updaterStatePending}
+                stateError={updaterStateError}
+            />
+            <HelpDialog
+                dialogOpen={helpDialogOpen}
+                setDialogOpen={setHelpDialogOpen}
+                helpText={UpdaterHelp}
+            />
+        </Box>
+    );
+};
 
-                    <UpdaterStateComponent
-                        state={updaterState}
-                        stateLoading={updaterStatePending}
-                        stateError={updaterStateError}
-                    />
-                </Box>
-            </Grid2>
+const Updater = (): React.ReactElement => {
+    return (
+        <PaperContainer>
+            <UpdaterSection/>
         </PaperContainer>
     );
 };

@@ -215,12 +215,31 @@ class DreameL10SUltraValetudoRobot extends DreameGen2LidarValetudoRobot {
             this.registerCapability(new capability({robot: this}));
         });
 
+        this.registerCapability(new capabilities.DreameMopDockMopCleaningFrequencyControlCapability({
+            robot: this,
+            presets: [
+                new ValetudoSelectionPreset({name: "every_segment", value: 0}),
+                new ValetudoSelectionPreset({name: "every_5_m2", value: 5}),
+                new ValetudoSelectionPreset({name: "every_10_m2", value: 10}),
+                new ValetudoSelectionPreset({name: "every_15_m2", value: 15}),
+                new ValetudoSelectionPreset({name: "every_20_m2", value: 20}),
+                new ValetudoSelectionPreset({name: "every_25_m2", value: 25}),
+            ]
+        }));
+
+        this.registerCapability(new capabilities.DreameMopDockDetergentControlCapability({
+            robot: this,
+            presets: [
+                new ValetudoSelectionPreset({name: "on", value: 1}),
+                new ValetudoSelectionPreset({name: "off", value: 0}),
+                new ValetudoSelectionPreset({name: "missing_cartridge", value: 2}),
+            ]
+        }));
+
         this.registerCapability(new QuirksCapability({
             robot: this,
             quirks: [
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_MODE_SENSITIVITY),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_MOP_CLEANING_FREQUENCY),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_DETERGENT),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WET_DRY_SWITCH),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_AUTO_REPAIR_TRIGGER),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.DRAIN_INTERNAL_WATER_TANK),
@@ -256,6 +275,10 @@ class DreameL10SUltraValetudoRobot extends DreameGen2LidarValetudoRobot {
             { // Required for the water hookup test quirk
                 siid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.SIID,
                 piid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.PROPERTIES.MISC_TUNABLES.PIID
+            },
+            {
+                siid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.SIID,
+                piid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DOCK_DETERGENT.PIID
             }
         ];
     }

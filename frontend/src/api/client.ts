@@ -17,6 +17,8 @@ import {
     CleanRoutePayload,
     CombinedVirtualRestrictionsProperties,
     CombinedVirtualRestrictionsUpdateRequestParameters,
+    CombinedVirtualThresholdsUpdateRequestParameters,
+    CurtainsUpdateRequestParameters,
     ConsumableId,
     ConsumableProperties,
     ConsumableState,
@@ -237,8 +239,20 @@ export const subscribeToStateAttributes = (
     );
 };
 
+export const subscribeToQuirks = (
+    listener: (data: Quirk[]) => void
+): (() => void) => {
+    return subscribeToSSE<Quirk[]>(
+        `/robot/capabilities/${Capability.Quirks}/sse`,
+        "QuirksUpdated",
+        (data) => {
+            return listener(data);
+        }
+    );
+};
+
 export const fetchPresetSelections = async (
-    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl
+    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl
 ): Promise<Array<PresetValue>> => {
     return valetudoAPI
         .get<PresetSelectionState["value"][]>(
@@ -250,7 +264,7 @@ export const fetchPresetSelections = async (
 };
 
 export const updatePresetSelection = async (
-    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl,
+    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl,
     level: PresetSelectionState["value"]
 ): Promise<void> => {
     await valetudoAPI.put(`/robot/capabilities/${capability}/preset`, {
@@ -358,6 +372,16 @@ export const sendSplitSegmentCommand = async (
             segment_id: parameters.segment_id,
             pA: parameters.pA,
             pB: parameters.pB
+        }
+    );
+};
+
+export const sendSetHiddenSegmentsCommand = async (segment_ids: string[]): Promise<void> => {
+    await valetudoAPI.put(
+        `/robot/capabilities/${Capability.MapSegmentHide}`,
+        {
+            action: "set_hidden_segments",
+            segment_ids: segment_ids
         }
     );
 };
@@ -804,6 +828,30 @@ export const sendPersistentMapEnabled = async (enable: boolean): Promise<void> =
     await sendToggleMutation(Capability.PersistentMapControl, enable);
 };
 
+export const fetchMultipleMapControlState = async (): Promise<SimpleToggleState> => {
+    return valetudoAPI
+        .get<SimpleToggleState>(`/robot/capabilities/${Capability.MultipleMapControl}`)
+        .then(({ data }) => {
+            return data;
+        });
+};
+
+export const sendMultipleMapControlEnabled = async (enable: boolean): Promise<void> => {
+    await sendToggleMutation(Capability.MultipleMapControl, enable);
+};
+
+export const fetchIntelligentMapRecognitionControlState = async (): Promise<SimpleToggleState> => {
+    return valetudoAPI
+        .get<SimpleToggleState>(`/robot/capabilities/${Capability.IntelligentMapRecognitionControl}`)
+        .then(({ data }) => {
+            return data;
+        });
+};
+
+export const sendIntelligentMapRecognitionControlEnabled = async (enable: boolean): Promise<void> => {
+    await sendToggleMutation(Capability.IntelligentMapRecognitionControl, enable);
+};
+
 export const sendMapReset = async (): Promise<void> => {
     await valetudoAPI
         .put(`/robot/capabilities/${Capability.MapReset}`, {
@@ -1068,6 +1116,24 @@ export const sendCombinedVirtualRestrictionsUpdate = async (
 ): Promise<void> => {
     await valetudoAPI.put(
         `/robot/capabilities/${Capability.CombinedVirtualRestrictions}`,
+        parameters
+    );
+};
+
+export const sendCombinedVirtualThresholdsUpdate = async (
+    parameters: CombinedVirtualThresholdsUpdateRequestParameters
+): Promise<void> => {
+    await valetudoAPI.put(
+        `/robot/capabilities/${Capability.CombinedVirtualThresholds}`,
+        parameters
+    );
+};
+
+export const sendCurtainsUpdate = async (
+    parameters: CurtainsUpdateRequestParameters
+): Promise<void> => {
+    await valetudoAPI.put(
+        `/robot/capabilities/${Capability.Curtains}`,
         parameters
     );
 };
@@ -1372,6 +1438,18 @@ export const fetchMopDockMopAutoDryingControlState = async (): Promise<SimpleTog
 
 export const sendMopDockMopAutoDryingControlState = async (enable: boolean): Promise<void> => {
     await sendToggleMutation(Capability.MopDockMopAutoDryingControl, enable);
+};
+
+export const fetchSuctionBoostControlState = async (): Promise<SimpleToggleState> => {
+    return valetudoAPI
+        .get<SimpleToggleState>(`/robot/capabilities/${Capability.SuctionBoostControl}`)
+        .then(({ data }) => {
+            return data;
+        });
+};
+
+export const sendSuctionBoostControlState = async (enable: boolean): Promise<void> => {
+    await sendToggleMutation(Capability.SuctionBoostControl, enable);
 };
 
 export const fetchFloorMaterialDirectionAwareNavigationControlState = async (): Promise<SimpleToggleState> => {

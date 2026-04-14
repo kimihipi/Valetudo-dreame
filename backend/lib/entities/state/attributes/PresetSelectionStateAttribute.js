@@ -36,6 +36,9 @@ PresetSelectionStateAttribute.TYPE = Object.freeze({
     FAN_SPEED: "fan_speed",
     WATER_GRADE: "water_grade",
     OPERATION_MODE: "operation_mode",
+    MOP_DOCK_MOP_CLEANING_FREQUENCY: "mop_dock_mop_cleaning_frequency",
+    MOP_DOCK_DETERGENT: "mop_dock_detergent",
+    MOP_DOCK_MOP_WASH_INTENSITY: "mop_dock_mop_wash_intensity",
 });
 
 /**

@@ -34,6 +34,7 @@
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
     "@fontsource/ibm-plex-sans": "5.2.8",
+    "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "5.2.8",
     "@mui/icons-material": "6.5.0",
     "@mui/material": "6.5.0",

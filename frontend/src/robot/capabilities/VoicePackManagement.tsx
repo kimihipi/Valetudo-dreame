@@ -60,7 +60,7 @@ const VoicePackControl: FunctionComponent = () => {
         return (
             <>
                 <Typography variant="body1" sx={{mb: 1}}>
-                    Current language: {voicePack?.currentLanguage}
+                    Current Language: {voicePack?.currentLanguage}
                 </Typography>
                 {isError && (
                     <Typography color="error">
@@ -77,7 +77,7 @@ const VoicePackControl: FunctionComponent = () => {
                 <TextField label="URL" value={url} onChange={(e) => {
                     setUrl(e.target.value);
                 }} variant="standard" placeholder="https://" disabled={commandDisabled} fullWidth sx={{mb: 0.3}}/>
-                <TextField label="Language code" value={languageCode} onChange={(e) => {
+                <TextField label="Language Code" value={languageCode} onChange={(e) => {
                     setLanguageCode(e.target.value);
                 }} variant="standard" placeholder="VA" disabled={commandDisabled} fullWidth sx={{mb: 0.3}}/>
                 <TextField label="Hash" value={hash} onChange={(e) => {
@@ -105,7 +105,7 @@ const VoicePackControl: FunctionComponent = () => {
     const loading = voicePackFetching || voicePackMutating || !voicePack;
     return (
         <CapabilityItem
-            title="Voice packs"
+            title="Voice Packs"
             loading={loading}
             helpText={VoicepackHelp}
         >

@@ -1,25 +1,19 @@
-import {Box, emphasize, SpeedDial, SpeedDialAction, styled} from "@mui/material";
+import {emphasize, SpeedDial, SpeedDialAction, styled} from "@mui/material";
 import {
     CropSquare as ZoneModeIcon,
     Dashboard as SegmentModeIcon,
     Room as GoToModeIcon,
     QuestionMark as NoneModeIcon,
+    SelectAll as AllModeIcon,
 } from "@mui/icons-material";
 import React from "react";
 import {TransitionProps} from "@mui/material/transitions";
 import {LiveMapMode} from "./LiveMap";
 
-const LiveMapModeButtonContainer = styled(Box)(({theme}) => {
+export const StyledSpeedDial = styled(SpeedDial)(({theme}) => {
     return {
-        position: "absolute",
-        pointerEvents: "none",
-        top: theme.spacing(2),
-        right: theme.spacing(2),
-    };
-});
-
-const StyledSpeedDial = styled(SpeedDial)(({theme}) => {
-    return {
+        pointerEvents: "auto",
+        width: "40px",
         "& .MuiSpeedDial-fab": {
             color: theme.palette.text.primary,
             backgroundColor: theme.palette.background.paper,
@@ -48,14 +42,16 @@ const modeToIcon: Record<LiveMapMode, React.ReactElement> = {
     "segments": <SegmentModeIcon/>,
     "zones": <ZoneModeIcon/>,
     "goto": <GoToModeIcon/>,
-    "none": <NoneModeIcon/>
+    "none": <NoneModeIcon/>,
+    "all": <AllModeIcon/>
 };
 
 const modeToLabel: Record<LiveMapMode, string> = {
     "segments": "Segments",
     "zones": "Zones",
     "goto": "Go To",
-    "none": "None"
+    "none": "None",
+    "all": "All"
 };
 
 /* eslint-disable react/display-name */
@@ -80,34 +76,31 @@ export const LiveMapModeSwitcher : React.FunctionComponent<{
     const [open, setOpen] = React.useState(false);
 
     return (
-        <LiveMapModeButtonContainer>
-            <StyledSpeedDial
-                open={open}
-                onClick={() => {
-                    setOpen(!open);
-                }}
-                icon={modeToIcon[currentMode]}
-                title="Map Mode Selector"
-                FabProps={{ size: "small" }}
-                ariaLabel="Map Mode Selector"
-                direction="down"
-                TransitionComponent={NoTransition}
-            >
-                {supportedModes.map((mode) => (
-                    <SpeedDialAction
-                        key={mode}
-                        tooltipOpen
-                        tooltipTitle={modeToLabel[mode]}
-                        icon={modeToIcon[mode]}
-                        onClick={() => {
-                            setMode(mode);
+        <StyledSpeedDial
+            open={open}
+            onClick={() => {
+                setOpen(!open);
+            }}
+            icon={modeToIcon[currentMode]}
+            title="Map Mode Selector"
+            FabProps={{ size: "small" }}
+            ariaLabel="Map Mode Selector"
+            direction="up"
+            slots={{ transition: NoTransition }}
+        >
+            {supportedModes.map((mode) => (
+                <SpeedDialAction
+                    key={mode}
+                    slotProps={{ tooltip: { open: true, title: modeToLabel[mode] } }}
+                    icon={modeToIcon[mode]}
+                    onClick={() => {
+                        setMode(mode);
 
-                            setOpen(false);
-                        }}
-                    />
-                ))}
-            </StyledSpeedDial>
-        </LiveMapModeButtonContainer>
+                        setOpen(false);
+                    }}
+                />
+            ))}
+        </StyledSpeedDial>
     );
 };
 

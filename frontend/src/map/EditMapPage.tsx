@@ -8,6 +8,8 @@ import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import EditMap, { mode } from "./EditMap";
 import {SegmentEditHelp} from "./res/SegmentEditHelp";
 import {VirtualRestrictionEditHelp} from "./res/VirtualRestrictionEditHelp";
+import {VirtualThresholdEditHelp} from "./res/VirtualThresholdEditHelp";
+import {CurtainEditHelp} from "./res/CurtainEditHelp";
 import {useSnackbar} from "notistack";
 import React from "react";
 
@@ -23,6 +25,7 @@ const Container = styled(Box)({
 
 const EditMapPage = (props: {
     mode: mode;
+    modeSwitcher?: React.ReactNode;
 }): React.ReactElement => {
     const {
         data: mapData,
@@ -37,16 +40,24 @@ const EditMapPage = (props: {
 
     const [
         combinedVirtualRestrictionsCapabilitySupported,
+        combinedVirtualThresholdsCapabilitySupported,
+        curtainsCapabilitySupported,
 
         mapSegmentEditCapabilitySupported,
         mapSegmentRenameCapabilitySupported,
-        mapSegmentMaterialControlCapabilitySupported
+        mapSegmentMaterialControlCapabilitySupported,
+        mapSegmentHideCapabilitySupported,
+        mapSegmentCleanOrderCapabilitySupported,
     ] = useCapabilitiesSupported(
         Capability.CombinedVirtualRestrictions,
+        Capability.CombinedVirtualThresholds,
+        Capability.Curtains,
 
         Capability.MapSegmentEdit,
         Capability.MapSegmentRename,
-        Capability.MapSegmentMaterialControl
+        Capability.MapSegmentMaterialControl,
+        Capability.MapSegmentHide,
+        Capability.MapSegmentCleanOrder,
     );
 
     const theme = useTheme();
@@ -58,6 +69,10 @@ const EditMapPage = (props: {
         helpText = SegmentEditHelp;
     } else if (props.mode === "virtual_restrictions") {
         helpText = VirtualRestrictionEditHelp;
+    } else if (props.mode === "virtual_thresholds") {
+        helpText = VirtualThresholdEditHelp;
+    } else if (props.mode === "curtains") {
+        helpText = CurtainEditHelp;
     }
 
     if (mapLoadError) {
@@ -108,11 +123,16 @@ const EditMapPage = (props: {
 
         supportedCapabilities={{
             [Capability.CombinedVirtualRestrictions]: combinedVirtualRestrictionsCapabilitySupported,
+            [Capability.CombinedVirtualThresholds]: combinedVirtualThresholdsCapabilitySupported,
+            [Capability.Curtains]: curtainsCapabilitySupported,
 
             [Capability.MapSegmentEdit]: mapSegmentEditCapabilitySupported,
             [Capability.MapSegmentRename]: mapSegmentRenameCapabilitySupported,
             [Capability.MapSegmentMaterialControl]: mapSegmentMaterialControlCapabilitySupported,
+            [Capability.MapSegmentHide]: mapSegmentHideCapabilitySupported,
+            [Capability.MapSegmentCleanOrder]: mapSegmentCleanOrderCapabilitySupported,
         }}
+        modeSwitcher={props.modeSwitcher}
     />;
 };
 

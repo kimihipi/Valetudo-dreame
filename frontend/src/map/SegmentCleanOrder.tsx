@@ -1,6 +1,5 @@
 import {
     Avatar,
-    Box,
     Button,
     CircularProgress,
     Container,
@@ -14,18 +13,14 @@ import {
     Typography,
 } from "@mui/material";
 import React from "react";
-import PaperContainer from "../components/PaperContainer";
 import {
     ChangeHistory,
     ExpandLess,
     ExpandMore,
-    SwapVert
 } from "@mui/icons-material";
-import DetailPageHeaderRow from "../components/DetailPageHeaderRow";
 import { RawMapLayer, RawMapLayerType, useRobotMapQuery, useSegmentCleanOrderMutation } from "../api";
-import InfoBox from "../components/InfoBox";
 
-const SegmentCleanOrderContent = (): React.ReactElement => {
+export const SegmentCleanOrderContent = (): React.ReactElement => {
     const {
         data: mapData,
         isPending: mapIsPending,
@@ -43,7 +38,7 @@ const SegmentCleanOrderContent = (): React.ReactElement => {
 
     React.useMemo(() => {
         const newSegments = (mapData?.layers ?? [])
-            .filter(entry => entry.type === RawMapLayerType.Segment)
+            .filter(entry => entry.type === RawMapLayerType.Segment && !entry.metaData.hidden)
             .sort((a, b) => (a.metaData.cleanOrder ?? 0) - (b.metaData.cleanOrder ?? 0));
 
         const newSegmentIds = newSegments.map(segment => segment.metaData.segmentId).sort();
@@ -158,19 +153,6 @@ const SegmentCleanOrderContent = (): React.ReactElement => {
                 }
             </List>
 
-            <InfoBox
-                boxShadow={5}
-                style={{
-                    marginTop: "1rem",
-                    marginBottom: "2rem"
-                }}
-            >
-                <Typography color="info">
-                    Customize the clean order for the current map when performing a full clean.
-                    This order will not be followed when performing custom segment or zone cleans.
-                </Typography>
-            </InfoBox>
-
             <Divider sx={{mt: 1}} style={{marginBottom: "1rem"}}/>
 
             <Grid2 container>
@@ -198,25 +180,3 @@ const SegmentCleanOrderContent = (): React.ReactElement => {
     );
 };
 
-const SegmentCleanOrderPage = (): React.ReactElement => {
-    return (
-        <Container maxWidth="sm">
-            <PaperContainer>
-                <Grid2 container direction="row">
-                    <Box style={{width: "100%"}}>
-                        <DetailPageHeaderRow
-                            title="Segment Clean Order"
-                            icon={<SwapVert/>}
-                        />
-
-                        <Box m={1}/>
-
-                        <SegmentCleanOrderContent />
-                    </Box>
-                </Grid2>
-            </PaperContainer>
-        </Container>
-    );
-};
-
-export default SegmentCleanOrderPage;

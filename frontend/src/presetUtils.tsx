@@ -1,4 +1,4 @@
-import {Capability, PresetSelectionState, PresetValue} from "./api";
+import {Capability, PresetSelectionState} from "./api";
 import React, {ReactElement} from "react";
 import {
     FanSpeedHighIcon,
@@ -20,13 +20,15 @@ import {
     WaterGradeOffIcon
 } from "./components/CustomIcons";
 
-const order: Array<PresetValue> = ["off", "min", "low", "medium", "high", "max", "turbo", "vacuum", "vacuum_and_mop", "vacuum_then_mop", "mop"];
+const order = ["off", "min", "low", "medium", "high", "max", "turbo", "vacuum", "vacuum_and_mop", "vacuum_then_mop", "mop", "every_segment", "every_5_m2", "every_10_m2", "every_15_m2", "every_20_m2", "every_25_m2", "on", "missing_cartridge"];
 export const sortPresets = (presets: PresetSelectionState["value"][]) => {
     return [...presets].sort((a, b) => {
-        return order.indexOf(a) - order.indexOf(b);
+        const ai = order.indexOf(a);
+        const bi = order.indexOf(b);
+        return (ai === -1 ? order.length : ai) - (bi === -1 ? order.length : bi);
     });
 };
-export const presetFriendlyNames: {[key in PresetValue]: string} = Object.freeze({
+export const presetFriendlyNames: Record<string, string> = Object.freeze({
     "off": "Off",
     "min": "Min",
     "low": "Low",
@@ -40,10 +42,20 @@ export const presetFriendlyNames: {[key in PresetValue]: string} = Object.freeze
     "vacuum_and_mop": "Vacuum & Mop",
     "vacuum_then_mop": "Vacuum then Mop",
     "vacuum": "Vacuum",
-    "mop": "Mop"
+    "mop": "Mop",
+
+    "every_segment": "Every Segment",
+    "every_5_m2": "Every 5 m²",
+    "every_10_m2": "Every 10 m²",
+    "every_15_m2": "Every 15 m²",
+    "every_20_m2": "Every 20 m²",
+    "every_25_m2": "Every 25 m²",
+
+    "on": "On",
+    "missing_cartridge": "Missing Cartridge"
 });
 
-export function getPresetIconOrLabel(capability: Capability, preset: PresetValue, style?: React.CSSProperties): ReactElement | string {
+export function getPresetIconOrLabel(capability: Capability, preset: string, style?: React.CSSProperties): ReactElement | string {
     switch (capability) {
         case Capability.FanSpeedControl:
             switch (preset) {
@@ -96,6 +108,6 @@ export function getPresetIconOrLabel(capability: Capability, preset: PresetValue
                     return presetFriendlyNames[preset];
             }
         default:
-            return presetFriendlyNames[preset];
+            return presetFriendlyNames[preset] ?? preset;
     }
 }

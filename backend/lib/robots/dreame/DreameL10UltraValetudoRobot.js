@@ -193,11 +193,22 @@ class DreameL10UltraValetudoRobot extends DreameGen2LidarValetudoRobot {
             this.registerCapability(new capability({robot: this}));
         });
 
+        this.registerCapability(new capabilities.DreameMopDockMopCleaningFrequencyControlCapability({
+            robot: this,
+            presets: [
+                new ValetudoSelectionPreset({name: "every_segment", value: 0}),
+                new ValetudoSelectionPreset({name: "every_5_m2", value: 5}),
+                new ValetudoSelectionPreset({name: "every_10_m2", value: 10}),
+                new ValetudoSelectionPreset({name: "every_15_m2", value: 15}),
+                new ValetudoSelectionPreset({name: "every_20_m2", value: 20}),
+                new ValetudoSelectionPreset({name: "every_25_m2", value: 25}),
+            ]
+        }));
+
         this.registerCapability(new QuirksCapability({
             robot: this,
             quirks: [
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_MODE_SENSITIVITY),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_MOP_CLEANING_FREQUENCY),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WET_DRY_SWITCH),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_AUTO_REPAIR_TRIGGER),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.DRAIN_INTERNAL_WATER_TANK),

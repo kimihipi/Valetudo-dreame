@@ -6,7 +6,6 @@ import {
     AutoEmptyDockAutoEmptyInterval,
     Capability,
     CarpetSensorMode,
-    CleanRoute,
     MopDockMopDryingDuration,
     MopDockMopWashTemperature,
     useAutoEmptyDockAutoEmptyDurationControlPropertiesQuery,
@@ -22,9 +21,6 @@ import {
     useCarpetSensorModeMutation,
     useCarpetSensorModePropertiesQuery,
     useCarpetSensorModeQuery,
-    useCleanRouteControlPropertiesQuery,
-    useCleanRouteMutation,
-    useCleanRouteQuery,
     useCollisionAvoidantNavigationControlMutation,
     useCollisionAvoidantNavigationControlQuery,
     useFloorMaterialDirectionAwareNavigationControlMutation,
@@ -52,6 +48,14 @@ import {
     useObstacleImagesQuery,
     usePetObstacleAvoidanceControlMutation,
     usePetObstacleAvoidanceControlQuery,
+    useSuctionBoostControlMutation,
+    useSuctionBoostControlQuery,
+    usePresetSelectionsQuery,
+    usePresetSelectionMutation,
+    useRobotAttributeQuery,
+    RobotAttributeClass,
+    capabilityToPresetType,
+    PresetSelectionState,
 } from "../api";
 import React from "react";
 import {ListMenu} from "../components/list_menu/ListMenu";
@@ -72,18 +76,22 @@ import {
     Pets as PetObstacleAvoidanceControlIcon,
     Photo as ObstacleImagesIcon,
     RoundaboutRight as CollisionAvoidantNavigationControlIcon,
-    Route as CleanRouteControlIcon,
     SatelliteAlt as PerceptionIcon,
     Schema as BehaviourIcon,
     Settings as GeneralIcon,
     Star as QuirksIcon,
     TableBar as MopExtensionFurnitureLegHandlingControlIcon,
+    TrendingUp as SuctionBoostControlIcon,
     Troubleshoot as CarpetSensorModeIcon,
     Tune as MiscIcon,
-    Villa as DockIcon
+    Villa as DockIcon,
+    Loop as MopDockMopCleaningFrequencyControlIcon,
+    Science as MopDockDetergentControlIcon,
+    WaterDrop as MopDockMopWashIntensityControlIcon,
 } from "@mui/icons-material";
 import {SpacerListMenuItem} from "../components/list_menu/SpacerListMenuItem";
 import {LinkListMenuItem} from "../components/list_menu/LinkListMenuItem";
+import {presetFriendlyNames, sortPresets} from "../presetUtils";
 import PaperContainer from "../components/PaperContainer";
 import {ButtonListMenuItem} from "../components/list_menu/ButtonListMenuItem";
 import {SelectListMenuItem, SelectListMenuItemOption} from "../components/list_menu/SelectListMenuItem";
@@ -670,6 +678,162 @@ const MopDockMopAutoDryingControlCapabilitySwitchListMenuItem = () => {
     );
 };
 
+const SuctionBoostControlCapabilitySwitchListMenuItem = () => {
+    const {
+        data: data,
+        isFetching: isFetching,
+        isError: isError,
+    } = useSuctionBoostControlQuery();
+
+    const {mutate: mutate, isPending: isChanging} = useSuctionBoostControlMutation();
+    const loading = isFetching || isChanging;
+    const disabled = loading || isChanging || isError;
+
+    return (
+        <ToggleSwitchListMenuItem
+            value={data?.enabled ?? false}
+            setValue={(value) => {
+                mutate(value);
+            }}
+            disabled={disabled}
+            loadError={isError}
+            primaryLabel={"Suction Boost"}
+            secondaryLabel={"Boost suction for the next operation. Reverts after each cleaning."}
+            icon={<SuctionBoostControlIcon/>}
+        />
+    );
+};
+
+const MopDockMopCleaningFrequencyControlCapabilitySelectListMenuItem = () => {
+    const {
+        isPending: presetsPending,
+        isError: presetsError,
+        data: presets,
+    } = usePresetSelectionsQuery(Capability.MopDockMopCleaningFrequencyControl);
+
+    const {
+        data: current,
+        isFetching: currentFetching,
+    } = useRobotAttributeQuery(
+        RobotAttributeClass.PresetSelectionState,
+        (attributes) => attributes.find(a => a.type === capabilityToPresetType[Capability.MopDockMopCleaningFrequencyControl])
+    );
+
+    const {mutate, isPending: isChanging} = usePresetSelectionMutation(Capability.MopDockMopCleaningFrequencyControl);
+
+    const loading = currentFetching || isChanging;
+    const disabled = loading || presetsError;
+
+    const options = React.useMemo(() => {
+        return sortPresets(presets ?? []).map(p => ({value: p, label: presetFriendlyNames[p]}));
+    }, [presets]);
+
+    const currentValue = options.find(o => o.value === current?.value) ?? {value: "", label: ""};
+
+    return (
+        <SelectListMenuItem
+            options={options}
+            currentValue={currentValue}
+            setValue={(opt) => mutate(opt.value as PresetSelectionState["value"])}
+            disabled={disabled}
+            loadingOptions={presetsPending || currentFetching}
+            loadError={presetsError}
+            primaryLabel="Mop Cleaning Frequency"
+            secondaryLabel="How often the mop pad is washed during a cleanup."
+            icon={<MopDockMopCleaningFrequencyControlIcon/>}
+        />
+    );
+};
+
+const MopDockDetergentControlCapabilitySelectListMenuItem = () => {
+    const {
+        isPending: presetsPending,
+        isError: presetsError,
+        data: presets,
+    } = usePresetSelectionsQuery(Capability.MopDockDetergentControl);
+
+    const {
+        data: current,
+        isFetching: currentFetching,
+    } = useRobotAttributeQuery(
+        RobotAttributeClass.PresetSelectionState,
+        (attributes) => attributes.find(a => a.type === capabilityToPresetType[Capability.MopDockDetergentControl])
+    );
+
+    const {mutate, isPending: isChanging} = usePresetSelectionMutation(Capability.MopDockDetergentControl);
+
+    const isMissingCartridge = current?.value === "missing_cartridge";
+    const loading = currentFetching || isChanging;
+    const disabled = loading || presetsError || isMissingCartridge;
+
+    const options = React.useMemo(() => {
+        if (isMissingCartridge) {
+            return [{value: "missing_cartridge", label: "Missing Cartridge"}];
+        }
+        return sortPresets((presets ?? []).filter(p => p !== "missing_cartridge")).map(p => ({
+            value: p,
+            label: presetFriendlyNames[p],
+        }));
+    }, [presets, isMissingCartridge]);
+
+    const currentValue = options.find(o => o.value === current?.value) ?? {value: "", label: ""};
+
+    return (
+        <SelectListMenuItem
+            options={options}
+            currentValue={currentValue}
+            setValue={(opt) => mutate(opt.value as PresetSelectionState["value"])}
+            disabled={disabled}
+            loadingOptions={presetsPending || currentFetching}
+            loadError={presetsError}
+            primaryLabel="Detergent"
+            secondaryLabel={isMissingCartridge ? "Insert a detergent cartridge to enable this feature." : "Enable or disable the detergent dispenser."}
+            icon={<MopDockDetergentControlIcon/>}
+        />
+    );
+};
+
+const MopDockMopWashIntensityControlCapabilitySelectListMenuItem = () => {
+    const {
+        isPending: presetsPending,
+        isError: presetsError,
+        data: presets,
+    } = usePresetSelectionsQuery(Capability.MopDockMopWashIntensityControl);
+
+    const {
+        data: current,
+        isFetching: currentFetching,
+    } = useRobotAttributeQuery(
+        RobotAttributeClass.PresetSelectionState,
+        (attributes) => attributes.find(a => a.type === capabilityToPresetType[Capability.MopDockMopWashIntensityControl])
+    );
+
+    const {mutate, isPending: isChanging} = usePresetSelectionMutation(Capability.MopDockMopWashIntensityControl);
+
+    const loading = currentFetching || isChanging;
+    const disabled = loading || presetsError;
+
+    const options = React.useMemo(() => {
+        return sortPresets(presets ?? []).map(p => ({value: p, label: presetFriendlyNames[p]}));
+    }, [presets]);
+
+    const currentValue = options.find(o => o.value === current?.value) ?? {value: "", label: ""};
+
+    return (
+        <SelectListMenuItem
+            options={options}
+            currentValue={currentValue}
+            setValue={(opt) => mutate(opt.value as PresetSelectionState["value"])}
+            disabled={disabled}
+            loadingOptions={presetsPending || currentFetching}
+            loadError={presetsError}
+            primaryLabel="Mop Wash Intensity"
+            secondaryLabel="Water pressure used when cleaning the mop pad in the dock."
+            icon={<MopDockMopWashIntensityControlIcon/>}
+        />
+    );
+};
+
 const FloorMaterialDirectionAwareNavigationControlCapabilitySwitchListMenuItem = () => {
     const {
         data: data,
@@ -696,118 +860,6 @@ const FloorMaterialDirectionAwareNavigationControlCapabilitySwitchListMenuItem =
     );
 };
 
-const CleanRouteControlCapabilitySelectListMenuItem = () => {
-    const SORT_ORDER = {
-        "quick": 1,
-        "normal": 2,
-        "intensive": 3,
-        "deep": 4
-    };
-
-    const {
-        data: cleanRouteControlProperties,
-        isPending: cleanRouteControlPropertiesPending,
-        isError: cleanRouteControlPropertiesError
-    } = useCleanRouteControlPropertiesQuery();
-
-    const options: Array<SelectListMenuItemOption> = (
-        cleanRouteControlProperties?.supportedRoutes ?? []
-    ).sort((a, b) => {
-        const aMapped = SORT_ORDER[a] ?? 10;
-        const bMapped = SORT_ORDER[b] ?? 10;
-
-        if (aMapped < bMapped) {
-            return -1;
-        } else if (bMapped < aMapped) {
-            return 1;
-        } else {
-            return 0;
-        }
-    }).map((val: CleanRoute) => {
-        let label;
-
-        switch (val) {
-            case "quick":
-                label = "Quick";
-                break;
-            case "normal":
-                label = "Normal";
-                break;
-            case "intensive":
-                label = "Intensive";
-                break;
-            case "deep":
-                label = "Deep";
-                break;
-        }
-
-        return {
-            value: val,
-            label: label
-        };
-    });
-
-    const description = React.useMemo(() => {
-        let desc = "Trade speed for thoroughness and vice-versa.";
-
-        if (cleanRouteControlProperties) {
-            if (cleanRouteControlProperties.mopOnly.length > 0) {
-                const labels = cleanRouteControlProperties.mopOnly.map(route => {
-                    const label = options.find(o => o.value === route)?.label ?? "unknown";
-
-                    return `"${label}"`;
-                });
-
-                desc += ` ${labels.join(", ")} only ${labels.length > 1 ? "apply" : "applies"} when mopping.`;
-            }
-
-            if (cleanRouteControlProperties.oneTime.length > 0) {
-                const labels = cleanRouteControlProperties.oneTime.map(route => {
-                    const label = options.find(o => o.value === route)?.label ?? "unknown";
-
-                    return `"${label}"`;
-                });
-
-                desc += ` ${labels.join(", ")} ${labels.length > 1 ? "are" : "is"} one-time only.`;
-            }
-        }
-
-        return desc;
-    }, [cleanRouteControlProperties, options]);
-
-
-    const {
-        data: data,
-        isPending: isPending,
-        isFetching: isFetching,
-        isError: isError,
-    } = useCleanRouteQuery();
-
-    const {mutate: mutate, isPending: isChanging} = useCleanRouteMutation();
-    const loading = isFetching || isChanging;
-    const disabled = loading || isChanging || isError;
-
-    const currentValue = options.find(mode => {
-        return mode.value === data;
-    }) ?? {value: "", label: ""};
-
-
-    return (
-        <SelectListMenuItem
-            options={options}
-            currentValue={currentValue}
-            setValue={(e) => {
-                mutate(e.value as CleanRoute);
-            }}
-            disabled={disabled}
-            loadingOptions={cleanRouteControlPropertiesPending || isPending}
-            loadError={cleanRouteControlPropertiesError}
-            primaryLabel="Clean Route"
-            secondaryLabel={description}
-            icon={<CleanRouteControlIcon/>}
-        />
-    );
-};
 
 const MopDockMopDryingTimeControlCapabilitySelectListMenuItem = () => {
     const SORT_ORDER = {
@@ -998,7 +1050,6 @@ const RobotOptions = (): React.ReactElement => {
         obstacleImagesSupported,
         collisionAvoidantNavigationControlCapabilitySupported,
         floorMaterialDirectionAwareNavigationControlSupported,
-        cleanRouteControlSupported,
         carpetModeControlCapabilitySupported,
         carpetSensorModeControlCapabilitySupported,
 
@@ -1011,6 +1062,10 @@ const RobotOptions = (): React.ReactElement => {
         mopDockMopAutoDryingControlSupported,
         mopDockMopDryingTimeControlSupported,
         mopDockMopWashTemperatureControlSupported,
+        suctionBoostControlSupported,
+        mopDockMopCleaningFrequencyControlSupported,
+        mopDockDetergentControlSupported,
+        mopDockMopWashIntensityControlSupported,
 
         keyLockControlCapabilitySupported,
 
@@ -1029,7 +1084,6 @@ const RobotOptions = (): React.ReactElement => {
         Capability.ObstacleImages,
         Capability.CollisionAvoidantNavigation,
         Capability.FloorMaterialDirectionAwareNavigationControl,
-        Capability.CleanRouteControl,
         Capability.CarpetModeControl,
         Capability.CarpetSensorModeControl,
 
@@ -1042,6 +1096,10 @@ const RobotOptions = (): React.ReactElement => {
         Capability.MopDockMopAutoDryingControl,
         Capability.MopDockMopDryingTimeControl,
         Capability.MopDockMopWashTemperatureControl,
+        Capability.SuctionBoostControl,
+        Capability.MopDockMopCleaningFrequencyControl,
+        Capability.MopDockDetergentControl,
+        Capability.MopDockMopWashIntensityControl,
 
         Capability.KeyLock,
 
@@ -1088,14 +1146,9 @@ const RobotOptions = (): React.ReactElement => {
             />);
         }
 
-        if (cleanRouteControlSupported) {
-            items.push(<CleanRouteControlCapabilitySelectListMenuItem key="cleanRouteControl"/>);
-        }
-
         if (
             collisionAvoidantNavigationControlCapabilitySupported ||
-            floorMaterialDirectionAwareNavigationControlSupported ||
-            cleanRouteControlSupported
+            floorMaterialDirectionAwareNavigationControlSupported
         ) {
             items.push(<SpacerListMenuItem key={"spacer-navigation"} halfHeight={true}/>);
         }
@@ -1135,6 +1188,10 @@ const RobotOptions = (): React.ReactElement => {
             );
         }
 
+        if (suctionBoostControlSupported) {
+            items.push(<SuctionBoostControlCapabilitySwitchListMenuItem key="suctionBoostControl"/>);
+        }
+
         if (items.at(-1)?.type === SpacerListMenuItem) {
             items.pop();
         }
@@ -1143,12 +1200,12 @@ const RobotOptions = (): React.ReactElement => {
     }, [
         collisionAvoidantNavigationControlCapabilitySupported,
         floorMaterialDirectionAwareNavigationControlSupported,
-        cleanRouteControlSupported,
         carpetModeControlCapabilitySupported,
         carpetSensorModeControlCapabilitySupported,
         mopExtensionControlCapabilitySupported,
         mopTwistControlSupported,
         mopExtensionFurnitureLegHandlingControlSupported,
+        suctionBoostControlSupported,
     ]);
 
     const navigationListItems = React.useMemo(() => {
@@ -1226,6 +1283,18 @@ const RobotOptions = (): React.ReactElement => {
             items.push(<MopDockMopDryingTimeControlCapabilitySelectListMenuItem key="mopDockMopDryingTimeControl"/>);
         }
 
+        if (mopDockMopCleaningFrequencyControlSupported) {
+            items.push(<MopDockMopCleaningFrequencyControlCapabilitySelectListMenuItem key="mopDockMopCleaningFrequencyControl"/>);
+        }
+
+        if (mopDockDetergentControlSupported) {
+            items.push(<MopDockDetergentControlCapabilitySelectListMenuItem key="mopDockDetergentControl"/>);
+        }
+
+        if (mopDockMopWashIntensityControlSupported) {
+            items.push(<MopDockMopWashIntensityControlCapabilitySelectListMenuItem key="mopDockMopWashIntensityControl"/>);
+        }
+
         return items;
     }, [
         autoEmptyDockAutoEmptyIntervalControlCapabilitySupported,
@@ -1233,6 +1302,9 @@ const RobotOptions = (): React.ReactElement => {
         mopDockMopWashTemperatureControlSupported,
         mopDockMopAutoDryingControlSupported,
         mopDockMopDryingTimeControlSupported,
+        mopDockMopCleaningFrequencyControlSupported,
+        mopDockDetergentControlSupported,
+        mopDockMopWashIntensityControlSupported,
     ]);
 
     const miscListItems = React.useMemo(() => {

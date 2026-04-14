@@ -2,6 +2,7 @@ import {Canvas2DContextTrackingWrapper} from "../utils/Canvas2DContextTrackingWr
 import {PointCoordinates} from "../utils/types";
 import React from "react";
 import {isMobile} from "../utils/helpers";
+import {lightPalette} from "../../colors";
 
 export type StructureInterceptionHandlerResult = {
     stopPropagation: boolean; //Will always redraw
@@ -36,8 +37,8 @@ abstract class Structure {
         ctx: CanvasRenderingContext2D,
         x: number,
         y: number,
-        lines: Array<{text: string, fontSize: number}>,
-        options: { baseline?: "top" | "bottom" }
+        lines: Array<{text: string, fontSize: number, prefixCounter?: number}>,
+        options: { baseline?: "top" | "bottom", borderColor?: string }
     ) {
         const baseline = options.baseline ?? "top";
         const baseFontSize = lines[0].fontSize;
@@ -46,14 +47,19 @@ abstract class Structure {
         const paddingV = baseFontSize * 0.3;
         const lineSpacing = baseFontSize * 0.15;
 
-        let maxTextWidth = 0;
+        let maxContentWidth = 0;
         let totalTextHeight = 0;
 
         lines.forEach((line, index) => {
             ctx.font = `${line.fontSize}px "IBM Plex Sans", "Helvetica", sans-serif`;
-            const metrics = ctx.measureText(line.text);
-            if (metrics.width > maxTextWidth) {
-                maxTextWidth = metrics.width;
+            let lineWidth = ctx.measureText(line.text).width;
+            if (line.prefixCounter !== undefined) {
+                const counterDiameter = line.fontSize * 1.15;
+                const counterGap = line.fontSize * 0.35;
+                lineWidth = counterDiameter + counterGap + lineWidth;
+            }
+            if (lineWidth > maxContentWidth) {
+                maxContentWidth = lineWidth;
             }
 
             totalTextHeight += line.fontSize;
@@ -62,7 +68,7 @@ abstract class Structure {
             }
         });
 
-        const pillWidth = maxTextWidth + (paddingH * 2);
+        const pillWidth = maxContentWidth + (paddingH * 2);
         const pillHeight = totalTextHeight + (paddingV * 2);
         const cornerRadius = pillHeight * 0.2;
 
@@ -93,15 +99,50 @@ abstract class Structure {
         }
         ctx.fill();
 
-        ctx.fillStyle = "rgba(255, 255, 255, 1)";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
+        if (options.borderColor) {
+            ctx.strokeStyle = options.borderColor;
+            ctx.lineWidth = baseFontSize * 0.2;
+            ctx.stroke();
+        }
 
         let currentTextY = rectY + paddingV;
 
         lines.forEach((line) => {
-            ctx.font = `${line.fontSize}px "IBM Plex Sans", "Helvetica", sans-serif`;
-            ctx.fillText(line.text, x, currentTextY);
+            if (line.prefixCounter !== undefined) {
+                const counterDiameter = line.fontSize * 1.15;
+                const counterGap = line.fontSize * 0.35;
+                ctx.font = `${line.fontSize}px "IBM Plex Sans", "Helvetica", sans-serif`;
+                const textWidth = ctx.measureText(line.text).width;
+                const totalContentWidth = counterDiameter + counterGap + textWidth;
+                const contentStartX = x - totalContentWidth / 2;
+                const circleX = contentStartX + counterDiameter / 2;
+                const circleY = currentTextY + line.fontSize / 2;
+
+                ctx.save();
+                ctx.fillStyle = lightPalette.lightBlue;
+                ctx.beginPath();
+                ctx.arc(circleX, circleY, counterDiameter / 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = "rgba(255, 255, 255, 1)";
+                ctx.font = `bold ${line.fontSize * 0.7}px "IBM Plex Sans", "Helvetica", sans-serif`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(String(line.prefixCounter), circleX, circleY);
+                ctx.restore();
+
+                ctx.fillStyle = "rgba(255, 255, 255, 1)";
+                ctx.font = `${line.fontSize}px "IBM Plex Sans", "Helvetica", sans-serif`;
+                ctx.textAlign = "left";
+                ctx.textBaseline = "top";
+                ctx.fillText(line.text, contentStartX + counterDiameter + counterGap, currentTextY);
+            } else {
+                ctx.fillStyle = "rgba(255, 255, 255, 1)";
+                ctx.font = `${line.fontSize}px "IBM Plex Sans", "Helvetica", sans-serif`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "top";
+                ctx.fillText(line.text, x, currentTextY);
+            }
             currentTextY += line.fontSize + lineSpacing;
         });
     }

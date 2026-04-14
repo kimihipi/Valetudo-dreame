@@ -215,17 +215,44 @@ class DreameMovaP10ProUltraValetudoRobot extends DreameGen4ValetudoRobot {
             this.registerCapability(new capability({robot: this}));
         });
 
+        this.registerCapability(new capabilities.DreameMopDockMopCleaningFrequencyControlCapability({
+            robot: this,
+            presets: [
+                new ValetudoSelectionPreset({name: "every_segment", value: 0}),
+                new ValetudoSelectionPreset({name: "every_5_m2", value: 5}),
+                new ValetudoSelectionPreset({name: "every_10_m2", value: 10}),
+                new ValetudoSelectionPreset({name: "every_15_m2", value: 15}),
+                new ValetudoSelectionPreset({name: "every_20_m2", value: 20}),
+                new ValetudoSelectionPreset({name: "every_25_m2", value: 25}),
+            ]
+        }));
+
+        this.registerCapability(new capabilities.DreameMopDockDetergentControlCapability({
+            robot: this,
+            presets: [
+                new ValetudoSelectionPreset({name: "on", value: 1}),
+                new ValetudoSelectionPreset({name: "off", value: 0}),
+                new ValetudoSelectionPreset({name: "missing_cartridge", value: 2}),
+            ]
+        }));
+
+        this.registerCapability(new capabilities.DreameMopDockMopWashIntensityControlCapability({
+            robot: this,
+            presets: [
+                new ValetudoSelectionPreset({name: "low", value: 0}),
+                new ValetudoSelectionPreset({name: "medium", value: 1}),
+                new ValetudoSelectionPreset({name: "high", value: 2}),
+            ]
+        }));
+
         this.registerCapability(new QuirksCapability({
             robot: this,
             quirks: [
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_MODE_SENSITIVITY),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_MOP_CLEANING_FREQUENCY),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_DETERGENT),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WET_DRY_SWITCH),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_AUTO_REPAIR_TRIGGER),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.DRAIN_INTERNAL_WATER_TANK),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_DETECTION_AUTO_DEEP_CLEANING),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WATER_USAGE),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.SIDE_BRUSH_EXTEND),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.EDGE_EXTENSION_FREQUENCY),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_CLEANING_PROCESS_TRIGGER),
@@ -298,6 +325,14 @@ class DreameMovaP10ProUltraValetudoRobot extends DreameGen4ValetudoRobot {
             {
                 siid: DreameGen2ValetudoRobot.MIOT_SERVICES.MISC_STATES.SIID,
                 piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MISC_STATES.PROPERTIES.DOCK_DETERGENT_ATTACHMENT.PIID
+            },
+            {
+                siid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.SIID,
+                piid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DOCK_DETERGENT.PIID
+            },
+            {
+                siid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.SIID,
+                piid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DOCK_WATER_USAGE.PIID
             }
         ];
     }

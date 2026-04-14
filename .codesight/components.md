@@ -1,0 +1,112 @@
+# Components
+
+- **ANIMATION_SPEED** — `frontend/src/App.tsx`
+- **Root** — `frontend/src/AppRouter.tsx`
+- **Context** — `frontend/src/CapabilitiesProvider.tsx`
+- **ScrollableGrid** — `frontend/src/HomePage.tsx`
+- **MainApp** — props: paletteMode, setPaletteMode — `frontend/src/MainApp.tsx`
+- **SCAN_RESULT_BATCH_SIZE** — props: signal — `frontend/src/ProvisioningPage.tsx`
+- **RouterChoiceStageTwo** — `frontend/src/RouterChoice.tsx`
+- **IterationsIcon** — props: iterationCount — `frontend/src/assets/icon_components/IterationsIcon.tsx`
+- **ConfirmationDialog** — props: title, text, open, onClose, onAccept — `frontend/src/components/ConfirmationDialog.tsx`
+- **FanSpeedIcon** — `frontend/src/components/CustomIcons.tsx`
+- **TopRightRefreshButton** — props: title, icon, helpText, onRefreshClick, isRefreshing — `frontend/src/components/DetailPageHeaderRow.tsx`
+- **FullHeightGrid** — `frontend/src/components/FullHeightGrid.tsx`
+- **StyledDialog** — `frontend/src/components/HelpDialog.tsx`
+- **InfoBox** — `frontend/src/components/InfoBox.tsx`
+- **IntegrationHelpDialog** — `frontend/src/components/IntegrationHelpDialog.tsx`
+- **LoadingFade** — props: in, transitionDelay, size — `frontend/src/components/LoadingFade.tsx`
+- **LogViewer** — props: logLines, style, className — `frontend/src/components/LogViewer.tsx`
+- **ActualObstacleImage** — `frontend/src/components/ObstacleImage.tsx`
+- **PaperContainer** — `frontend/src/components/PaperContainer.tsx`
+- **RatioBar** — props: style, total, totalLabel, partitions, hideLegend, noneLegendLabel — `frontend/src/components/RatioBar.tsx`
+- **TopRightIconButton** — props: title, onReload, reloadButton, loading, divider, boxShadow, helpText — `frontend/src/components/ReloadableCard.tsx`
+- **SelectItem** — props: size, options, currentValue, setValue, disabled, loadingOptions, loadError — `frontend/src/components/SelectItem.tsx`
+- **TextInformationGrid** — props: items — `frontend/src/components/TextInformationGrid.tsx`
+- **ValetudoAppBar** — `frontend/src/components/ValetudoAppBar.tsx`
+- **ValetudoBounce** — props: onClose — `frontend/src/components/ValetudoBounce.tsx`
+- **EventRow** — props: event — `frontend/src/components/ValetudoEventControls.tsx`
+- **ValetudoEvents** — `frontend/src/components/ValetudoEvents.tsx`
+- **ValetudoSplash** — `frontend/src/components/ValetudoSplash.tsx`
+- **FullCleanupButtonItem** — `frontend/src/components/WelcomeDialog.tsx`
+- **DURATION** — props: facing — `frontend/src/components/Woodcock.tsx`
+- **ButtonListMenuItem** — props: primaryLabel, secondaryLabel, icon, buttonLabel, buttonColor, confirmationDialog, action, actionLoading — `frontend/src/components/list_menu/ButtonListMenuItem.tsx`
+- **LinkListMenuItem** — props: url, primaryLabel, secondaryLabel, icon — `frontend/src/components/list_menu/LinkListMenuItem.tsx`
+- **ListMenu** — props: primaryHeader, secondaryHeader, listItems, helpText, style — `frontend/src/components/list_menu/ListMenu.tsx`
+- **SelectListMenuItem** — props: options, currentValue, setValue, disabled, loadingOptions, loadError, primaryLabel, secondaryLabel, icon — `frontend/src/components/list_menu/SelectListMenuItem.tsx`
+- **SpacerListMenuItem** — props: halfHeight — `frontend/src/components/list_menu/SpacerListMenuItem.tsx`
+- **SubHeaderListMenuItem** — props: primaryLabel, icon — `frontend/src/components/list_menu/SubHeaderListMenuItem.tsx`
+- **TextEditModalListMenuItem** — props: primaryLabel, secondaryLabel, icon, dialog, value, isLoading — `frontend/src/components/list_menu/TextEditModalListMenuItem.tsx`
+- **ToggleSwitchListMenuItem** — props: value, setValue, disabled, loadError, primaryLabel, secondaryLabel, icon — `frontend/src/components/list_menu/ToggleSwitchListMenuItem.tsx`
+- **Attachments** — `frontend/src/controls/Attachments.tsx`
+- **CameraStream** — `frontend/src/controls/CameraStream.tsx`
+- **ControlsBody** — `frontend/src/controls/ControlsBody.tsx`
+- **ControlsCard** — props: icon, title, subtitle, pending, isLoading, headerExtra — `frontend/src/controls/ControlsCard.tsx`
+- **ControlsInlineCard** — props: icon, title, isLoading — `frontend/src/controls/ControlsInlineCard.tsx`
+- **CurrentStatistics** — `frontend/src/controls/CurrentStatistics.tsx`
+- **DockComponentTile** — props: label, icon, statusText, statusColor — `frontend/src/controls/Dock.tsx`
+- **MobileControls** — `frontend/src/controls/MobileControls.tsx`
+- **MultipleMap** — `frontend/src/controls/MultipleMap.tsx`
+- **StyledIcon** — props: capability, label, icon, noPaper, iconColor — `frontend/src/controls/PresetSelection.tsx`
+- **ActiveStates** — props: mop — `frontend/src/controls/RobotStatus.tsx`
+- **MapContainer** — props: rawMap, paletteMode, trackSegmentSelectionOrder — `frontend/src/map/BaseMap.tsx`
+- **Container** — `frontend/src/map/EditMapPage.tsx`
+- **StatsOverlayWidget** — props: onClick — `frontend/src/map/LiveMap.tsx`
+- **NoTransition** — `frontend/src/map/LiveMapModeSwitcher.tsx`
+- **LiveMapModeSwitcher** — props: supportedModes, currentMode, setMode — `frontend/src/map/LiveMapModeSwitcher.tsx`
+- **Container** — `frontend/src/map/LiveMapPage.tsx`
+- **ModeSwitcher** — props: availableModes, currentMode, setMode — `frontend/src/map/MapEditorPage.tsx`
+- **Container** — `frontend/src/map/RobotCoverageMapPage.tsx`
+- **SegmentCleanOrderContent** — `frontend/src/map/SegmentCleanOrder.tsx`
+- **ActionButton** — `frontend/src/map/Styled.tsx`
+- **HelpButtonContainer** — `frontend/src/map/actions/edit_map_actions/HelpAction.tsx`
+- **MapToolbarContainer** — `frontend/src/map/actions/edit_map_actions/MapToolbar.tsx`
+- **SegmentRenameDialog** — props: open, onClose, currentName, onRename — `frontend/src/map/actions/edit_map_actions/SegmentActions.tsx`
+- **VirtualRestrictionActions** — `frontend/src/map/actions/edit_map_actions/VirtualRestrictionActions.tsx`
+- **VirtualThresholdActions** — `frontend/src/map/actions/edit_map_actions/VirtualThresholdActions.tsx`
+- **GoToActions** — `frontend/src/map/actions/live_map_actions/GoToActions.tsx`
+- **SegmentActions** — `frontend/src/map/actions/live_map_actions/SegmentActions.tsx`
+- **ZoneActions** — `frontend/src/map/actions/live_map_actions/ZoneActions.tsx`
+- **OptionsRouter** — `frontend/src/options/ConnectivityOptionsRouter.tsx`
+- **MappingPassButtonItem** — `frontend/src/options/MapManagement.tsx`
+- **PersistentMapSwitchListItem** — `frontend/src/options/MapManagement.tsx`
+- **OptionsRouter** — `frontend/src/options/MapManagementOptionsRouter.tsx`
+- **OptionsRouter** — `frontend/src/options/OptionsRouter.tsx`
+- **OptionsRouter** — `frontend/src/options/RobotOptionsRouter.tsx`
+- **ActivationListMenuItem** — `frontend/src/options/ValetudoActivation.tsx`
+- **ConfigRestoreButtonListMenuItem** — `frontend/src/options/ValetudoOptions.tsx`
+- **AuthSettings** — `frontend/src/options/connectivity/AuthSettingsPage.tsx`
+- **ConnectivityOptions** — `frontend/src/options/connectivity/ConnectivityOptions.tsx`
+- **MQTTStatusComponent** — props: status — `frontend/src/options/connectivity/MQTTConnectivityPage.tsx`
+- **MQTTStatusComponent** — props: status — `frontend/src/options/connectivity/MatterConnectivityPage.tsx`
+- **NTPClientStatusComponent** — props: status — `frontend/src/options/connectivity/NTPConnectivityPage.tsx`
+- **NetworkAdvertisementSettings** — `frontend/src/options/connectivity/NetworkAdvertisementSettingsPage.tsx`
+- **WifiStatusComponent** — props: status — `frontend/src/options/connectivity/WifiConnectivityPage.tsx`
+- **ConsumableButtonListMenuItem** — props: consumable — `frontend/src/robot/Consumables.tsx`
+- **ManualControlEnableButton** — `frontend/src/robot/ManualControl.tsx`
+- **LocateButtonListMenuItem** — `frontend/src/robot/RobotOptions.tsx`
+- **RobotRouter** — `frontend/src/robot/RobotRouter.tsx`
+- **TotalStatisticsInternal** — `frontend/src/robot/TotalStatistics.tsx`
+- **CapabilityContainer** — `frontend/src/robot/capabilities/CapabilityLayout.tsx`
+- **CapabilityItem** — props: title, onReload, loading, helpText — `frontend/src/robot/capabilities/CapabilityLayout.tsx`
+- **DoNotDisturbControl** — `frontend/src/robot/capabilities/DoNotDisturb.tsx`
+- **PlayAudioControl** — `frontend/src/robot/capabilities/PlayAudio.tsx`
+- **QuirkControl** — `frontend/src/robot/capabilities/Quirks.tsx`
+- **SpeakerControl** — `frontend/src/robot/capabilities/Speaker.tsx`
+- **SystemRobotOptions** — `frontend/src/robot/capabilities/SystemRobotOptions.tsx`
+- **VoicePackControl** — `frontend/src/robot/capabilities/VoicePackManagement.tsx`
+- **About** — `frontend/src/valetudo/About.tsx`
+- **LinkRenderer** — `frontend/src/valetudo/Help.tsx`
+- **Search** — `frontend/src/valetudo/Log.tsx`
+- **SystemRuntimeInfo** — `frontend/src/valetudo/SystemInformation.tsx`
+- **Updater** — props: state — `frontend/src/valetudo/Updater.tsx`
+- **ValetudoRouter** — `frontend/src/valetudo/ValetudoRouter.tsx`
+- **ActionFallbackControls** — `frontend/src/valetudo/timers/ActionControls.tsx`
+- **FullCleanupActionControls** — `frontend/src/valetudo/timers/ActionControls.tsx`
+- **SegmentCleanupActionControls** — props: disabled, params, setParams — `frontend/src/valetudo/timers/ActionControls.tsx`
+- **FanSpeedControlPreActionControl** — props: wasEnabled, params, setParams — `frontend/src/valetudo/timers/PreActionControls.tsx`
+- **WaterUsageControlPreActionControl** — props: wasEnabled, params, setParams — `frontend/src/valetudo/timers/PreActionControls.tsx`
+- **OperationModeControlPreActionControl** — props: wasEnabled, params, setParams — `frontend/src/valetudo/timers/PreActionControls.tsx`
+- **TimerCard** — props: timer, timerProperties, onSave, onDelete, onExecNow — `frontend/src/valetudo/timers/TimerCard.tsx`
+- **TimerEditDialog** — props: timerInLocalTime, timerProperties, onSave, onCancel — `frontend/src/valetudo/timers/TimerEditDialog.tsx`
+- **Timers** — `frontend/src/valetudo/timers/Timers.tsx`

@@ -91,7 +91,7 @@ class ValetudoMap extends SerializableEntity { //TODO: Current, Historic, Etc.
     getSegments() {
         return this.layers
             .filter(e => {
-                return e.type === MapLayer.TYPE.SEGMENT;
+                return e.type === MapLayer.TYPE.SEGMENT && !e.metaData.hidden;
             })
             .map(e => {
                 let id = e.metaData.segmentId;

@@ -77,6 +77,7 @@ class DreameMapParser {
         if (buf.length >= HEADER_SIZE + parsedHeader.width * parsedHeader.height) {
             const imageData = buf.subarray(HEADER_SIZE, HEADER_SIZE + parsedHeader.width * parsedHeader.height);
             const activeSegmentIds = [];
+            const deletedSegmentIds = [];
             const segmentNames = {};
             const segmentCleanOrder = {};
             const segmentMaterials = {};
@@ -88,9 +89,17 @@ class DreameMapParser {
                 Logger.warn("Error while parsing additional map data", e);
             }
 
+            Logger.debug("DreameMapParser additionalData", JSON.stringify(additionalData, null, 2));
+
             if (additionalData.sa && Array.isArray(additionalData.sa)) {
                 additionalData.sa.forEach(sa => {
                     activeSegmentIds.push(sa[0].toString());
+                });
+            }
+
+            if (additionalData.delsr && Array.isArray(additionalData.delsr)) {
+                additionalData.delsr.forEach(id => {
+                    deletedSegmentIds.push(id.toString());
                 });
             }
 
@@ -134,7 +143,7 @@ class DreameMapParser {
                 });
             }
 
-            layers.push(...DreameMapParser.PARSE_IMAGE(parsedHeader, activeSegmentIds, segmentNames, segmentCleanOrder, segmentMaterials, imageData, mapType));
+            layers.push(...DreameMapParser.PARSE_IMAGE(parsedHeader, activeSegmentIds, deletedSegmentIds, segmentNames, segmentCleanOrder, segmentMaterials, imageData, mapType));
 
             /**
              * Contains saved map data such as virtual restrictions as well as segments
@@ -163,11 +172,17 @@ class DreameMapParser {
                             if (
                                 e.type === mapEntities.PolygonMapEntity.TYPE.NO_GO_AREA ||
                                 e.type === mapEntities.PolygonMapEntity.TYPE.NO_MOP_AREA ||
-                                e.type === mapEntities.PolygonMapEntity.TYPE.CARPET
+                                e.type === mapEntities.PolygonMapEntity.TYPE.CARPET ||
+                                e.type === mapEntities.PolygonMapEntity.TYPE.RAMP
                             ) {
                                 entities.push(e);
                             }
-                        } else if (e instanceof mapEntities.LineMapEntity && e.type === mapEntities.LineMapEntity.TYPE.VIRTUAL_WALL) {
+                        } else if (e instanceof mapEntities.LineMapEntity && (
+                            e.type === mapEntities.LineMapEntity.TYPE.VIRTUAL_WALL ||
+                            e.type === mapEntities.LineMapEntity.TYPE.PASSABLE_THRESHOLD ||
+                            e.type === mapEntities.LineMapEntity.TYPE.IMPASSABLE_THRESHOLD ||
+                            e.type === mapEntities.LineMapEntity.TYPE.CURTAIN
+                        )) {
                             entities.push(e);
                         }
                     });
@@ -282,6 +297,61 @@ class DreameMapParser {
                             parsedHeader,
                             additionalData.vw.line,
                             mapEntities.LineMapEntity.TYPE.VIRTUAL_WALL
+                        )
+                    );
+                }
+            }
+
+            if (additionalData.vws) {
+                if (Array.isArray(additionalData.vws.vwsl)) {
+                    entities.push(
+                        ...DreameMapParser.PARSE_LINES(
+                            parsedHeader,
+                            additionalData.vws.vwsl,
+                            mapEntities.LineMapEntity.TYPE.PASSABLE_THRESHOLD
+                        )
+                    );
+                }
+
+                if (Array.isArray(additionalData.vws.npthrsd)) {
+                    entities.push(
+                        ...DreameMapParser.PARSE_LINES(
+                            parsedHeader,
+                            additionalData.vws.npthrsd,
+                            mapEntities.LineMapEntity.TYPE.IMPASSABLE_THRESHOLD
+                        )
+                    );
+                }
+
+                if (Array.isArray(additionalData.vws.ramp)) {
+                    additionalData.vws.ramp.forEach(a => {
+                        const pA = DreameMapParser.CONVERT_TO_VALETUDO_COORDINATES(a[0], a[1]);
+                        const pC = DreameMapParser.CONVERT_TO_VALETUDO_COORDINATES(a[2], a[3]);
+
+                        const xCoords = [pA.x, pC.x].sort((x1, x2) => x1 - x2);
+                        const yCoords = [pA.y, pC.y].sort((y1, y2) => y1 - y2);
+
+                        entities.push(new mapEntities.PolygonMapEntity({
+                            type: mapEntities.PolygonMapEntity.TYPE.RAMP,
+                            points: [
+                                xCoords[0], yCoords[0],
+                                xCoords[1], yCoords[0],
+                                xCoords[1], yCoords[1],
+                                xCoords[0], yCoords[1],
+                            ],
+                            metaData: {direction: a[4]}
+                        }));
+                    });
+                }
+            }
+
+            if (additionalData.ct) {
+                if (Array.isArray(additionalData.ct.line)) {
+                    entities.push(
+                        ...DreameMapParser.PARSE_LINES(
+                            parsedHeader,
+                            additionalData.ct.line,
+                            mapEntities.LineMapEntity.TYPE.CURTAIN
                         )
                     );
                 }
@@ -465,7 +535,7 @@ class DreameMapParser {
         return parsedHeader;
     }
 
-    static PARSE_IMAGE(parsedHeader, activeSegmentIds, segmentNames, segmentCleanOrder, segmentMaterials, buf, mapType) {
+    static PARSE_IMAGE(parsedHeader, activeSegmentIds, deletedSegmentIds, segmentNames, segmentCleanOrder, segmentMaterials, buf, mapType) {
         const floorPixels = [];
         const wallPixels = [];
         const segments = {};
@@ -562,7 +632,41 @@ class DreameMapParser {
             );
         }
 
-        if (wallPixels.length > 0) {
+        if (deletedSegmentIds.length > 0) {
+            // Build a set of visible pixel coordinates to filter out walls that only
+            // border hidden segments.
+            const visiblePixelSet = new Set();
+            Object.keys(segments).forEach(segmentId => {
+                if (!deletedSegmentIds.includes(segmentId)) {
+                    segments[segmentId].forEach(([x, y]) => {
+                        visiblePixelSet.add(`${x},${y}`);
+                    });
+                }
+            });
+            floorPixels.forEach(([x, y]) => visiblePixelSet.add(`${x},${y}`));
+
+            const filteredWallPixels = wallPixels.filter(([x, y]) => {
+                return (
+                    visiblePixelSet.has(`${x-1},${y}`) ||
+                    visiblePixelSet.has(`${x+1},${y}`) ||
+                    visiblePixelSet.has(`${x},${y-1}`) ||
+                    visiblePixelSet.has(`${x},${y+1}`) ||
+                    visiblePixelSet.has(`${x-1},${y-1}`) ||
+                    visiblePixelSet.has(`${x+1},${y-1}`) ||
+                    visiblePixelSet.has(`${x-1},${y+1}`) ||
+                    visiblePixelSet.has(`${x+1},${y+1}`)
+                );
+            });
+
+            if (filteredWallPixels.length > 0) {
+                layers.push(
+                    new mapEntities.MapLayer({
+                        pixels: filteredWallPixels.sort(mapEntities.MapLayer.COORDINATE_TUPLE_SORT).flat(),
+                        type: mapEntities.MapLayer.TYPE.WALL
+                    })
+                );
+            }
+        } else if (wallPixels.length > 0) {
             layers.push(
                 new mapEntities.MapLayer({
                     pixels: wallPixels.sort(mapEntities.MapLayer.COORDINATE_TUPLE_SORT).flat(),
@@ -575,7 +679,8 @@ class DreameMapParser {
             const metaData = {
                 segmentId: segmentId,
                 active: activeSegmentIds.includes(segmentId),
-                source: mapType
+                source: mapType,
+                hidden: deletedSegmentIds.includes(segmentId)
             };
 
             if (segmentNames[segmentId]) {

@@ -1,65 +1,45 @@
 import {Route} from "react-router";
 import {Navigate, Routes} from "react-router-dom";
 import MapManagement from "./MapManagement";
-import EditMapPage from "../map/EditMapPage";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import {Capability} from "../api";
 import React from "react";
 import RobotCoverageMapPage from "../map/RobotCoverageMapPage";
-import SegmentCleanOrderPage from "../map/SegmentCleanOrder";
+import MapEditorPage from "../map/MapEditorPage";
 
 const OptionsRouter = (): React.ReactElement => {
     const [
-        combinedVirtualRestrictionsCapabilitySupported,
-
         mapSegmentEditCapabilitySupported,
         mapSegmentRenameCapabilitySupported,
-
-        mapSegmentCleanOrderCapabilitySupported
+        mapSegmentCleanOrderCapabilitySupported,
+        combinedVirtualRestrictionsCapabilitySupported,
+        combinedVirtualThresholdsCapabilitySupported,
     ] = useCapabilitiesSupported(
-        Capability.CombinedVirtualRestrictions,
-
         Capability.MapSegmentEdit,
         Capability.MapSegmentRename,
-
-        Capability.MapSegmentCleanOrder
+        Capability.MapSegmentCleanOrder,
+        Capability.CombinedVirtualRestrictions,
+        Capability.CombinedVirtualThresholds,
     );
+
+    const mapEditorSupported =
+        mapSegmentEditCapabilitySupported ||
+        mapSegmentRenameCapabilitySupported ||
+        mapSegmentCleanOrderCapabilitySupported ||
+        combinedVirtualRestrictionsCapabilitySupported ||
+        combinedVirtualThresholdsCapabilitySupported;
 
     return (
         <Routes>
             <Route path={""} element={<MapManagement />}/>
 
-            {
-                (mapSegmentEditCapabilitySupported || mapSegmentRenameCapabilitySupported) &&
-                <Route
-                    path={"segments"}
-                    element={
-                        <EditMapPage
-                            mode={"segments"}
-                        />
-                    }
-                />
-            }
-            {
-                mapSegmentCleanOrderCapabilitySupported &&
-                <Route
-                    path={"segment_clean_order"}
-                    element={
-                        <SegmentCleanOrderPage />
-                    }
-                />
-            }
-            {
-                combinedVirtualRestrictionsCapabilitySupported &&
-                <Route
-                    path={"virtual_restrictions"}
-                    element={
-                        <EditMapPage
-                            mode={"virtual_restrictions"}
-                        />
-                    }
-                />
-            }
+            {mapEditorSupported && (
+                <Route path={"segments"} element={<MapEditorPage />}/>
+            )}
+
+            {/* Redirect old routes to the unified page */}
+            <Route path={"segment_clean_order"} element={<Navigate to="../segments" replace />}/>
+            <Route path={"virtual_restrictions"} element={<Navigate to="../segments" replace />}/>
 
             <Route path={"robot_coverage"} element={<RobotCoverageMapPage/>}/>
 

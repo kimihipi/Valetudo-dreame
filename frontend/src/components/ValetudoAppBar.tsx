@@ -18,28 +18,23 @@ import {
 import React from "react";
 import {
     AccessTime as TimeIcon,
-    Equalizer as StatisticsIcon,
     DarkMode as DarkModeIcon,
     Map as MapManagementIcon,
     Home as HomeIcon,
     Article as LogIcon,
     Menu as MenuIcon,
     ArrowBack as BackIcon,
-    PendingActions as PendingActionsIcon,
     Hub as ConnectivityIcon,
-    SystemUpdateAlt as UpdaterIcon,
-    SettingsRemote as SettingsRemoteIcon,
     GitHub as GithubIcon,
     Favorite as DonateIcon,
     Wysiwyg as SystemInformationIcon,
     Info as AboutIcon,
     Help as HelpIcon,
-    SmartToy as AiIcon,
     SvgIconComponent
 } from "@mui/icons-material";
 import {Link, useLocation} from "react-router-dom";
 import ValetudoEvents from "./ValetudoEvents";
-import {Capability} from "../api";
+import {Capability, useValetudoCustomizationsQuery} from "../api";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import {
     RobotMonochromeIcon,
@@ -86,52 +81,7 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
         menuIcon: HomeIcon,
         menuText: "Home"
     },
-    {
-        kind: "Subheader",
-        title: "Robot",
-        requiredCapabilities: {
-            capabilities: [
-                Capability.ConsumableMonitoring,
-                Capability.ManualControl,
-                Capability.HighResolutionManualControl,
-                Capability.TotalStatistics
-            ],
-            type: "anyof"
-        }
-    },
-    {
-        kind: "MenuEntry",
-        route: "/robot/consumables",
-        title: "Consumables",
-        menuIcon: PendingActionsIcon,
-        menuText: "Consumables",
-        requiredCapabilities: {
-            capabilities: [Capability.ConsumableMonitoring],
-            type: "allof"
-        }
-    },
-    {
-        kind: "MenuEntry",
-        route: "/robot/manual_control",
-        title: "Manual control",
-        menuIcon: SettingsRemoteIcon,
-        menuText: "Manual control",
-        requiredCapabilities: {
-            capabilities: [Capability.ManualControl, Capability.HighResolutionManualControl],
-            type: "anyof"
-        }
-    },
-    {
-        kind: "MenuEntry",
-        route: "/robot/total_statistics",
-        title: "Statistics",
-        menuIcon: StatisticsIcon,
-        menuText: "Statistics",
-        requiredCapabilities: {
-            capabilities: [Capability.TotalStatistics],
-            type: "allof"
-        }
-    },
+
     {
         kind: "Subheader",
         title: "Options"
@@ -159,19 +109,7 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
     {
         kind: "MenuSubEntry",
         route: "/options/map_management/segments",
-        title: "Segment Management",
-        parentRoute: "/options/map_management"
-    },
-    {
-        kind: "MenuSubEntry",
-        route: "/options/map_management/segment_clean_order",
-        title: "Segment Clean Order",
-        parentRoute: "/options/map_management"
-    },
-    {
-        kind: "MenuSubEntry",
-        route: "/options/map_management/virtual_restrictions",
-        title: "Virtual Restriction Management",
+        title: "Map Editor",
         parentRoute: "/options/map_management"
     },
     {
@@ -263,24 +201,10 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
     },
     {
         kind: "MenuEntry",
-        route: "/valetudo/updater",
-        title: "Updater",
-        menuIcon: UpdaterIcon,
-        menuText: "Updater"
-    },
-    {
-        kind: "MenuEntry",
         route: "/valetudo/system_information",
         title: "System Information",
         menuIcon: SystemInformationIcon,
         menuText: "System Information"
-    },
-    {
-        kind: "MenuEntry",
-        route: "/valetudo/ai",
-        title: "AI Assistant",
-        menuIcon: AiIcon,
-        menuText: "AI Assistant"
     },
     {
         kind: "MenuEntry",
@@ -305,6 +229,7 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
     const [drawerOpen, setDrawerOpen] = React.useState<boolean>(false);
     const currentLocation = useLocation()?.pathname;
     const robotCapabilities = useCapabilitiesSupported(...Object.values(Capability));
+    const {data: customizations} = useValetudoCustomizationsQuery();
 
     //@ts-ignore
     const currentMenuEntry = menuTree.find(element => element.route === currentLocation) ?? menuTree[0];
@@ -329,8 +254,12 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
             document.title = "Valetudo+";
         }
 
+        if (currentMenuEntry.kind !== "Subheader" && currentMenuEntry.route === "/" && customizations?.friendlyName) {
+            return customizations.friendlyName;
+        }
+
         return currentMenuEntry.title;
-    }, [currentLocation, currentMenuEntry]);
+    }, [currentLocation, currentMenuEntry, customizations]);
 
     const drawerContent = React.useMemo(() => {
         return (

@@ -38,6 +38,42 @@ class DreameX40MasterValetudoRobot extends DreameGen4ValetudoRobot {
             )
         );
 
+        this.registerCapability(new capabilities.DreameCombinedVirtualThresholdsCapability({
+            robot: this,
+            miot_actions: {
+                map_edit: {
+                    siid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.SIID,
+                    aiid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.ACTIONS.EDIT.AIID
+                }
+            },
+            miot_properties: {
+                mapDetails: {
+                    piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.PROPERTIES.MAP_DETAILS.PIID
+                },
+                actionResult: {
+                    piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.PROPERTIES.ACTION_RESULT.PIID
+                }
+            }
+        }));
+
+        this.registerCapability(new capabilities.DreameCurtainsCapability({
+            robot: this,
+            miot_actions: {
+                map_edit: {
+                    siid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.SIID,
+                    aiid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.ACTIONS.EDIT.AIID
+                }
+            },
+            miot_properties: {
+                mapDetails: {
+                    piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.PROPERTIES.MAP_DETAILS.PIID
+                },
+                actionResult: {
+                    piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.PROPERTIES.ACTION_RESULT.PIID
+                }
+            }
+        }));
+
         this.registerCapability(new capabilities.DreameMapSegmentationCapability({
             robot: this,
             miot_actions: {
@@ -279,6 +315,35 @@ class DreameX40MasterValetudoRobot extends DreameGen4ValetudoRobot {
             ]
         }));
 
+        this.registerCapability(new capabilities.DreameMapSegmentHideCapability({
+            robot: this,
+            miot_actions: {
+                map_edit: {
+                    siid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.SIID,
+                    aiid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.ACTIONS.EDIT.AIID
+                }
+            },
+            miot_properties: {
+                mapDetails: {
+                    piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.PROPERTIES.MAP_DETAILS.PIID
+                },
+                actionResult: {
+                    piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.PROPERTIES.ACTION_RESULT.PIID
+                }
+            }
+        }));
+
+        this.registerCapability(new capabilities.DreameMultipleMapControlCapability({
+            robot: this,
+            siid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.SIID,
+            piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.PROPERTIES.MULTI_MAP.PIID
+        }));
+
+        this.registerCapability(new capabilities.DreameIntelligentMapRecognitionControlCapability({
+            robot: this,
+            siid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.SIID,
+            piid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.PROPERTIES.INTELLIGENT_MAP_RECOGNITION.PIID
+        }));
 
         [
             capabilities.DreameCarpetModeControlCapability,
@@ -305,17 +370,48 @@ class DreameX40MasterValetudoRobot extends DreameGen4ValetudoRobot {
             this.registerCapability(new capability({robot: this}));
         });
 
+        this.registerCapability(new capabilities.DreameMopDockMopCleaningFrequencyControlCapability({
+            robot: this,
+            presets: [
+                new ValetudoSelectionPreset({name: "every_segment", value: 0}),
+                new ValetudoSelectionPreset({name: "every_5_m2", value: 5}),
+                new ValetudoSelectionPreset({name: "every_10_m2", value: 10}),
+                new ValetudoSelectionPreset({name: "every_15_m2", value: 15}),
+                new ValetudoSelectionPreset({name: "every_20_m2", value: 20}),
+                new ValetudoSelectionPreset({name: "every_25_m2", value: 25}),
+            ]
+        }));
+
+        this.registerCapability(new capabilities.DreameMopDockDetergentControlCapability({
+            robot: this,
+            presets: [
+                new ValetudoSelectionPreset({name: "on", value: 1}),
+                new ValetudoSelectionPreset({name: "off", value: 0}),
+                new ValetudoSelectionPreset({name: "missing_cartridge", value: 2}),
+            ]
+        }));
+
+        this.registerCapability(new capabilities.DreameMopDockMopWashIntensityControlCapability({
+            robot: this,
+            presets: [
+                new ValetudoSelectionPreset({name: "low", value: 0}),
+                new ValetudoSelectionPreset({name: "medium", value: 1}),
+                new ValetudoSelectionPreset({name: "high", value: 2}),
+            ]
+        }));
+
+        this.registerCapability(new capabilities.DreameSuctionBoostControlCapability({
+            robot: this
+        }));
+
         this.registerCapability(new QuirksCapability({
             robot: this,
             quirks: [
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_MODE_SENSITIVITY),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_MOP_CLEANING_FREQUENCY),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_DETERGENT),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WET_DRY_SWITCH),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_AUTO_REPAIR_TRIGGER),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.DRAIN_INTERNAL_WATER_TANK),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_DETECTION_AUTO_DEEP_CLEANING),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WATER_USAGE),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.SIDE_BRUSH_EXTEND),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.EDGE_EXTENSION_FREQUENCY),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.DETACH_MOPS),
@@ -323,9 +419,6 @@ class DreameX40MasterValetudoRobot extends DreameGen4ValetudoRobot {
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.WATER_HOOKUP_TEST_TRIGGER),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.SIDE_BRUSH_ON_CARPET),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_FIRST),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MULTI_MAP),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.INTELLIGENT_MAP_RECOGNITION),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.SUCTION_MAX),
             ]
         }));
 
@@ -392,6 +485,15 @@ class DreameX40MasterValetudoRobot extends DreameGen4ValetudoRobot {
             {
                 siid: DreameGen2ValetudoRobot.MIOT_SERVICES.MISC_STATES.SIID,
                 piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MISC_STATES.PROPERTIES.DOCK_DETERGENT_ATTACHMENT.PIID
+            },
+
+            {
+                siid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.SIID,
+                piid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DOCK_DETERGENT.PIID
+            },
+            {
+                siid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.SIID,
+                piid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DOCK_WATER_USAGE.PIID
             }
         ];
     }

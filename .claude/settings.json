@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -B 5 -A 20 \"type StatusState\\\\|interface StatusState\" /home/yoan/Valetudo-plus/frontend/src/api/*.ts)",
+      "Bash(grep -B 5 -A 5 \"type BasicControlCommand\" /home/yoan/Valetudo-plus/frontend/src/api/*.ts)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}

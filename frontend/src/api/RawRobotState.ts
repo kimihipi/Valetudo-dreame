@@ -41,12 +41,12 @@ export interface BatteryState {
     flag: "none" | "charged" | "charging" | "discharging";
 }
 
-export type PresetValue = "off" | "min" | "low" | "medium" | "high" | "max" | "turbo" | "custom" | "vacuum" | "mop" | "vacuum_and_mop" | "vacuum_then_mop";
+export type PresetValue = string;
 
 export interface PresetSelectionState {
     __class: RobotAttributeClass.PresetSelectionState;
     metaData: Record<string, never>;
-    type: "fan_speed" | "water_grade" | "operation_mode";
+    type: "fan_speed" | "water_grade" | "operation_mode" | "mop_dock_mop_cleaning_frequency" | "mop_dock_detergent" | "mop_dock_mop_wash_intensity";
     value: PresetValue;
     customValue?: number;
 }

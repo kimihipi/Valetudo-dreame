@@ -10,6 +10,10 @@ const ErrorStateValetudoEvent = require("../../valetudo_events/events/ErrorState
 const LinuxTools = require("../../utils/LinuxTools");
 const Logger = require("../../Logger");
 const MopAttachmentReminderValetudoEvent = require("../../valetudo_events/events/MopAttachmentReminderValetudoEvent");
+const MopDockDetergentControlCapability = require("../../core/capabilities/MopDockDetergentControlCapability");
+const MopDockMopCleaningFrequencyControlCapability = require("../../core/capabilities/MopDockMopCleaningFrequencyControlCapability");
+const MopDockMopWashIntensityControlCapability = require("../../core/capabilities/MopDockMopWashIntensityControlCapability");
+const SuctionBoostControlCapability = require("../../core/capabilities/SuctionBoostControlCapability");
 const ValetudoRestrictedZone = require("../../entities/core/ValetudoRestrictedZone");
 const ValetudoSelectionPreset = require("../../entities/core/ValetudoSelectionPreset");
 
@@ -552,6 +556,60 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
                                 type: stateAttrs.PresetSelectionStateAttribute.TYPE.OPERATION_MODE,
                                 value: matchingOperationMode
                             }));
+
+                            if (this.capabilities[MopDockMopCleaningFrequencyControlCapability.TYPE]) {
+                                const cap = this.capabilities[MopDockMopCleaningFrequencyControlCapability.TYPE];
+                                const matchingFrequency = cap.presets.find(p => p.value === deserializedValue.padCleaningFrequency);
+                                this.state.upsertFirstMatchingAttribute(new stateAttrs.PresetSelectionStateAttribute({
+                                    metaData: { rawValue: deserializedValue.padCleaningFrequency },
+                                    type: stateAttrs.PresetSelectionStateAttribute.TYPE.MOP_DOCK_MOP_CLEANING_FREQUENCY,
+                                    value: matchingFrequency?.name ?? undefined
+                                }));
+                            }
+                            break;
+                        }
+
+                        case MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DOCK_DETERGENT.PIID: {
+                            if (this.capabilities[MopDockDetergentControlCapability.TYPE]) {
+                                let detergentValue;
+                                if (elem.value === 3) {
+                                    // New cartridge installed sentinel: auto-reset to 1 and treat as "on"
+                                    this.miotHelper.writeProperty(
+                                        MIOT_SERVICES.VACUUM_2.SIID,
+                                        MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DOCK_DETERGENT.PIID,
+                                        1
+                                    ).catch(e => Logger.warn("Error while auto-resetting detergent sentinel", e));
+                                    detergentValue = "on";
+                                } else {
+                                    const cap = this.capabilities[MopDockDetergentControlCapability.TYPE];
+                                    const matched = cap.presets.find(p => p.value === elem.value);
+                                    detergentValue = matched?.name;
+                                }
+                                if (detergentValue !== undefined) {
+                                    this.state.upsertFirstMatchingAttribute(new stateAttrs.PresetSelectionStateAttribute({
+                                        metaData: { rawValue: elem.value },
+                                        type: stateAttrs.PresetSelectionStateAttribute.TYPE.MOP_DOCK_DETERGENT,
+                                        value: detergentValue
+                                    }));
+                                }
+                            }
+                            break;
+                        }
+
+                        case MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DOCK_WATER_USAGE.PIID: {
+                            if (this.capabilities[MopDockMopWashIntensityControlCapability.TYPE]) {
+                                const cap = this.capabilities[MopDockMopWashIntensityControlCapability.TYPE];
+                                const matched = cap.presets.find(p => p.value === elem.value);
+                                if (matched !== undefined) {
+                                    this.state.upsertFirstMatchingAttribute(new stateAttrs.PresetSelectionStateAttribute({
+                                        metaData: { rawValue: elem.value },
+                                        type: stateAttrs.PresetSelectionStateAttribute.TYPE.MOP_DOCK_MOP_WASH_INTENSITY,
+                                        value: matched.name
+                                    }));
+                                } else {
+                                    Logger.warn(`Received unknown mop dock wash intensity ${elem.value}`);
+                                }
+                            }
                             break;
                         }
 
@@ -595,6 +653,12 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
                                 });
                             }
 
+                            if (this.capabilities[SuctionBoostControlCapability.TYPE]) {
+                                // SuctionMax is read via capability.isEnabled() for state queries,
+                                // but we can also publish it here for consistency on poll
+                                // (optional, but helpful for MQTT subscribers)
+                            }
+
                             break;
                         }
                     }
@@ -602,12 +666,15 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
                 }
                 case MIOT_SERVICES.BATTERY.SIID: {
                     switch (elem.piid) {
-                        case MIOT_SERVICES.BATTERY.PROPERTIES.LEVEL.PIID:
+                        case MIOT_SERVICES.BATTERY.PROPERTIES.LEVEL.PIID: {
+                            const existingBattery = this.state.getFirstMatchingAttribute({attributeClass: stateAttrs.BatteryStateAttribute.name});
                             this.state.upsertFirstMatchingAttribute(new stateAttrs.BatteryStateAttribute({
-                                level: elem.value
+                                level: elem.value,
+                                flag: existingBattery?.flag ?? stateAttrs.BatteryStateAttribute.FLAG.NONE
                             }));
                             break;
-                        case MIOT_SERVICES.BATTERY.PROPERTIES.CHARGING.PIID:
+                        }
+                        case MIOT_SERVICES.BATTERY.PROPERTIES.CHARGING.PIID: {
                             /*
                                 1 = On Charger
                                 2 = Not on Charger
@@ -615,7 +682,19 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
                              */
                             this.ephemeralState.isCharging = elem.value === 1;
                             statusNeedsUpdate = true;
+
+                            const existingBattery = this.state.getFirstMatchingAttribute({attributeClass: stateAttrs.BatteryStateAttribute.name});
+                            if (existingBattery) {
+                                const chargingFlag = elem.value === 1
+                                    ? stateAttrs.BatteryStateAttribute.FLAG.CHARGING
+                                    : stateAttrs.BatteryStateAttribute.FLAG.DISCHARGING;
+                                this.state.upsertFirstMatchingAttribute(new stateAttrs.BatteryStateAttribute({
+                                    level: existingBattery.level,
+                                    flag: chargingFlag
+                                }));
+                            }
                             break;
+                        }
                     }
                     break;
                 }

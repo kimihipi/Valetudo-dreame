@@ -163,8 +163,13 @@ class MapNodeMqttHandle extends NodeMqttHandle {
         }
         const robot = this.robot;
 
+        const mapForMqtt = {
+            ...robot.state.map,
+            layers: robot.state.map.layers.filter(l => !l.metaData.hidden)
+        };
+
         const promise = new Promise((resolve, reject) => {
-            zlib.deflate(JSON.stringify(robot.state.map), (err, buf) => {
+            zlib.deflate(JSON.stringify(mapForMqtt), (err, buf) => {
                 if (err !== null) {
                     return reject(err);
                 }

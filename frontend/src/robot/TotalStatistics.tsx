@@ -271,7 +271,7 @@ const StatisticsAward: React.FunctionComponent<{ achievement?: StatisticsAchieve
     );
 };
 
-const TotalStatisticsInternal: React.FunctionComponent = (): React.ReactElement => {
+export const TotalStatisticsInternal: React.FunctionComponent = (): React.ReactElement => {
     const {
         data: totalStatisticsState,
         isPending: totalStatisticsPending,

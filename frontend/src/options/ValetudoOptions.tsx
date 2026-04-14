@@ -6,6 +6,8 @@ import {
 } from "@mui/icons-material";
 import {ListMenu} from "../components/list_menu/ListMenu";
 import PaperContainer from "../components/PaperContainer";
+import {Divider} from "@mui/material";
+import {UpdaterSection} from "../valetudo/Updater";
 import {
     UpdaterConfiguration,
     useRestoreDefaultConfigurationMutation,
@@ -18,8 +20,6 @@ import {ButtonListMenuItem} from "../components/list_menu/ButtonListMenuItem";
 import {SelectListMenuItem, SelectListMenuItemOption} from "../components/list_menu/SelectListMenuItem";
 import {SpacerListMenuItem} from "../components/list_menu/SpacerListMenuItem";
 import { TextEditModalListMenuItem } from "../components/list_menu/TextEditModalListMenuItem";
-import { ActivationListMenuItem } from "./ValetudoActivation";
-import {isAprilFools} from "../utils";
 
 
 const ConfigRestoreButtonListMenuItem = (): React.ReactElement => {
@@ -142,13 +142,6 @@ const ValetudoOptions = (): React.ReactElement => {
             <UpdateProviderSelectListMenuItem key={"updateProviderSelect"}/>,
         ];
 
-        if (isAprilFools) {
-            items.unshift(
-                <ActivationListMenuItem key={"activation"}/>,
-                <SpacerListMenuItem key={"spacer1"}/>
-            );
-        }
-
         return items;
     }, []);
 
@@ -159,6 +152,8 @@ const ValetudoOptions = (): React.ReactElement => {
                 secondaryHeader={"Tunables and actions provided by Valetudo"}
                 listItems={listItems}
             />
+            <Divider sx={{mt: 1}}/>
+            <UpdaterSection/>
         </PaperContainer>
     );
 };

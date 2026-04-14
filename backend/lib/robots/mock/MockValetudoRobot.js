@@ -42,6 +42,8 @@ class MockValetudoRobot extends ValetudoRobot {
         this.registerCapability(new capabilities.MockMapSegmentRenameCapability({robot: this}));
         this.registerCapability(new capabilities.MockMapSegmentCleanOrderCapability({robot: this}));
         this.registerCapability(new capabilities.MockCombinedVirtualRestrictionsCapability({robot: this}));
+        this.registerCapability(new capabilities.MockCombinedVirtualThresholdsCapability({robot: this}));
+        this.registerCapability(new capabilities.MockCurtainsCapability({robot: this}));
         this.registerCapability(new capabilities.MockMultipleMapCapability({robot: this}));
         this.registerCapability(new capabilities.MockMultipleMapDeleteCapability({robot: this}));
         this.registerCapability(new capabilities.MockMultipleMapRenameCapability({robot: this}));
@@ -59,7 +61,11 @@ class MockValetudoRobot extends ValetudoRobot {
         this.registerCapability(new capabilities.MockCollisionAvoidantNavigationControlCapability({robot: this}));
         this.registerCapability(new capabilities.MockCarpetSensorModeControlCapability({robot: this}));
         this.registerCapability(new capabilities.MockMopDockCleanManualTriggerCapability({robot: this}));
+        this.registerCapability(new capabilities.MockMopDockDetergentControlCapability({robot: this}));
         this.registerCapability(new capabilities.MockMopDockDryManualTriggerCapability({robot: this}));
+        this.registerCapability(new capabilities.MockMopDockMopCleaningFrequencyControlCapability({robot: this}));
+        this.registerCapability(new capabilities.MockMopDockMopWashIntensityControlCapability({robot: this}));
+        this.registerCapability(new capabilities.MockSuctionBoostControlCapability({robot: this}));
 
         // Raise events to make them visible in the UI
         options.valetudoEventStore.raise(new DustBinFullValetudoEvent({}));

@@ -29,6 +29,8 @@ import {
     fetchMQTTProperties,
     fetchNTPClientConfiguration,
     fetchNTPClientStatus,
+    fetchIntelligentMapRecognitionControlState,
+    fetchMultipleMapControlState,
     fetchObstacleAvoidanceControlState,
     fetchPersistentMapState,
     fetchPresetSelections,
@@ -56,6 +58,8 @@ import {
     sendCleanSegmentsCommand,
     sendCleanZonesCommand,
     sendCombinedVirtualRestrictionsUpdate,
+    sendCombinedVirtualThresholdsUpdate,
+    sendCurtainsUpdate,
     sendConsumableReset,
     sendDoNotDisturbConfiguration,
     sendGoToCommand,
@@ -67,8 +71,11 @@ import {
     sendMapReset,
     sendMQTTConfiguration,
     sendNTPClientConfiguration,
+    sendIntelligentMapRecognitionControlEnabled,
+    sendMultipleMapControlEnabled,
     sendObstacleAvoidanceControlState,
     sendPersistentMapEnabled,
+    sendSetHiddenSegmentsCommand,
     sendRenameSegmentCommand,
     sendSpeakerTestCommand,
     sendSpeakerVolume,
@@ -83,6 +90,7 @@ import {
     sendWifiConfiguration,
     subscribeToLogMessages,
     subscribeToMap,
+    subscribeToQuirks,
     subscribeToStateAttributes,
     updatePresetSelection,
     fetchValetudoInformation,
@@ -135,6 +143,8 @@ import {
     sendMopTwistControlState,
     fetchMopDockMopAutoDryingControlState,
     sendMopDockMopAutoDryingControlState,
+    fetchSuctionBoostControlState,
+    sendSuctionBoostControlState,
     fetchMapSegmentMaterialControlProperties,
     sendSetSegmentMaterialCommand,
     fetchFloorMaterialDirectionAwareNavigationControlState,
@@ -171,6 +181,8 @@ import {
     CarpetSensorMode,
     CleanRoute,
     CombinedVirtualRestrictionsUpdateRequestParameters,
+    CombinedVirtualThresholdsUpdateRequestParameters,
+    CurtainsUpdateRequestParameters,
     ConsumableId,
     DoNotDisturbConfiguration,
     HighResolutionManualControlInteraction,
@@ -279,6 +291,12 @@ enum QueryKey {
     MopDockMopDryingTimeControlProperties = "mop_dock_mop_drying_time_control_properties",
     AutoEmptyDockAutoEmptyDurationControl = "auto_empty_dock_auto_empty_duration_control",
     AutoEmptyDockAutoEmptyDurationControlProperties = "auto_empty_dock_auto_empty_duration_control_properties",
+    MopDockMopCleaningFrequencyControl = "mop_dock_mop_cleaning_frequency_control",
+    MopDockDetergentControl = "mop_dock_detergent_control",
+    MopDockMopWashIntensityControl = "mop_dock_mop_wash_intensity_control",
+    SuctionBoostControl = "suction_boost_control",
+    MultipleMapControl = "multiple_map_control",
+    IntelligentMapRecognitionControl = "intelligent_map_recognition_control",
 }
 
 const useOnCommandError = (capability: Capability | string): ((error: unknown) => void) => {
@@ -428,7 +446,7 @@ export function useRobotStatusQuery(select?: (status: StatusState) => any) {
 }
 
 export const usePresetSelectionsQuery = (
-    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl
+    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl
 ) => {
     return useQuery({
         queryKey: [QueryKey.PresetSelections, capability],
@@ -445,9 +463,12 @@ export const capabilityToPresetType: Record<Parameters<typeof usePresetSelection
         [Capability.FanSpeedControl]: "fan_speed",
         [Capability.WaterUsageControl]: "water_grade",
         [Capability.OperationModeControl]: "operation_mode",
+        [Capability.MopDockMopCleaningFrequencyControl]: "mop_dock_mop_cleaning_frequency",
+        [Capability.MopDockDetergentControl]: "mop_dock_detergent",
+        [Capability.MopDockMopWashIntensityControl]: "mop_dock_mop_wash_intensity",
     };
 export const usePresetSelectionMutation = (
-    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl
+    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl
 ) => {
     const queryClient = useQueryClient();
 
@@ -633,6 +654,16 @@ export const useRenameSegmentMutation = (
             });
             await options?.onSuccess?.(data, ...args);
         },
+    });
+};
+
+export const useSetHiddenSegmentsMutation = (
+    options?: UseMutationOptions<void, unknown, string[]>
+) => {
+    return useMutation({
+        mutationFn: sendSetHiddenSegmentsCommand,
+        ...options,
+        onError: useOnCommandError(Capability.MapSegmentHide),
     });
 };
 
@@ -1143,6 +1174,42 @@ export const usePersistentMapMutation = () => {
     });
 };
 
+export const useMultipleMapControlQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.MultipleMapControl],
+        queryFn: fetchMultipleMapControlState,
+        staleTime: Infinity
+    });
+};
+
+export const useMultipleMapControlMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.MultipleMapControl],
+        mutationFn: (enabled: boolean) => {
+            return sendMultipleMapControlEnabled(enabled).then(fetchMultipleMapControlState);
+        },
+        onError: useOnCommandError(Capability.MultipleMapControl)
+    });
+};
+
+export const useIntelligentMapRecognitionControlQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.IntelligentMapRecognitionControl],
+        queryFn: fetchIntelligentMapRecognitionControlState,
+        staleTime: Infinity
+    });
+};
+
+export const useIntelligentMapRecognitionControlMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.IntelligentMapRecognitionControl],
+        mutationFn: (enabled: boolean) => {
+            return sendIntelligentMapRecognitionControlEnabled(enabled).then(fetchIntelligentMapRecognitionControlState);
+        },
+        onError: useOnCommandError(Capability.IntelligentMapRecognitionControl)
+    });
+};
+
 export const useMapResetMutation = () => {
     return useMutation({
         mutationFn: sendMapReset,
@@ -1453,7 +1520,7 @@ export const useCombinedVirtualRestrictionsMutation = (
 
     return useMutation({
         mutationFn: (parameters: CombinedVirtualRestrictionsUpdateRequestParameters) => {
-            return sendCombinedVirtualRestrictionsUpdate(parameters).then(fetchStateAttributes); //TODO: this should actually refetch the map
+            return sendCombinedVirtualRestrictionsUpdate(parameters).then(fetchStateAttributes);
         },
         onError: useOnCommandError(Capability.CombinedVirtualRestrictions),
         ...options,
@@ -1461,7 +1528,47 @@ export const useCombinedVirtualRestrictionsMutation = (
             queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
                 updatedAt: Date.now(),
             });
+            // Set the pending count before invalidating so onMapUpdate fires with it already set
             await options?.onSuccess?.(data, ...args);
+            await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
+        },
+    });
+};
+
+export const useCombinedVirtualThresholdsMutation = (
+    options?: UseMutationOptions<void, unknown, CombinedVirtualThresholdsUpdateRequestParameters>
+) => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (parameters: CombinedVirtualThresholdsUpdateRequestParameters) => {
+            return sendCombinedVirtualThresholdsUpdate(parameters);
+        },
+        onError: useOnCommandError(Capability.CombinedVirtualThresholds),
+        ...options,
+        onSuccess: async (data, ...args) => {
+            // Set the pending count before invalidating so onMapUpdate fires with it already set
+            await options?.onSuccess?.(data, ...args);
+            await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
+        },
+    });
+};
+
+export const useCurtainsMutation = (
+    options?: UseMutationOptions<void, unknown, CurtainsUpdateRequestParameters>
+) => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (parameters: CurtainsUpdateRequestParameters) => {
+            return sendCurtainsUpdate(parameters);
+        },
+        onError: useOnCommandError(Capability.Curtains),
+        ...options,
+        onSuccess: async (data, ...args) => {
+            // Set the pending count before invalidating so onMapUpdate fires with it already set
+            await options?.onSuccess?.(data, ...args);
+            await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
         },
     });
 };
@@ -1547,24 +1654,24 @@ export const useTotalStatisticsPropertiesQuery = () => {
     });
 };
 
-export const useQuirksQuery = () => {
+const noopSubscriber = () => () => {};
+
+export const useQuirksQuery = (options?: { enabled?: boolean }) => {
+    const enabled = options?.enabled !== false;
+    useSSECacheUpdater(QueryKey.Quirks, enabled ? subscribeToQuirks : noopSubscriber);
+
     return useQuery({
         queryKey: [QueryKey.Quirks],
-        queryFn: fetchQuirks
+        queryFn: fetchQuirks,
+        enabled: enabled,
+        staleTime: 1000,
     });
 };
 
 export const useSetQuirkValueMutation = () => {
-    const {
-        refetch: refetchQuirksState,
-    } = useQuirksQuery();
-
     return useMutation({
         mutationFn: sendSetQuirkValueCommand,
         onError: useOnCommandError(Capability.Quirks),
-        onSuccess: () => {
-            refetchQuirksState().catch(() => {/*intentional*/});
-        }
     });
 };
 
@@ -1842,6 +1949,25 @@ export const useMopDockMopAutoDryingControlMutation = () => {
             return sendMopDockMopAutoDryingControlState(enable).then(fetchMopDockMopAutoDryingControlState);
         },
         onError: useOnCommandError(Capability.MopDockMopAutoDryingControl)
+    });
+};
+
+export const useSuctionBoostControlQuery = () => {
+    return useQuery( {
+        queryKey: [QueryKey.SuctionBoostControl],
+        queryFn: fetchSuctionBoostControlState,
+
+        staleTime: Infinity
+    });
+};
+
+export const useSuctionBoostControlMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.SuctionBoostControl],
+        mutationFn: (enable: boolean) => {
+            return sendSuctionBoostControlState(enable).then(fetchSuctionBoostControlState);
+        },
+        onError: useOnCommandError(Capability.SuctionBoostControl)
     });
 };
 

@@ -4,16 +4,15 @@ import {
     Icon,
     Paper,
     Skeleton,
-    Slider,
-    sliderClasses,
-    styled,
+    ToggleButton,
+    ToggleButtonGroup,
+    Tooltip,
     Typography,
 } from "@mui/material";
 import React from "react";
 import {
     Capability,
     capabilityToPresetType,
-    PresetSelectionState,
     RobotAttributeClass,
     usePresetSelectionMutation,
     usePresetSelectionsQuery,
@@ -21,47 +20,25 @@ import {
 } from "../api";
 import {ExpandLess as CloseIcon, ExpandMore as OpenIcon} from "@mui/icons-material";
 import LoadingFade from "../components/LoadingFade";
-import {useCommittingSlider} from "../hooks/useCommittingSlider";
 import {getPresetIconOrLabel, presetFriendlyNames, sortPresets} from "../presetUtils";
-import {Mark} from "@mui/material/Slider/useSlider.types";
 
-const StyledIcon = styled(Icon)(({theme}) => {
-    return {
-    };
-});
-
-const DiscreteSlider = styled(Slider)(({ theme }) => {
-    return {
-        [`& .${sliderClasses.track}`]: {
-            height: 2,
-        },
-        [`& .${sliderClasses.rail}`]: {
-            opacity: 0.5,
-            color: theme.palette.grey[400],
-        },
-        [`& .${sliderClasses.mark}`]: {
-            color: theme.palette.grey[600],
-            height: 8,
-            width: 1,
-            margintop: -3,
-        },
-        [`& .${sliderClasses.markActive}`]: {
-            opacity: 1,
-            backgroundColor: "currentcolor",
-        },
-    };
-});
+const StyledIcon = Icon;
 
 export interface PresetSelectionProps {
-    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl;
+    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl;
     label: string;
     icon: React.ReactElement;
+    noPaper?: boolean;
+    iconColor?: string;
+    onPresetReselect?: (value: string) => void;
+    onPresetChange?: (value: string) => void;
+    valueBadge?: { value: string; color: string };
 }
 
 const PresetSelectionControl = (props: PresetSelectionProps): React.ReactElement => {
-    const [presetSelectionSliderOpen, setPresetSelectionSliderOpen] = React.useState(false);
+    const [presetSelectionOpen, setPresetSelectionOpen] = React.useState(false);
 
-    const { capability, label, icon } = props;
+    const { capability, label, icon, noPaper = false, iconColor, onPresetReselect, onPresetChange, valueBadge } = props;
     const { data: preset } = useRobotAttributeQuery(
         RobotAttributeClass.PresetSelectionState,
         (attributes) => {
@@ -78,90 +55,89 @@ const PresetSelectionControl = (props: PresetSelectionProps): React.ReactElement
 
     const {
         mutate: selectPreset,
-        isPending: selectPresetIsPending
+        isPending: selectPresetIsPending,
     } = usePresetSelectionMutation(capability);
 
     const filteredPresets = React.useMemo(() => {
-        return sortPresets(
-            presets?.filter(
-                (x): x is Exclude<PresetSelectionState["value"], "custom"> => {
-                    return x !== "custom";
-                }
-            ) ?? []
-        );
-    }, [presets]);
+        const filtered = presets?.filter(
+            (x) => x !== "custom" && !(capability === Capability.MopDockDetergentControl && x === "missing_cartridge")
+        ) ?? [];
+        return sortPresets(filtered);
+    }, [presets, capability]);
 
-    const presetSliderValue = filteredPresets.indexOf(preset?.value || filteredPresets[0]);
-    const [
-        sliderValue,
-        onChange,
-        onCommit,
-        sliderPending
-    ] = useCommittingSlider(
-        presetSliderValue !== -1 ? presetSliderValue : 0,
-        (value) => {
-            const level = filteredPresets[value];
-            if (level !== preset?.value) {
-                selectPreset(level);
-            }
-        },
-        5_000
-    );
-
-    const marks = React.useMemo<Mark[]>(() => {
-        return filteredPresets.map((preset, index) => {
-            return {
-                value: index,
-                label: getPresetIconOrLabel(props.capability, preset, {height: "20px", width: "auto"})
-            };
-        });
-    }, [filteredPresets, props.capability]);
-
-    const pending = selectPresetIsPending || sliderPending;
+    const pending = selectPresetIsPending;
 
     const body = React.useMemo(() => {
         if (presetsPending) {
-            return (
-                <Grid2>
-                    <Skeleton height={"3rem"} />
-                </Grid2>
-            );
+            return <Skeleton height="2.5rem" />;
         }
 
         if (presetLoadError || preset === undefined) {
-            return (
-                <Grid2>
-                    <Typography color="error">Error loading {capability}</Typography>
-                </Grid2>
-            );
+            return <Typography color="error">Error loading {capability}</Typography>;
         }
 
         return (
-            <Box px={2.5}>
-                <DiscreteSlider
-                    aria-labelledby={`${capability}-slider-label`}
-                    step={null}
-                    value={sliderValue}
-                    valueLabelDisplay="off"
-                    onChange={onChange}
-                    onChangeCommitted={onCommit}
-                    min={0}
-                    max={marks.length - 1}
-                    marks={marks}
-                    track={capability !== Capability.OperationModeControl ? "normal" : false}
-                />
-            </Box>
+            <ToggleButtonGroup
+                exclusive
+                fullWidth
+                size="small"
+                value={preset.value}
+                onChange={(_e, value) => {
+                    if (value !== null && value !== preset.value) {
+                        selectPreset(value);
+                        onPresetChange?.(value);
+                    } else if (value === null && onPresetReselect) {
+                        onPresetReselect(preset.value);
+                    }
+                }}
+            >
+                {filteredPresets.map((p) => (
+                    <Tooltip key={p} title={presetFriendlyNames[p]} arrow>
+                        <ToggleButton value={p} disabled={pending} sx={{py: 1}}>
+                            <Box sx={{position: "relative", display: "inline-flex"}}>
+                                {getPresetIconOrLabel(capability, p, {height: "14px", width: "auto", color: p === preset.value ? iconColor : undefined})}
+                                {valueBadge?.value === p && (
+                                    <Typography component="span" sx={{position: "absolute", left: "100%", top: "50%", transform: "translateY(-50%)", ml: "1px", color: valueBadge.color, fontSize: "14px", fontWeight: "bold", lineHeight: 1}}>+</Typography>
+                                )}
+                            </Box>
+                        </ToggleButton>
+                    </Tooltip>
+                ))}
+            </ToggleButtonGroup>
         );
     }, [
         capability,
-        onChange,
-        onCommit,
+        filteredPresets,
+        iconColor,
+        onPresetChange,
+        onPresetReselect,
+        pending,
         preset,
         presetLoadError,
         presetsPending,
-        marks,
-        sliderValue,
+        selectPreset,
+        valueBadge,
     ]);
+
+    if (noPaper) {
+        return (
+            <Grid2>
+                <Box sx={{display: "flex", alignItems: "center", gap: "8px", px: 0.5, py: 0.5}}>
+                    {icon}
+                    <Typography variant="body2" id={`${capability}-slider-label`}>{label}</Typography>
+                    <LoadingFade in={pending} transitionDelay={pending ? "500ms" : "0ms"} size={16}/>
+                    {!pending && (
+                        <Typography variant="caption" sx={{ml: "auto", fontWeight: "bold", color: "text.secondary"}}>
+                            {preset?.value ? presetFriendlyNames[preset.value] : ""}
+                        </Typography>
+                    )}
+                </Box>
+                <Box sx={{px: 0.5, pb: 0.5}}>
+                    {body}
+                </Box>
+            </Grid2>
+        );
+    }
 
     return (
         <Grid2>
@@ -172,9 +148,7 @@ const PresetSelectionControl = (props: PresetSelectionProps): React.ReactElement
                             container
                             alignItems="center"
                             spacing={1}
-                            onClick={() => {
-                                setPresetSelectionSliderOpen(!presetSelectionSliderOpen);
-                            }}
+                            onClick={() => setPresetSelectionOpen(!presetSelectionOpen)}
                             style={{cursor: "pointer"}}
                         >
                             <Grid2>{icon}</Grid2>
@@ -184,42 +158,26 @@ const PresetSelectionControl = (props: PresetSelectionProps): React.ReactElement
                                 </Typography>
                             </Grid2>
                             <Grid2>
-                                <LoadingFade in={pending}
-                                    transitionDelay={pending ? "500ms" : "0ms"}
-                                    size={20}/>
+                                <LoadingFade in={pending} transitionDelay={pending ? "500ms" : "0ms"} size={20}/>
                             </Grid2>
-                            <Grid2
-                                sx={{
-                                    marginLeft: "auto"
-                                }}
-                            >
+                            <Grid2 sx={{marginLeft: "auto"}}>
                                 <Grid2 container>
-                                    {
-                                        !pending &&
+                                    {!pending && (
                                         <Grid2 sx={{marginTop: "-2px" /* ugh */}}>
                                             <Typography variant="subtitle1" sx={{paddingRight: "8px"}}>
                                                 {preset?.value ? presetFriendlyNames[preset.value] : ""}
                                             </Typography>
                                         </Grid2>
-                                    }
-
-                                    <Grid2
-                                        sx={{
-                                            marginLeft: "auto"
-                                        }}
-                                    >
-                                        <StyledIcon as={presetSelectionSliderOpen ? CloseIcon : OpenIcon}/>
+                                    )}
+                                    <Grid2 sx={{marginLeft: "auto"}}>
+                                        <StyledIcon component={presetSelectionOpen ? CloseIcon : OpenIcon}/>
                                     </Grid2>
-
                                 </Grid2>
                             </Grid2>
                         </Grid2>
-                        <Grid2 sx={{
-                            display: presetSelectionSliderOpen ? "inherit" : "none",
-                            minHeight: "3.75rem"
-                        }}>
+                        <Box sx={{display: presetSelectionOpen ? "block" : "none", pb: 1.5, pt: 0.5}}>
                             {body}
-                        </Grid2>
+                        </Box>
                     </Box>
                 </Grid2>
             </Paper>

@@ -4,7 +4,14 @@ import LiveMap from "./LiveMap";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import React from "react";
 import {useQueryClient} from "@tanstack/react-query";
-
+import ManualControl, {ManualControlEnableButton} from "../robot/ManualControl";
+import {TotalStatisticsInternal} from "../robot/TotalStatistics";
+import CurrentStatistics from "../controls/CurrentStatistics";
+import ControlsCard from "../controls/ControlsCard";
+import {ActionButton} from "./Styled";
+import {ArrowBack as ArrowBackIcon, Equalizer as StatisticsIcon} from "@mui/icons-material";
+import MapEditorPage from "./MapEditorPage";
+import {useValetudoColors} from "../hooks/useValetudoColors";
 
 const Container = styled(Box)({
     flex: "1",
@@ -15,8 +22,9 @@ const Container = styled(Box)({
     alignItems: "center",
 });
 
-const LiveMapPage = (props: Record<string, never> ): React.ReactElement => {
+const LiveMapPage = (): React.ReactElement => {
     const queryClient = useQueryClient();
+    const palette = useValetudoColors();
     const {
         data: mapData,
         isPending: mapIsPending,
@@ -30,13 +38,39 @@ const LiveMapPage = (props: Record<string, never> ): React.ReactElement => {
         zoneCleaningCapabilitySupported,
 
         obstacleImagesSupported,
+        manualControlSupported,
+        highResManualControlSupported,
+        currentStatisticsSupported,
+
+        mapSegmentEditCapabilitySupported,
+        mapSegmentRenameCapabilitySupported,
+        mapSegmentCleanOrderCapabilitySupported,
+        combinedVirtualRestrictionsCapabilitySupported,
     ] = useCapabilitiesSupported(
         Capability.GoToLocation,
         Capability.MapSegmentation,
         Capability.ZoneCleaning,
 
-        Capability.ObstacleImages
+        Capability.ObstacleImages,
+        Capability.ManualControl,
+        Capability.HighResolutionManualControl,
+        Capability.CurrentStatistics,
+
+        Capability.MapSegmentEdit,
+        Capability.MapSegmentRename,
+        Capability.MapSegmentCleanOrder,
+        Capability.CombinedVirtualRestrictions,
     );
+
+    const mapEditorSupported =
+        mapSegmentEditCapabilitySupported ||
+        mapSegmentRenameCapabilitySupported ||
+        mapSegmentCleanOrderCapabilitySupported ||
+        combinedVirtualRestrictionsCapabilitySupported;
+
+    const [manualControlOpen, setManualControlOpen] = React.useState(false);
+    const [statisticsOpen, setStatisticsOpen] = React.useState(false);
+    const [mapEditorOpen, setMapEditorOpen] = React.useState(false);
 
     // If the capability is supported, we prefetch the properties now, so that the image size
     // is already available once the user opens a dialog
@@ -54,6 +88,69 @@ const LiveMapPage = (props: Record<string, never> ): React.ReactElement => {
     } = useMapSegmentationPropertiesQuery(mapSegmentationCapabilitySupported);
 
     const theme = useTheme();
+
+    if (mapEditorOpen) {
+        return (
+            <Box sx={{position: "relative", height: "100%", width: "100%", backgroundColor: `${palette.yellow}40`}}>
+                <MapEditorPage/>
+                <ActionButton
+                    color="inherit"
+                    size="small"
+                    onClick={() => setMapEditorOpen(false)}
+                    title="Back to Map"
+                    style={{position: "absolute", top: "16px", left: "16px", zIndex: 1000, pointerEvents: "auto"}}
+                    sx={{backgroundColor: palette.teal, "&:hover": {backgroundColor: palette.teal}, "& .MuiSvgIcon-root": {color: "#fff"}}}
+                >
+                    <ArrowBackIcon/>
+                </ActionButton>
+            </Box>
+        );
+    }
+
+    if (manualControlOpen) {
+        return (
+            <Box sx={{ position: "relative", height: "100%", width: "100%", display: "flex", flexDirection: "column", justifyContent: "center", overflow: "auto" }}>
+                <ManualControl />
+                <ActionButton
+                    color="inherit"
+                    size="small"
+                    onClick={() => setManualControlOpen(false)}
+                    title="Back to Map"
+                    style={{ position: "absolute", top: "16px", left: "16px", zIndex: 1000, pointerEvents: "auto" }}
+                    sx={{backgroundColor: palette.teal, "&:hover": {backgroundColor: palette.teal}, "& .MuiSvgIcon-root": {color: "#fff"}}}
+                >
+                    <ArrowBackIcon/>
+                </ActionButton>
+                <Box style={{ position: "absolute", bottom: "16px", right: "16px", zIndex: 1000, pointerEvents: "auto" }}>
+                    <ManualControlEnableButton />
+                </Box>
+            </Box>
+        );
+    }
+
+    if (statisticsOpen) {
+        return (
+            <Box sx={{ position: "relative", height: "100%", width: "100%", overflow: "auto" }}>
+                <Box sx={{ pt: 8, px: 2, pb: 2 }}>
+                    <CurrentStatistics />
+                    <Box mt={2} />
+                    <ControlsCard icon={StatisticsIcon} title="Total Statistics">
+                        <TotalStatisticsInternal />
+                    </ControlsCard>
+                </Box>
+                <ActionButton
+                    color="inherit"
+                    size="small"
+                    onClick={() => setStatisticsOpen(false)}
+                    title="Back to Map"
+                    style={{ position: "absolute", top: "16px", left: "16px", zIndex: 1000, pointerEvents: "auto" }}
+                    sx={{backgroundColor: palette.teal, "&:hover": {backgroundColor: palette.teal}, "& .MuiSvgIcon-root": {color: "#fff"}}}
+                >
+                    <ArrowBackIcon/>
+                </ActionButton>
+            </Box>
+        );
+    }
 
     if (mapLoadError) {
         return (
@@ -98,6 +195,24 @@ const LiveMapPage = (props: Record<string, never> ): React.ReactElement => {
             [Capability.ZoneCleaning]: zoneCleaningCapabilitySupported,
             [Capability.GoToLocation]: goToLocationCapabilitySupported
         }}
+
+        onManualControlOpen={
+            (manualControlSupported || highResManualControlSupported) ?
+                () => setManualControlOpen(true) :
+                undefined
+        }
+
+        onStatisticsOpen={
+            currentStatisticsSupported ?
+                () => setStatisticsOpen(true) :
+                undefined
+        }
+
+        onMapEditorOpen={
+            mapEditorSupported ?
+                () => setMapEditorOpen(true) :
+                undefined
+        }
     />;
 };
 

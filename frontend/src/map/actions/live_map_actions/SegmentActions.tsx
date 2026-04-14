@@ -7,7 +7,7 @@ import {useLongPress} from "use-long-press";
 import {IterationsIcon} from "../../../assets/icon_components/IterationsIcon";
 import {
     Clear as ClearIcon,
-    PlayArrow as GoIcon
+    PlayArrow as GoIcon,
 } from "@mui/icons-material";
 
 interface SegmentActionsProperties {

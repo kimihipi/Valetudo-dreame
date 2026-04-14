@@ -16,24 +16,13 @@ const HomePage = (): React.ReactElement => {
 
     if (mobileView) {
         return (
-            <Box sx={{
-                height: "100%",
-                width: "100%",
-                overflow: "hidden"
-            }}>
-                <Box sx={{
-                    height: "calc(100% - 68px)",
-                    display: mobileControlsOpen ? "none" : "inherit"
-                }}>
+            <Box sx={{height: "100%", width: "100%", overflow: "hidden"}}>
+                <Box sx={{height: "calc(100% - 68px)", display: mobileControlsOpen ? "none" : "inherit"}}>
                     <LiveMapPage/>
                 </Box>
-                <Box sx={{
-                    height: "5%",
-                    display: mobileControlsOpen ? "inherit" : "none"
-                }}>
+                <Box sx={{height: "5%", display: mobileControlsOpen ? "inherit" : "none"}}>
                     &nbsp;
                 </Box>
-
                 <MobileControls
                     open={mobileControlsOpen}
                     setOpen={setMobileControlsOpen}

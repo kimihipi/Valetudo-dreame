@@ -21,6 +21,8 @@ import {
     Typography
 } from "@mui/material";
 import {
+    CheckCircle as StatusOkIcon,
+    Error as StatusErrorIcon,
     RestoreFromTrash as EmptyIcon,
     Villa as DockIcon,
     Water as CleanMopIcon,
@@ -180,9 +182,10 @@ const DockComponents = ({ supportedTypes, dockComponents }: { supportedTypes: Do
                     <Typography variant="subtitle2" sx={{ml: 0.5}}>Components</Typography>
                 </Grid2>
                 <Grid2 sx={{ display: "flex", alignItems: "center" }}>
-                    <Typography variant="caption" sx={{ color: statusColor, fontWeight: "bold", mr: 1 }}>
-                        {isOk ? "OK" : "Not OK"}
-                    </Typography>
+                    {isOk ?
+                        <StatusOkIcon sx={{color: statusColor, mr: 1, fontSize: "1rem"}} /> :
+                        <StatusErrorIcon sx={{color: statusColor, mr: 1, fontSize: "1rem"}} />
+                    }
                     <Icon component={expanded ? CloseIcon : OpenIcon} />
                 </Grid2>
             </Grid2>
@@ -224,6 +227,7 @@ const Dock = (): React.ReactElement => {
         return {
             marginRight: theme.spacing(1),
             marginLeft: -theme.spacing(1),
+            fontSize: "1.25rem",
         };
     });
 
@@ -253,6 +257,7 @@ const Dock = (): React.ReactElement => {
     const { value: dockState } = dockStatus?.[0] ?? {value: "idle"};
 
     const [feedbackPending, setFeedbackPending] = useFeedbackPending(dockState, 25_000);
+    const palette = useValetudoColorsInverse();
 
     const body = React.useMemo(() => {
         const dockStatusIsRelevant = mopDockCleanTriggerSupported || mopDockDryTriggerSupported;
@@ -273,18 +278,7 @@ const Dock = (): React.ReactElement => {
 
         return (
             <>
-                <Typography variant="overline">
-                    {dockState}
-                </Typography>
-
-                {supportedComponents.length > 0 && (
-                    <DockComponents
-                        supportedTypes={supportedComponents}
-                        dockComponents={dockComponents ?? []}
-                    />
-                )}
-
-                <Grid2 container direction="row" alignItems="center" sx={{flex: 1}} spacing={1} pt={1} wrap={"wrap"}>
+                <Grid2 container direction="row" alignItems="center" sx={{flex: 1}} spacing={1} pt={1} pb={1} wrap={"wrap"}>
                     {
                         mopDockCleanTriggerSupported &&
                         <Grid2 sx={{flex: 1, minWidth: "min-content"}}>
@@ -299,7 +293,14 @@ const Dock = (): React.ReactElement => {
                                     triggerMopDockCleanCommand(command);
                                     setFeedbackPending(true);
                                 }}
-                                sx={{width: "100%"}}
+                                sx={{
+                                    width: "100%",
+                                    ...(dockState === "cleaning" && {
+                                        color: palette.crimson,
+                                        borderColor: palette.crimson,
+                                        "&:hover": {backgroundColor: `${palette.crimson}1A`}
+                                    })
+                                }}
                             >
                                 <StyledIcon as={CleanMopIcon} /> { dockState === "cleaning" ? "Stop" : "Clean" }
                             </Button>
@@ -319,7 +320,14 @@ const Dock = (): React.ReactElement => {
                                     triggerMopDockDryCommand(command);
                                     setFeedbackPending(true);
                                 }}
-                                sx={{width: "100%"}}
+                                sx={{
+                                    width: "100%",
+                                    ...(dockState === "drying" && {
+                                        color: palette.crimson,
+                                        borderColor: palette.crimson,
+                                        "&:hover": {backgroundColor: `${palette.crimson}1A`}
+                                    })
+                                }}
                             >
                                 <StyledIcon as={DryMopIcon} /> { dockState === "drying" ? "Stop" : "Dry" }
                             </Button>
@@ -343,6 +351,13 @@ const Dock = (): React.ReactElement => {
                         </Grid2>
                     }
                 </Grid2>
+
+                {supportedComponents.length > 0 && (
+                    <DockComponents
+                        supportedTypes={supportedComponents}
+                        dockComponents={dockComponents ?? []}
+                    />
+                )}
             </>
         );
     }, [
@@ -363,13 +378,15 @@ const Dock = (): React.ReactElement => {
         triggerMopDockCleanCommand,
         triggerMopDockDryCommand,
         robotInfo,
-        dockComponents
+        dockComponents,
+        palette
     ]);
 
 
     return (
         <ControlsCard
             title="Dock"
+            subtitle={isPending ? undefined : dockState}
             pending={feedbackPending}
             icon={DockIcon}
             isLoading={isPending}

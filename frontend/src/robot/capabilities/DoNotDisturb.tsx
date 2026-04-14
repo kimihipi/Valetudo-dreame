@@ -122,7 +122,7 @@ const DoNotDisturbControl: FunctionComponent = () => {
     const loading = dndConfigurationUpdating || dndConfigurationFetching || !dndConfiguration;
     return (
         <CapabilityItem
-            title={"Do not disturb"}
+            title={"Do Not Disturb"}
             loading={loading}
             helpText={DoNotDisturbHelp}
         >

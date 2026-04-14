@@ -1,7 +1,11 @@
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import {
     Capability,
+    useIntelligentMapRecognitionControlMutation,
+    useIntelligentMapRecognitionControlQuery,
     useMapResetMutation,
+    useMultipleMapControlMutation,
+    useMultipleMapControlQuery,
     useMultipleMapDeleteMutation,
     useMultipleMapMapsQuery,
     useMultipleMapRenameMutation,
@@ -15,27 +19,26 @@ import {
 } from "../api";
 import {
     Save as PersistentMapControlIcon,
-    Layers as MappingPassIcon,
+    LibraryAdd as MappingPassIcon,
     LayersClear as MapResetIcon,
-    Dashboard as SegmentEditIcon,
     Crop as CleanupCoverageIcon,
     Download as ValetudoMapDownloadIcon,
     Map,
     Delete,
-    SwapVert,
     RotateRight,
+    Layers as MultipleMapControlIcon,
+    GpsFixed as IntelligentMapRecognitionControlIcon,
 } from "@mui/icons-material";
 import React from "react";
 import ConfirmationDialog from "../components/ConfirmationDialog";
 import { LinkListMenuItem } from "../components/list_menu/LinkListMenuItem";
 import { ButtonListMenuItem } from "../components/list_menu/ButtonListMenuItem";
-import {SpacerListMenuItem} from "../components/list_menu/SpacerListMenuItem";
 import {ListMenu} from "../components/list_menu/ListMenu";
 import {ToggleSwitchListMenuItem} from "../components/list_menu/ToggleSwitchListMenuItem";
 import {MapManagementHelp} from "./res/MapManagementHelp";
 import PaperContainer from "../components/PaperContainer";
 import {MapUtilitiesHelp} from "./res/MapUtilitiesHelp";
-import {RenameIcon, VirtualRestrictionsIcon} from "../components/CustomIcons";
+import {RenameIcon} from "../components/CustomIcons";
 import { SelectListMenuItem, SelectListMenuItemOption } from "../components/list_menu/SelectListMenuItem";
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid2, TextField } from "@mui/material";
 import { MultipleMapHelp } from "./res/MultipleMapHelp";
@@ -366,6 +369,58 @@ const MultipleMapRotateButtonItem = (): React.ReactElement => {
     );
 };
 
+const MultipleMapControlSwitchListItem = () => {
+    const {
+        data: multipleMapControlData,
+        isFetching: multipleMapControlDataLoading,
+        isError: multipleMapControlDataError,
+    } = useMultipleMapControlQuery();
+
+    const {mutate: mutateMultipleMapControl, isPending: multipleMapControlChanging} = useMultipleMapControlMutation();
+    const loading = multipleMapControlDataLoading || multipleMapControlChanging;
+    const disabled = loading || multipleMapControlDataError;
+
+    return (
+        <ToggleSwitchListMenuItem
+            value={multipleMapControlData?.enabled ?? false}
+            setValue={(value) => {
+                mutateMultipleMapControl(value);
+            }}
+            disabled={disabled}
+            loadError={multipleMapControlDataError}
+            primaryLabel={"Multi Map"}
+            secondaryLabel={"Enable and store multiple maps"}
+            icon={<MultipleMapControlIcon/>}
+        />
+    );
+};
+
+const IntelligentMapRecognitionControlSwitchListItem = () => {
+    const {
+        data: intelligentMapRecognitionData,
+        isFetching: intelligentMapRecognitionDataLoading,
+        isError: intelligentMapRecognitionDataError,
+    } = useIntelligentMapRecognitionControlQuery();
+
+    const {mutate: mutateIntelligentMapRecognition, isPending: intelligentMapRecognitionChanging} = useIntelligentMapRecognitionControlMutation();
+    const loading = intelligentMapRecognitionDataLoading || intelligentMapRecognitionChanging;
+    const disabled = loading || intelligentMapRecognitionDataError;
+
+    return (
+        <ToggleSwitchListMenuItem
+            value={intelligentMapRecognitionData?.enabled ?? false}
+            setValue={(value) => {
+                mutateIntelligentMapRecognition(value);
+            }}
+            disabled={disabled}
+            loadError={intelligentMapRecognitionDataError}
+            primaryLabel={"Map Recognition"}
+            secondaryLabel={"Automatically switch maps"}
+            icon={<IntelligentMapRecognitionControlIcon/>}
+        />
+    );
+};
+
 const MultipleMapDeleteButtonItem = (): React.ReactElement => {
     const { data: maps } = useMultipleMapMapsQuery();
     const activeMap = React.useMemo(() => (maps ?? []).find(entry => entry.active), [maps]);
@@ -435,29 +490,20 @@ const MapManagement = (): React.ReactElement => {
         multipleMapRenameCapabilitySupported,
         multipleMapRotateCapabilitySupported,
         multipleMapDeleteCapabilitySupported,
+        multipleMapControlCapabilitySupported,
+        intelligentMapRecognitionControlCapabilitySupported,
         mappingPassCapabilitySupported,
         mapResetCapabilitySupported,
-
-        mapSegmentEditCapabilitySupported,
-        mapSegmentRenameCapabilitySupported,
-        mapSegmentCleanOrderCapabilitySupported,
-
-        combinedVirtualRestrictionsCapabilitySupported
     ] = useCapabilitiesSupported(
         Capability.PersistentMapControl,
         Capability.MultipleMap,
         Capability.MultipleMapRename,
         Capability.MultipleMapRotate,
         Capability.MultipleMapDelete,
+        Capability.MultipleMapControl,
+        Capability.IntelligentMapRecognitionControl,
         Capability.MappingPass,
-        Capability.MapReset,
-
-        Capability.MapSegmentEdit,
-        Capability.MapSegmentRename,
-
-        Capability.MapSegmentCleanOrder,
-
-        Capability.CombinedVirtualRestrictions
+        Capability.MapReset
     );
 
     const multipleMapListItems = React.useMemo(() => {
@@ -487,16 +533,17 @@ const MapManagement = (): React.ReactElement => {
             );
         }
 
-        return items;
-    }, [
-        multipleMapCapabilitySupported,
-        multipleMapRenameCapabilitySupported,
-        multipleMapRotateCapabilitySupported,
-        multipleMapDeleteCapabilitySupported,
-    ]);
+        if (multipleMapControlCapabilitySupported) {
+            items.push(
+                <MultipleMapControlSwitchListItem key="multipleMapControl"/>
+            );
+        }
 
-    const robotManagedListItems = React.useMemo(() => {
-        const items = [];
+        if (intelligentMapRecognitionControlCapabilitySupported) {
+            items.push(
+                <IntelligentMapRecognitionControlSwitchListItem key="intelligentMapRecognitionControl"/>
+            );
+        }
 
         if (
             persistentMapControlCapabilitySupported ||
@@ -521,63 +568,22 @@ const MapManagement = (): React.ReactElement => {
                 );
             }
 
-            if (
-                mapSegmentEditCapabilitySupported || mapSegmentRenameCapabilitySupported ||
-                mapSegmentCleanOrderCapabilitySupported ||
-                combinedVirtualRestrictionsCapabilitySupported
-            ) {
-                items.push(<SpacerListMenuItem key={"spacer1"}/>);
-            }
-        }
-
-
-        if (mapSegmentEditCapabilitySupported || mapSegmentRenameCapabilitySupported) {
-            items.push(
-                <LinkListMenuItem
-                    key="segmentManagement"
-                    url="/options/map_management/segments"
-                    primaryLabel="Segment Management"
-                    secondaryLabel="Modify the maps segments"
-                    icon={<SegmentEditIcon/>}
-                />
-            );
-        }
-
-        if (mapSegmentCleanOrderCapabilitySupported) {
-            items.push(
-                <LinkListMenuItem
-                    key="segmentCleanOrder"
-                    url="/options/map_management/segment_clean_order"
-                    primaryLabel="Segment Clean Order"
-                    secondaryLabel="Modify the clean order of maps segments"
-                    icon={<SwapVert/>}
-                />
-            );
-        }
-
-        if (combinedVirtualRestrictionsCapabilitySupported) {
-            items.push(
-                <LinkListMenuItem
-                    key="virtualRestrictionManagement"
-                    url="/options/map_management/virtual_restrictions"
-                    primaryLabel="Virtual Restriction Management"
-                    secondaryLabel="Create, modify and delete various virtual restrictions"
-                    icon={<VirtualRestrictionsIcon/>}
-                />
-            );
         }
 
         return items;
     }, [
+        multipleMapCapabilitySupported,
+        multipleMapRenameCapabilitySupported,
+        multipleMapRotateCapabilitySupported,
+        multipleMapDeleteCapabilitySupported,
+        multipleMapControlCapabilitySupported,
+        intelligentMapRecognitionControlCapabilitySupported,
         persistentMapControlCapabilitySupported,
         mappingPassCapabilitySupported,
         mapResetCapabilitySupported,
-
-        combinedVirtualRestrictionsCapabilitySupported,
-        mapSegmentCleanOrderCapabilitySupported,
-        mapSegmentEditCapabilitySupported,
-        mapSegmentRenameCapabilitySupported
     ]);
+
+    const robotManagedListItems: React.ReactElement[] = [];
 
     const utilityMapItems = React.useMemo(() => {
         return [
@@ -597,21 +603,23 @@ const MapManagement = (): React.ReactElement => {
             <Grid2 container spacing={2} direction="column">
                 {multipleMapListItems.length > 0 && (
                     <ListMenu
-                        primaryHeader={"Multiple Map Management"}
-                        secondaryHeader={"These features can be used to manage independent maps stored on the robot"}
+                        primaryHeader={"Map Management"}
+                        secondaryHeader={"Manage the maps stored on the robot and create new maps."}
                         listItems={multipleMapListItems}
                         helpText={MultipleMapHelp}
                     />
                 )}
-                <ListMenu
-                    primaryHeader={"Robot-managed Map Features"}
-                    secondaryHeader={"These features are managed and provided by the robot's firmware"}
-                    listItems={robotManagedListItems}
-                    helpText={MapManagementHelp}
-                />
+                {robotManagedListItems.length > 0 && (
+                    <ListMenu
+                        primaryHeader={"Map Features"}
+                        secondaryHeader={"Edit segments and virtual restrictions within existing maps."}
+                        listItems={robotManagedListItems}
+                        helpText={MapManagementHelp}
+                    />
+                )}
                 <ListMenu
                     primaryHeader={"Map Utilities"}
-                    secondaryHeader={"Do neat things with the map"}
+                    secondaryHeader={"Do neat things with the map."}
                     listItems={utilityMapItems}
                     helpText={MapUtilitiesHelp}
                 />

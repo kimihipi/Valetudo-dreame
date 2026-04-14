@@ -58,10 +58,21 @@ class DreameW10ProValetudoRobot extends DreameMopValetudoRobot {
             piid: MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DOCK_SETTINGS.PIID
         }));
 
+        this.registerCapability(new capabilities.DreameMopDockMopCleaningFrequencyControlCapability({
+            robot: this,
+            presets: [
+                new ValetudoSelectionPreset({name: "every_segment", value: 0}),
+                new ValetudoSelectionPreset({name: "every_5_m2", value: 5}),
+                new ValetudoSelectionPreset({name: "every_10_m2", value: 10}),
+                new ValetudoSelectionPreset({name: "every_15_m2", value: 15}),
+                new ValetudoSelectionPreset({name: "every_20_m2", value: 20}),
+                new ValetudoSelectionPreset({name: "every_25_m2", value: 25}),
+            ]
+        }));
+
         this.registerCapability(new QuirksCapability({
             robot: this,
             quirks: [
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_MOP_CLEANING_FREQUENCY),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WET_DRY_SWITCH),
             ]
         }));

@@ -22,6 +22,7 @@ export class MapLayerManager {
         idMapping: {[key: string]: string}
     };
     private selectedSegmentIds: string[];
+    private alwaysDimUnselectedSegments = false;
 
     constructor() {
         this.width = 1;
@@ -111,7 +112,8 @@ export class MapLayerManager {
                         mapLayers: data.metaData.nonce !== this.mapLayerManagerWorkerLastNonce ? data.layers : undefined,
                         pixelSize: data.pixelSize,
                         paletteMode: paletteMode,
-                        selectedSegmentIds: this.selectedSegmentIds
+                        selectedSegmentIds: this.selectedSegmentIds,
+                        alwaysDimUnselectedSegments: this.alwaysDimUnselectedSegments
                     });
 
                     this.mapLayerManagerWorkerLastNonce = data.metaData.nonce;
@@ -130,7 +132,8 @@ export class MapLayerManager {
                         data.layers,
                         data.pixelSize,
                         paletteMode,
-                        this.selectedSegmentIds
+                        this.selectedSegmentIds,
+                        this.alwaysDimUnselectedSegments
                     );
 
                     this.segmentLookupInfo = {
@@ -186,6 +189,10 @@ export class MapLayerManager {
 
     setSelectedSegmentIds(selectedSegmentIds: string[]) {
         this.selectedSegmentIds = selectedSegmentIds;
+    }
+
+    setAlwaysDimUnselectedSegments(value: boolean) {
+        this.alwaysDimUnselectedSegments = value;
     }
 
     getCanvas(): HTMLCanvasElement {

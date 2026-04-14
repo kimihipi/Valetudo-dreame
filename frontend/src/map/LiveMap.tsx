@@ -1,7 +1,8 @@
 import BaseMap, {MapContainer, MapProps, MapState, usePendingMapAction} from "./BaseMap";
-import {Capability} from "../api";
+import {Capability, RawMapLayerType} from "../api";
 import GoToTargetClientStructure from "./structures/client_structures/GoToTargetClientStructure";
-import {ActionsContainer} from "./Styled";
+import {ActionsContainer, ActionButton, MapOverlayTopLeft, MapToolbarContainer, MapOverlayBottomLeft, StatsOverlayButton} from "./Styled";
+import {LiveMapModeSwitcher} from "./LiveMapModeSwitcher";
 import SegmentActions from "./actions/live_map_actions/SegmentActions";
 import SegmentLabelMapStructure from "./structures/map_structures/SegmentLabelMapStructure";
 import ZoneActions from "./actions/live_map_actions/ZoneActions";
@@ -9,19 +10,69 @@ import ZoneClientStructure from "./structures/client_structures/ZoneClientStruct
 import GoToActions from "./actions/live_map_actions/GoToActions";
 import {TapTouchHandlerEvent} from "./utils/touch_handling/events/TapTouchHandlerEvent";
 import React from "react";
-import {LiveMapModeSwitcher} from "./LiveMapModeSwitcher";
-import {Button, Dialog, DialogActions, DialogContent, DialogTitle} from "@mui/material";
+import {Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography} from "@mui/material";
+import {AccessTime as TimeIcon, CropFree as CropFreeIcon, SquareFoot as AreaIcon, SportsEsports as GamepadIcon, DesignServices as MapEditorIcon} from "@mui/icons-material";
+import {useCurrentStatisticsQuery} from "../api";
+import { create } from "zustand";
+
+const StatsOverlayWidget = ({onClick}: {onClick: () => void}): React.ReactElement | null => {
+    const {data: stats} = useCurrentStatisticsQuery();
+
+    const timeStat = stats?.find(s => s.type === "time");
+    const areaStat = stats?.find(s => s.type === "area");
+
+    if (!timeStat && !areaStat) {
+        return null;
+    }
+
+    return (
+        <StatsOverlayButton
+            onClick={onClick}
+            style={{position: "absolute", top: "16px", left: "50%", transform: "translateX(-50%)", zIndex: 1000}}
+        >
+            {timeStat && (
+                <Box sx={{display: "inline-flex", alignItems: "center", gap: "3px"}}>
+                    <Typography variant="caption" sx={{fontWeight: 600, lineHeight: 1}}>
+                        {Math.round(timeStat.value / 60)} min
+                    </Typography>
+                    <TimeIcon sx={{fontSize: "1rem", color: "text.secondary"}}/>
+                </Box>
+            )}
+            {areaStat && (
+                <Box sx={{display: "inline-flex", alignItems: "center", gap: "3px"}}>
+                    <Typography variant="caption" sx={{fontWeight: 600, lineHeight: 1}}>
+                        {Math.round(areaStat.value / 10000)} m²
+                    </Typography>
+                    <AreaIcon sx={{fontSize: "1rem", color: "text.secondary"}}/>
+                </Box>
+            )}
+        </StatsOverlayButton>
+    );
+};
 
 
-export type LiveMapMode = "segments" | "zones" | "goto" | "none";
+export type LiveMapMode = "segments" | "zones" | "goto" | "none" | "all";
 const LIVE_MAP_MODE_LOCAL_STORAGE_KEY = "live-map-mode";
+
+export const useLiveMapMode = create<{
+    mode: LiveMapMode;
+    supportedModes: Array<LiveMapMode>;
+    setMode: ((newMode: LiveMapMode) => void) | null;
+}>()(() => ({
+    mode: "none",
+    supportedModes: [],
+    setMode: null,
+}));
 
 interface LiveMapProps extends MapProps {
     supportedCapabilities: {
         [Capability.MapSegmentation]: boolean,
         [Capability.ZoneCleaning]: boolean,
         [Capability.GoToLocation]: boolean
-    }
+    },
+    onManualControlOpen?: () => void,
+    onStatisticsOpen?: () => void,
+    onMapEditorOpen?: () => void,
 }
 
 interface LiveMapState extends MapState {
@@ -32,6 +83,7 @@ interface LiveMapState extends MapState {
 
 class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
     private readonly supportedModes: Array<LiveMapMode>;
+    private _cleanOrderActive: boolean;
 
     constructor(props: LiveMapProps) {
         super(props);
@@ -39,6 +91,7 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
         this.supportedModes = [];
 
         if (props.supportedCapabilities[Capability.MapSegmentation]) {
+            this.supportedModes.push("all");
             this.supportedModes.push("segments");
         }
         if (props.supportedCapabilities[Capability.ZoneCleaning]) {
@@ -71,6 +124,9 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
             zones: [],
             goToTarget: undefined
         };
+
+        this._cleanOrderActive = this.state.mode === "all";
+        this.mapLayerManager.setAlwaysDimUnselectedSegments((this.supportedModes[modeIdxToUse] ?? "none") === "segments");
     }
 
     protected updateState() : void {
@@ -84,6 +140,37 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
                 return s.type === GoToTargetClientStructure.TYPE;
             }) as GoToTargetClientStructure | undefined
         });
+
+        this.updateCleanOrderLabels();
+    }
+
+    private updateCleanOrderLabels(): void {
+        const segmentLabels = this.structureManager.getMapStructures().filter(s =>
+            s.type === SegmentLabelMapStructure.TYPE
+        ) as Array<SegmentLabelMapStructure>;
+
+        if (this._cleanOrderActive) {
+            const cleanOrderBySegmentId: Record<string, number> = {};
+            this.props.rawMap.layers.forEach(l => {
+                if (
+                    l.type === RawMapLayerType.Segment &&
+                    l.metaData.segmentId !== undefined &&
+                    l.metaData.cleanOrder !== undefined
+                ) {
+                    cleanOrderBySegmentId[l.metaData.segmentId] = l.metaData.cleanOrder;
+                }
+            });
+
+            if (Object.keys(cleanOrderBySegmentId).length > 0) {
+                segmentLabels.forEach(label => {
+                    label.cleanOrderBadge = cleanOrderBySegmentId[label.id];
+                });
+            }
+        } else {
+            segmentLabels.forEach(label => {
+                label.cleanOrderBadge = undefined;
+            });
+        }
     }
 
 
@@ -161,6 +248,56 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
         }
     }
 
+    componentDidMount(): void {
+        super.componentDidMount();
+        useLiveMapMode.setState({
+            mode: this.state.mode,
+            supportedModes: this.supportedModes,
+            setMode: this.handleModeChange,
+        });
+    }
+
+    componentWillUnmount(): void {
+        useLiveMapMode.setState({setMode: null});
+        super.componentWillUnmount();
+    }
+
+    private handleModeChange = (newMode: LiveMapMode): void => {
+        this._cleanOrderActive = newMode === "all";
+        this.mapLayerManager.setAlwaysDimUnselectedSegments(newMode === "segments" || newMode === "zones");
+
+        this.structureManager.getMapStructures().forEach(s => {
+            if (s.type === SegmentLabelMapStructure.TYPE) {
+                const label = s as SegmentLabelMapStructure;
+                label.selected = false;
+            }
+        });
+
+        this.structureManager.getClientStructures().forEach(s => {
+            if (s.type === GoToTargetClientStructure.TYPE) {
+                this.structureManager.removeClientStructure(s);
+            }
+            if (s.type === ZoneClientStructure.TYPE) {
+                this.structureManager.removeClientStructure(s);
+            }
+        });
+
+        this.updateState();
+        this.redrawLayers();
+        this.setState({mode: newMode});
+        useLiveMapMode.setState({mode: newMode});
+
+        try {
+            window.localStorage.setItem(LIVE_MAP_MODE_LOCAL_STORAGE_KEY, newMode);
+        } catch (e) {
+            /* intentional */
+        }
+    };
+
+    recenterMap = (): void => {
+        this.redrawMap();
+    };
+
     render(): React.ReactElement {
         return (
             <MapContainer style={{overflow: "hidden"}}>
@@ -172,141 +309,157 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
                         imageRendering: "crisp-edges"
                     }}
                 />
-                {
-                    this.supportedModes.length > 0 &&
-                    <LiveMapModeSwitcher
-                        supportedModes={this.supportedModes}
-                        currentMode={this.state.mode}
-                        setMode={(newMode) => {
-                            this.structureManager.getMapStructures().forEach(s => {
-                                if (s.type === SegmentLabelMapStructure.TYPE) {
-                                    const label = s as SegmentLabelMapStructure;
+                <ActionsContainer>
+                    <Box sx={{display: "flex", alignItems: "flex-end", gap: 1}}>
+                        <Box sx={{flex: 1, minWidth: 0}}>
+                            {
+                                this.state.mode === "segments" &&
 
-                                    label.selected = false;
-                                }
-                            });
+                                <SegmentActions
+                                    segments={this.state.selectedSegmentIds}
+                                    onClear={() => {
+                                        this.structureManager.getMapStructures().forEach(s => {
+                                            if (s.type === SegmentLabelMapStructure.TYPE) {
+                                                const label = s as SegmentLabelMapStructure;
 
-                            this.structureManager.getClientStructures().forEach(s => {
-                                if (s.type === GoToTargetClientStructure.TYPE) {
-                                    this.structureManager.removeClientStructure(s);
-                                }
+                                                label.selected = false;
+                                            }
+                                        });
+                                        this.updateState();
 
-                                if (s.type === ZoneClientStructure.TYPE) {
-                                    this.structureManager.removeClientStructure(s);
-                                }
-                            });
-
-                            this.updateState();
-
-                            this.redrawLayers();
-
-                            this.setState({
-                                mode: newMode
-                            });
-
-                            try {
-                                window.localStorage.setItem(LIVE_MAP_MODE_LOCAL_STORAGE_KEY, newMode);
-                            } catch (e) {
-                                /* intentional */
+                                        this.redrawLayers();
+                                    }}
+                                />
                             }
-                        }}
-                    />
+                            {
+                                this.state.mode === "zones" &&
+
+                                <ZoneActions
+                                    zones={this.state.zones}
+                                    convertPixelCoordinatesToCMSpace={(coordinates => {
+                                        return this.structureManager.convertPixelCoordinatesToCMSpace(coordinates);
+                                    })}
+                                    onClear={() => {
+                                        this.structureManager.getClientStructures().forEach(s => {
+                                            if (s.type === ZoneClientStructure.TYPE) {
+                                                this.structureManager.removeClientStructure(s);
+                                            }
+                                        });
+
+                                        this.updateState();
+
+                                        this.draw();
+                                    }}
+                                    onAdd={() => {
+                                        const currentCenter = this.getCurrentViewportCenterCoordinatesInPixelSpace();
+
+                                        const p0 = {
+                                            x: currentCenter.x -15,
+                                            y: currentCenter.y -15
+                                        };
+                                        const p1 = {
+                                            x: currentCenter.x +15,
+                                            y: currentCenter.y -15
+                                        };
+                                        const p2 = {
+                                            x: currentCenter.x +15,
+                                            y: currentCenter.y +15
+                                        };
+                                        const p3 = {
+                                            x: currentCenter.x -15,
+                                            y: currentCenter.y +15
+                                        };
+
+                                        this.structureManager.addClientStructure(new ZoneClientStructure(
+                                            p0.x, p0.y,
+                                            p1.x, p1.y,
+                                            p2.x, p2.y,
+                                            p3.x, p3.y,
+                                            true
+                                        ));
+
+                                        this.updateState();
+
+                                        this.draw();
+                                    }}
+                                />
+                            }
+                            {
+                                this.state.mode === "goto" &&
+
+                                <GoToActions
+                                    goToTarget={this.state.goToTarget}
+                                    convertPixelCoordinatesToCMSpace={(coordinates => {
+                                        return this.structureManager.convertPixelCoordinatesToCMSpace(coordinates);
+                                    })}
+                                    onClear={() => {
+                                        this.structureManager.getClientStructures().forEach(s => {
+                                            if (s.type === GoToTargetClientStructure.TYPE) {
+                                                this.structureManager.removeClientStructure(s);
+                                            }
+                                        });
+                                        this.updateState();
+
+                                        this.draw();
+                                    }}
+                                />
+                            }
+                        </Box>
+                        {
+                            this.supportedModes.length > 1 &&
+                            <LiveMapModeSwitcher
+                                supportedModes={this.supportedModes}
+                                currentMode={this.state.mode}
+                                setMode={this.handleModeChange}
+                            />
+                        }
+                    </Box>
+                    </ActionsContainer>
+
+                {
+                    this.props.onMapEditorOpen &&
+                    <MapToolbarContainer>
+                        <ActionButton
+                            color="inherit"
+                            size="small"
+                            onClick={this.props.onMapEditorOpen}
+                            title="Map Editor"
+                        >
+                            <MapEditorIcon/>
+                        </ActionButton>
+                    </MapToolbarContainer>
                 }
 
-                <ActionsContainer>
-                    {
-                        this.state.mode === "segments" &&
+                {
+                    this.props.onManualControlOpen &&
+                    <MapOverlayTopLeft>
+                        <ActionButton
+                            color="inherit"
+                            size="small"
+                            onClick={this.props.onManualControlOpen}
+                            title="Manual Control"
+                        >
+                            <GamepadIcon/>
+                        </ActionButton>
+                    </MapOverlayTopLeft>
+                }
 
-                        <SegmentActions
-                            segments={this.state.selectedSegmentIds}
-                            onClear={() => {
-                                this.structureManager.getMapStructures().forEach(s => {
-                                    if (s.type === SegmentLabelMapStructure.TYPE) {
-                                        const label = s as SegmentLabelMapStructure;
+                <MapOverlayBottomLeft>
+                    <ActionButton
+                        color="inherit"
+                        size="small"
+                        onClick={this.recenterMap}
+                        title="Re-Centre Map"
+                    >
+                        <CropFreeIcon/>
+                    </ActionButton>
+                </MapOverlayBottomLeft>
 
-                                        label.selected = false;
-                                    }
-                                });
-                                this.updateState();
+                {
+                    this.props.onStatisticsOpen &&
+                    <StatsOverlayWidget onClick={this.props.onStatisticsOpen} />
+                }
 
-                                this.redrawLayers();
-                            }}
-                        />
-                    }
-                    {
-                        this.state.mode === "zones" &&
-
-                        <ZoneActions
-                            zones={this.state.zones}
-                            convertPixelCoordinatesToCMSpace={(coordinates => {
-                                return this.structureManager.convertPixelCoordinatesToCMSpace(coordinates);
-                            })}
-                            onClear={() => {
-                                this.structureManager.getClientStructures().forEach(s => {
-                                    if (s.type === ZoneClientStructure.TYPE) {
-                                        this.structureManager.removeClientStructure(s);
-                                    }
-                                });
-
-                                this.updateState();
-
-                                this.draw();
-                            }}
-                            onAdd={() => {
-                                const currentCenter = this.getCurrentViewportCenterCoordinatesInPixelSpace();
-
-                                const p0 = {
-                                    x: currentCenter.x -15,
-                                    y: currentCenter.y -15
-                                };
-                                const p1 = {
-                                    x: currentCenter.x +15,
-                                    y: currentCenter.y -15
-                                };
-                                const p2 = {
-                                    x: currentCenter.x +15,
-                                    y: currentCenter.y +15
-                                };
-                                const p3 = {
-                                    x: currentCenter.x -15,
-                                    y: currentCenter.y +15
-                                };
-
-                                this.structureManager.addClientStructure(new ZoneClientStructure(
-                                    p0.x, p0.y,
-                                    p1.x, p1.y,
-                                    p2.x, p2.y,
-                                    p3.x, p3.y,
-                                    true
-                                ));
-
-                                this.updateState();
-
-                                this.draw();
-                            }}
-                        />
-                    }
-                    {
-                        this.state.mode === "goto" &&
-
-                        <GoToActions
-                            goToTarget={this.state.goToTarget}
-                            convertPixelCoordinatesToCMSpace={(coordinates => {
-                                return this.structureManager.convertPixelCoordinatesToCMSpace(coordinates);
-                            })}
-                            onClear={() => {
-                                this.structureManager.getClientStructures().forEach(s => {
-                                    if (s.type === GoToTargetClientStructure.TYPE) {
-                                        this.structureManager.removeClientStructure(s);
-                                    }
-                                });
-                                this.updateState();
-
-                                this.draw();
-                            }}
-                        />
-                    }
-                </ActionsContainer>
                 <Dialog
                     open={this.state.dialogOpen}
                     onClose={() =>{

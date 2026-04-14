@@ -1,0 +1,21 @@
+<svg width="32" height="32" version="1.1" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <linearGradient id="rz_bg" x1="26.367" x2="5.6325" y1="5.6325" y2="26.367" gradientTransform="matrix(1.0977 0 0 1.0977 -1.5634 -1.5634)" gradientUnits="userSpaceOnUse">
+   <stop stop-color="#8c8c8c" offset="0"/>
+   <stop stop-color="#808080" offset="1"/>
+  </linearGradient>
+  <linearGradient id="rz_border" x1="26.367" x2="5.6325" y1="5.6325" y2="26.367" gradientTransform="matrix(1.0977 0 0 1.0977 -1.5634 -1.5634)" gradientUnits="userSpaceOnUse">
+   <stop stop-color="#404040" offset="0"/>
+   <stop stop-color="#333" offset="1"/>
+  </linearGradient>
+  <linearGradient id="rz_icon" x1="22.03" x2="9.98" y1="9.981" y2="22.031" gradientTransform="matrix(1.0977 0 0 1.0977 -1.5634 -1.5634)" gradientUnits="userSpaceOnUse">
+   <stop stop-color="#404040" offset="0"/>
+   <stop stop-color="#333" offset="1"/>
+  </linearGradient>
+ </defs>
+ <circle cx="16" cy="16" r="15.034" fill="url(#rz_bg)" stroke="url(#rz_border)" stroke-width="1.9323"/>
+ <!-- Arc: center (16,16) radius 7, from right (23,16) clockwise 270° to top (16,9) -->
+ <path d="M 23,16 A 7,7 0 1,1 16,9" fill="none" stroke="url(#rz_icon)" stroke-width="2.8" stroke-linecap="round"/>
+ <!-- Arrowhead at top (16,9) pointing left (CW tangent at 270°) -->
+ <path d="M 19,9 L 15.5,6.5 L 15.5,11.5 Z" fill="url(#rz_icon)"/>
+</svg>

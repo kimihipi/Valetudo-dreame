@@ -25,7 +25,8 @@ self.addEventListener( "message", ( evt ) => {
         cachedLayers,
         evt.data.pixelSize,
         evt.data.paletteMode,
-        evt.data.selectedSegmentIds
+        evt.data.selectedSegmentIds,
+        evt.data.alwaysDimUnselectedSegments ?? false
     );
 
     self.postMessage(

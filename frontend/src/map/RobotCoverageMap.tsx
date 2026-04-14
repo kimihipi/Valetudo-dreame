@@ -1,6 +1,6 @@
 import BaseMap, {MapContainer, MapProps, MapState} from "./BaseMap";
 import HelpDialog from "../components/HelpDialog";
-import HelpAction from "./actions/edit_map_actions/HelpAction";
+import MapToolbar from "./actions/edit_map_actions/MapToolbar";
 import {PathDrawer} from "./PathDrawer";
 import {RawMapEntityType} from "../api";
 import SegmentLabelMapStructure from "./structures/map_structures/SegmentLabelMapStructure";
@@ -42,8 +42,7 @@ class RobotCoverageMap extends BaseMap<CleanupCoverageMapProps, CleanupCoverageM
                     }}
                 />
 
-                <HelpAction
-                    helpDialogOpen={this.state.helpDialogOpen}
+                <MapToolbar
                     setHelpDialogOpen={(open) => {
                         this.setState({helpDialogOpen: open});
                     }}

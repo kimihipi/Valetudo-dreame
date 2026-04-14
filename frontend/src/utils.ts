@@ -278,7 +278,3 @@ export function format8601Ish(date: Date) {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
-export let isAprilFools = ((d) => d.getMonth() === 3 && d.getDate() === 1)(new Date());
-export function setAprilFools(value: boolean) {
-    isAprilFools = value;
-}

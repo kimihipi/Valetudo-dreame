@@ -116,7 +116,7 @@ class MultipleMapCapabilityMqttHandle extends CapabilityMqttHandle {
      * @returns {string}
      */
     mapEntryToOptionStr(entry) {
-        return `${entry.name} [${entry.id}]`;
+        return `${entry.name}`;
     }
 
     /**
@@ -124,13 +124,7 @@ class MultipleMapCapabilityMqttHandle extends CapabilityMqttHandle {
      * @returns {import("../../entities/core/ValetudoMapEntry") | undefined}
      */
     findMapEntryByOptionStr(optionStr) {
-        const result = /^(.+) \[(.+)\]$/.exec(optionStr);
-
-        if (!result || result.length !== 3) {
-            return undefined;
-        }
-
-        return this.maps.find(entry => entry.name === result[1] && entry.id === result[2]);
+        return this.maps.find(entry => entry.name === optionStr);
     }
 }
 
