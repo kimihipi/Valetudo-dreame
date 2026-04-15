@@ -17,26 +17,19 @@ import {
 } from "@mui/material";
 import React from "react";
 import {
-    AccessTime as TimeIcon,
     DarkMode as DarkModeIcon,
     Map as MapManagementIcon,
     Home as HomeIcon,
-    Article as LogIcon,
     Menu as MenuIcon,
     ArrowBack as BackIcon,
-    Hub as ConnectivityIcon,
     Favorite as DonateIcon,
-    Wysiwyg as SystemInformationIcon,
+    Settings as SettingsIcon,
     SvgIconComponent
 } from "@mui/icons-material";
 import {Link, useLocation} from "react-router-dom";
 import ValetudoEvents from "./ValetudoEvents";
 import {Capability, useValetudoCustomizationsQuery} from "../api";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
-import {
-    RobotMonochromeIcon,
-    ValetudoMonochromeIcon
-} from "./CustomIcons";
 
 interface MenuEntry {
     kind: "MenuEntry";
@@ -79,6 +72,14 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
     },
 
     {
+        kind: "MenuEntry",
+        route: "/settings",
+        title: "Settings",
+        menuIcon: SettingsIcon,
+        menuText: "Settings"
+    },
+
+    {
         kind: "Subheader",
         title: "Options"
     },
@@ -115,92 +116,64 @@ const menuTree: Array<MenuEntry | MenuSubEntry | MenuSubheader> = [
         parentRoute: "/options/map_management"
     },
     {
-        kind: "MenuEntry",
-        route: "/options/connectivity",
-        title: "Connectivity Options",
-        menuIcon: ConnectivityIcon,
-        menuText: "Connectivity"
+        kind: "MenuSubEntry",
+        route: "/settings/valetudo",
+        title: "Valetudo",
+        parentRoute: "/settings"
     },
     {
         kind: "MenuSubEntry",
-        route: "/options/connectivity/auth",
+        route: "/settings/connectivity",
+        title: "Connectivity",
+        parentRoute: "/settings"
+    },
+    {
+        kind: "MenuSubEntry",
+        route: "/settings/connectivity/auth",
         title: "Auth Settings",
-        parentRoute: "/options/connectivity"
+        parentRoute: "/settings/connectivity"
     },
     {
         kind: "MenuSubEntry",
-        route: "/options/connectivity/mqtt",
+        route: "/settings/connectivity/mqtt",
         title: "MQTT Connectivity",
-        parentRoute: "/options/connectivity"
+        parentRoute: "/settings/connectivity"
     },
     {
         kind: "MenuSubEntry",
-        route: "/options/connectivity/networkadvertisement",
+        route: "/settings/connectivity/networkadvertisement",
         title: "Network Advertisement",
-        parentRoute: "/options/connectivity"
+        parentRoute: "/settings/connectivity"
     },
     {
         kind: "MenuSubEntry",
-        route: "/options/connectivity/ntp",
+        route: "/settings/connectivity/ntp",
         title: "NTP Connectivity",
-        parentRoute: "/options/connectivity"
+        parentRoute: "/settings/connectivity"
     },
     {
         kind: "MenuSubEntry",
-        route: "/options/connectivity/wifi",
+        route: "/settings/connectivity/wifi",
         title: "Wi-Fi Connectivity",
-        parentRoute: "/options/connectivity"
-    },
-    {
-        kind: "MenuEntry",
-        route: "/options/robot",
-        title: "Robot Options",
-        menuIcon: RobotMonochromeIcon,
-        menuText: "Robot"
+        parentRoute: "/settings/connectivity"
     },
     {
         kind: "MenuSubEntry",
-        route: "/options/robot/system",
-        title: "System Options",
-        parentRoute: "/options/robot"
-    },
-    {
-        kind: "MenuSubEntry",
-        route: "/options/robot/quirks",
-        title: "Quirks",
-        parentRoute: "/options/robot"
-    },
-    {
-        kind: "MenuEntry",
-        route: "/options/valetudo",
-        title: "Valetudo Options",
-        menuIcon: ValetudoMonochromeIcon,
-        menuText: "Valetudo"
-    },
-    {
-        kind: "Subheader",
-        title: "Misc"
-    },
-    {
-        kind: "MenuEntry",
-        route: "/valetudo/timers",
-        title: "Timers",
-        menuIcon: TimeIcon,
-        menuText: "Timers"
-    },
-    {
-        kind: "MenuEntry",
-        route: "/valetudo/log",
+        route: "/settings/log",
         title: "Log",
-        menuIcon: LogIcon,
-        menuText: "Log"
+        parentRoute: "/settings"
     },
     {
-        kind: "MenuEntry",
-        route: "/valetudo/system_information",
+        kind: "MenuSubEntry",
+        route: "/settings/system_information",
         title: "System Information",
-        menuIcon: SystemInformationIcon,
-        menuText: "System Information"
+        parentRoute: "/settings"
+    },
+    {
+        kind: "MenuSubEntry",
+        route: "/settings/timers",
+        title: "Timers",
+        parentRoute: "/settings"
     },
 ];
 
@@ -233,7 +206,8 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
         if (ret !== "") {
             document.title = `Valetudo+ - ${ret}`;
         } else {
-            document.title = "Valetudo+";
+            // On home page - use friendly name if available, otherwise just "Valetudo"
+            document.title = customizations?.friendlyName || "Valetudo";
         }
 
         if (currentMenuEntry.kind !== "Subheader" && currentMenuEntry.route === "/" && customizations?.friendlyName) {
@@ -401,6 +375,27 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
     const toolbarContent = React.useMemo(() => {
         switch (currentMenuEntry.kind) {
             case "MenuEntry":
+                // Show back button for settings page, hamburger for others
+                if (currentMenuEntry.route === "/settings") {
+                    return (
+                        <>
+                            <IconButton
+                                size="large"
+                                edge="start"
+                                color="inherit"
+                                aria-label="back"
+                                sx={{mr: 2}}
+                                component={Link}
+                                to="/"
+                            >
+                                <BackIcon/>
+                            </IconButton>
+                            <Typography variant="h6" component="div" sx={{flexGrow: 1}}>
+                                {pageTitle}
+                            </Typography>
+                        </>
+                    );
+                }
                 return (
                     <>
                         <IconButton
@@ -457,6 +452,15 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
                 <Toolbar>
                     {toolbarContent}
                     <div>
+                        <IconButton
+                            size="large"
+                            color="inherit"
+                            title="Settings"
+                            component={Link}
+                            to="/settings"
+                        >
+                            <SettingsIcon/>
+                        </IconButton>
                         <ValetudoEvents/>
                     </div>
                 </Toolbar>

@@ -19,6 +19,8 @@ import {
     Collapse,
     Icon,
     Switch,
+    Select,
+    MenuItem,
 } from "@mui/material";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import {
@@ -499,36 +501,55 @@ const SpeakerVolumeSetting = () => {
 };
 
 const PlayAudioSetting = () => {
-    const {data: audioList, isPending: audioListPending} = useSpeakerPlayAudioListQuery();
+    const {data: audioList} = useSpeakerPlayAudioListQuery();
     const {mutate: trigger, isPending: isTriggering} = useSpeakerPlayAudioTriggerMutation();
 
-    const options: SelectListMenuItemOption[] = (audioList ?? []).map((entry) => ({
-        value: entry.id,
-        label: entry.name,
-    }));
-
-    const [currentValue, setCurrentValue] = React.useState<SelectListMenuItemOption>(
-        options.length > 0 ? options[0] : {value: "", label: ""}
-    );
+    const [currentValue, setCurrentValue] = React.useState<string>("");
 
     React.useEffect(() => {
-        if (options.length > 0 && !options.find(o => o.value === currentValue.value)) {
-            setCurrentValue(options[0]);
+        if (audioList && audioList.length > 0 && currentValue === "") {
+            setCurrentValue(audioList[0].id);
         }
-    }, [options, currentValue]);
+    }, [audioList, currentValue]);
 
     return (
-        <SelectListMenuItem
-            primaryLabel="Play Audio"
-            secondaryLabel="Select and play a sound"
-            icon={<SpeakerIcon/>}
-            options={options}
-            currentValue={currentValue}
-            setValue={setCurrentValue}
-            disabled={isTriggering || options.length === 0}
-            loadingOptions={audioListPending}
-            loadError={false}
-        />
+        <ListItem>
+            <ListItemAvatar>
+                <Avatar>
+                    <SpeakerIcon/>
+                </Avatar>
+            </ListItemAvatar>
+            <ListItemText
+                primary="Play Audio"
+                secondary="Select and play a sound"
+                style={{marginRight: "2rem"}}
+            />
+            <Stack direction="row" spacing={1} alignItems="center">
+                <Select
+                    value={currentValue}
+                    onChange={(e) => setCurrentValue(e.target.value)}
+                    disabled={isTriggering || !audioList || audioList.length === 0}
+                    size="small"
+                    sx={{width: 150}}
+                >
+                    {(audioList ?? []).map((entry) => (
+                        <MenuItem key={entry.id} value={entry.id}>
+                            {entry.name}
+                        </MenuItem>
+                    ))}
+                </Select>
+                <Button
+                    variant="outlined"
+                    color="success"
+                    loading={isTriggering}
+                    disabled={currentValue === "" || !audioList || audioList.length === 0}
+                    onClick={() => trigger(currentValue)}
+                    sx={{whiteSpace: "nowrap"}}
+                >
+                    Play
+                </Button>
+            </Stack>
+        </ListItem>
     );
 };
 
@@ -638,7 +659,7 @@ const DoNotDisturbSetting = () => {
                                         }}
                                         disabled={isUpdating}
                                         size="small"
-                                        slotProps={{input: {sx: {fontSize: "0.875rem"}}}}
+                                        slotProps={{htmlInput: {sx: {fontSize: "0.875rem"}}}}
                                         sx={{flex: 1}}
                                     />
                                     <TextField
@@ -651,7 +672,7 @@ const DoNotDisturbSetting = () => {
                                         }}
                                         disabled={isUpdating}
                                         size="small"
-                                        slotProps={{input: {sx: {fontSize: "0.875rem"}}}}
+                                        slotProps={{htmlInput: {sx: {fontSize: "0.875rem"}}}}
                                         sx={{flex: 1}}
                                     />
                                     <Button
@@ -859,7 +880,14 @@ const RobotSettings: React.FC<{
             items.pop();
         }
 
-        // Add Quirks section with collapsible header
+        // Add System Options section
+        const systemItems: React.ReactElement[] = [];
+        if (speakerPlayAudioSupported) {systemItems.push(<PlayAudioSetting key="playAudio"/>);}
+        if (doNotDisturbSupported) {systemItems.push(<DoNotDisturbSetting key="doNotDisturb"/>);}
+        if (voicePackManagementSupported) {systemItems.push(<VoicePackSetting key="voicePacks"/>);}
+        addGroup(systemItems, "System", <SystemIcon/>);
+
+        // Add Quirks section with collapsible header at the bottom
         if (quirksSupported && quirks && Array.isArray(quirks) && quirks.length > 0) {
             const sortedQuirks = [...quirks].sort((a, b) => a.title.localeCompare(b.title));
 
@@ -892,13 +920,6 @@ const RobotSettings: React.FC<{
                 </Collapse>
             );
         }
-
-        // Add System Options section
-        const systemItems: React.ReactElement[] = [];
-        if (speakerPlayAudioSupported) {systemItems.push(<PlayAudioSetting key="playAudio"/>);}
-        if (doNotDisturbSupported) {systemItems.push(<DoNotDisturbSetting key="doNotDisturb"/>);}
-        if (voicePackManagementSupported) {systemItems.push(<VoicePackSetting key="voicePacks"/>);}
-        addGroup(systemItems, "System", <SystemIcon/>);
 
         return items;
     }, [

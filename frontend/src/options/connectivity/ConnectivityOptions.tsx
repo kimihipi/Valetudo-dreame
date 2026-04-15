@@ -27,7 +27,7 @@ const ConnectivityOptions = (): React.ReactElement => {
             items.push(
                 <LinkListMenuItem
                     key="wifiConfiguration"
-                    url="/options/connectivity/wifi"
+                    url="/settings/connectivity/wifi"
                     primaryLabel="Wi-Fi Connectivity"
                     secondaryLabel="Check connection details and modify the configuration"
                     icon={<WifiIcon/>}
@@ -40,7 +40,7 @@ const ConnectivityOptions = (): React.ReactElement => {
         items.push(
             <LinkListMenuItem
                 key="mqttConnectivity"
-                url="/options/connectivity/mqtt"
+                url="/settings/connectivity/mqtt"
                 primaryLabel="MQTT Connectivity"
                 secondaryLabel="Connect Valetudo to your MQTT Broker"
                 icon={<MQTTIcon/>}
@@ -50,7 +50,7 @@ const ConnectivityOptions = (): React.ReactElement => {
         items.push(
             <LinkListMenuItem
                 key="ntpConnectivity"
-                url="/options/connectivity/ntp"
+                url="/settings/connectivity/ntp"
                 primaryLabel="NTP Connectivity"
                 secondaryLabel="Configure the integrated Network Time Protocol (NTP) client"
                 icon={<NTPIcon/>}
@@ -60,7 +60,7 @@ const ConnectivityOptions = (): React.ReactElement => {
         items.push(
             <LinkListMenuItem
                 key="networkAdvertisementSettings"
-                url="/options/connectivity/networkadvertisement"
+                url="/settings/connectivity/networkadvertisement"
                 primaryLabel="Network Advertisement"
                 secondaryLabel="Control Bonjour/mDNS and SSDP/UPnP discoverability"
                 icon={<NetworkAdvertisementIcon/>}
@@ -70,7 +70,7 @@ const ConnectivityOptions = (): React.ReactElement => {
         items.push(
             <LinkListMenuItem
                 key="authSettings"
-                url="/options/connectivity/auth"
+                url="/settings/connectivity/auth"
                 primaryLabel="Auth Settings"
                 secondaryLabel="Restrict access to Valetudo"
                 icon={<AuthIcon/>}
