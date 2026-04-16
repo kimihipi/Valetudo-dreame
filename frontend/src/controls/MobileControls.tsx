@@ -46,7 +46,9 @@ const CollapsedHeader = (): React.ReactElement => {
     const statusText = status ? status.value.replace(/_/g, " ") : "—";
 
     const buttons: CompactButton[] = React.useMemo(() => {
-        if (!status) {return [];}
+        if (!status) {
+            return [];
+        }
 
         if (ActiveStates.includes(status.value)) {
             return [
@@ -88,7 +90,9 @@ const CollapsedHeader = (): React.ReactElement => {
                             key={command}
                             variant="outlined"
                             disabled={!enabled || isPending}
-                            onClick={(e) => { e.stopPropagation(); sendCommand(command); }}
+                            onClick={(e) => {
+                                e.stopPropagation(); sendCommand(command);
+                            }}
                             sx={{
                                 minWidth: 0,
                                 width: "36px",

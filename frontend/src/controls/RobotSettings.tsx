@@ -842,7 +842,9 @@ const RobotSettings: React.FC<{
         const items: React.ReactElement[] = [];
 
         const addGroup = (groupItems: React.ReactElement[], title: string, icon: React.ReactElement) => {
-            if (groupItems.length === 0) {return;}
+            if (groupItems.length === 0) {
+                return;
+            }
             items.push(
                 <SubHeaderListMenuItem key={`header-${title}`} primaryLabel={title} icon={icon}/>
             );
@@ -851,25 +853,55 @@ const RobotSettings: React.FC<{
         };
 
         const generalItems: React.ReactElement[] = [];
-        if (locateSupported) {generalItems.push(<LocateSetting key="locate"/>);}
-        if (keyLockSupported) {generalItems.push(<KeyLockSetting key="keyLock"/>);}
-        if (speakerVolumeSupported) {generalItems.push(<SpeakerVolumeSetting key="speakerVolume"/>);}
+        if (locateSupported) {
+            generalItems.push(<LocateSetting key="locate"/>);
+        }
+        if (keyLockSupported) {
+            generalItems.push(<KeyLockSetting key="keyLock"/>);
+        }
+        if (speakerVolumeSupported) {
+            generalItems.push(<SpeakerVolumeSetting key="speakerVolume"/>);
+        }
 
         const behaviourItems: React.ReactElement[] = [];
-        if (collisionAvoidantNavigationSupported) {behaviourItems.push(<CollisionAvoidantNavigationSetting key="collisionAvoidant"/>);}
-        if (floorMaterialNavigationSupported) {behaviourItems.push(<FloorMaterialDirectionAwareNavigationSetting key="floorMaterial"/>);}
-        if (carpetModeSupported) {behaviourItems.push(<CarpetModeSetting key="carpetMode"/>);}
-        if (carpetSensorModeSupported) {behaviourItems.push(<CarpetSensorModeSetting key="carpetSensorMode"/>);}
-        if (mopExtensionSupported) {behaviourItems.push(<MopExtensionSetting key="mopExtension"/>);}
-        if (mopTwistSupported) {behaviourItems.push(<MopTwistSetting key="mopTwist"/>);}
-        if (mopExtensionFurnitureLegSupported) {behaviourItems.push(<MopExtensionFurnitureLegHandlingSetting key="mopFurnitureLeg"/>);}
-        if (suctionBoostSupported) {behaviourItems.push(<SuctionBoostSetting key="suctionBoost"/>);}
+        if (collisionAvoidantNavigationSupported) {
+            behaviourItems.push(<CollisionAvoidantNavigationSetting key="collisionAvoidant"/>);
+        }
+        if (floorMaterialNavigationSupported) {
+            behaviourItems.push(<FloorMaterialDirectionAwareNavigationSetting key="floorMaterial"/>);
+        }
+        if (carpetModeSupported) {
+            behaviourItems.push(<CarpetModeSetting key="carpetMode"/>);
+        }
+        if (carpetSensorModeSupported) {
+            behaviourItems.push(<CarpetSensorModeSetting key="carpetSensorMode"/>);
+        }
+        if (mopExtensionSupported) {
+            behaviourItems.push(<MopExtensionSetting key="mopExtension"/>);
+        }
+        if (mopTwistSupported) {
+            behaviourItems.push(<MopTwistSetting key="mopTwist"/>);
+        }
+        if (mopExtensionFurnitureLegSupported) {
+            behaviourItems.push(<MopExtensionFurnitureLegHandlingSetting key="mopFurnitureLeg"/>);
+        }
+        if (suctionBoostSupported) {
+            behaviourItems.push(<SuctionBoostSetting key="suctionBoost"/>);
+        }
 
         const perceptionItems: React.ReactElement[] = [];
-        if (obstacleAvoidanceSupported) {perceptionItems.push(<ObstacleAvoidanceSetting key="obstacleAvoidance"/>);}
-        if (petObstacleAvoidanceSupported) {perceptionItems.push(<PetObstacleAvoidanceSetting key="petObstacleAvoidance"/>);}
-        if (obstacleImagesSupported) {perceptionItems.push(<ObstacleImagesSetting key="obstacleImages"/>);}
-        if (cameraLightSupported) {perceptionItems.push(<CameraLightSetting key="cameraLight"/>);}
+        if (obstacleAvoidanceSupported) {
+            perceptionItems.push(<ObstacleAvoidanceSetting key="obstacleAvoidance"/>);
+        }
+        if (petObstacleAvoidanceSupported) {
+            perceptionItems.push(<PetObstacleAvoidanceSetting key="petObstacleAvoidance"/>);
+        }
+        if (obstacleImagesSupported) {
+            perceptionItems.push(<ObstacleImagesSetting key="obstacleImages"/>);
+        }
+        if (cameraLightSupported) {
+            perceptionItems.push(<CameraLightSetting key="cameraLight"/>);
+        }
 
         addGroup(generalItems, "General", <GeneralIcon/>);
         addGroup(behaviourItems, "Behaviour", <BehaviourIcon/>);
@@ -882,9 +914,15 @@ const RobotSettings: React.FC<{
 
         // Add System Options section
         const systemItems: React.ReactElement[] = [];
-        if (speakerPlayAudioSupported) {systemItems.push(<PlayAudioSetting key="playAudio"/>);}
-        if (doNotDisturbSupported) {systemItems.push(<DoNotDisturbSetting key="doNotDisturb"/>);}
-        if (voicePackManagementSupported) {systemItems.push(<VoicePackSetting key="voicePacks"/>);}
+        if (speakerPlayAudioSupported) {
+            systemItems.push(<PlayAudioSetting key="playAudio"/>);
+        }
+        if (doNotDisturbSupported) {
+            systemItems.push(<DoNotDisturbSetting key="doNotDisturb"/>);
+        }
+        if (voicePackManagementSupported) {
+            systemItems.push(<VoicePackSetting key="voicePacks"/>);
+        }
         addGroup(systemItems, "System", <SystemIcon/>);
 
         // Add Quirks section with collapsible header at the bottom

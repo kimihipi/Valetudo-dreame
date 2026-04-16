@@ -414,7 +414,7 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
                             />
                         }
                     </Box>
-                    </ActionsContainer>
+                </ActionsContainer>
 
                 {
                     this.props.onMapEditorOpen &&

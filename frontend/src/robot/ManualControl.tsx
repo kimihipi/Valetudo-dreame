@@ -106,7 +106,9 @@ const MovementControls = () => {
     const rotateCcwEnabled = controlsEnabled && manualControlProperties?.supportedMovementCommands.includes("rotate_counterclockwise");
 
     const sendMoveCommand = (command: ManualControlCommand) => {
-        if (!controlsEnabled) { return; }
+        if (!controlsEnabled) {
+            return;
+        }
         sendInteraction({ action: "move", movementCommand: command });
     };
 
@@ -125,24 +127,36 @@ const MovementControls = () => {
             const active = new Set<ManualControlCommand>();
             for (const key of heldKeysRef.current) {
                 const cmd = KEY_COMMAND_MAP[key];
-                if (cmd) { active.add(cmd); }
+                if (cmd) {
+                    active.add(cmd);
+                }
             }
             setActiveCommands(active);
         };
 
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (!controlsEnabled || e.repeat) { return; }
+            if (!controlsEnabled || e.repeat) {
+                return;
+            }
             const command = KEY_COMMAND_MAP[e.key];
-            if (!command) { return; }
-            if (!manualControlProperties?.supportedMovementCommands.includes(command)) { return; }
-            if (heldKeysRef.current.has(e.key)) { return; }
+            if (!command) {
+                return;
+            }
+            if (!manualControlProperties?.supportedMovementCommands.includes(command)) {
+                return;
+            }
+            if (heldKeysRef.current.has(e.key)) {
+                return;
+            }
             heldKeysRef.current.add(e.key);
             updateActive();
             sendInteraction({ action: "move", movementCommand: command });
         };
 
         const handleKeyUp = (e: KeyboardEvent) => {
-            if (!controlsEnabled || !KEY_COMMAND_MAP[e.key]) { return; }
+            if (!controlsEnabled || !KEY_COMMAND_MAP[e.key]) {
+                return;
+            }
             heldKeysRef.current.delete(e.key);
             updateActive();
         };
@@ -249,7 +263,9 @@ const HighResolutionMovementControls = () => {
     }, [sendMoveCommand]);
 
     const handleJoystickInput = useCallback((e: IJoystickUpdateEvent) => {
-        if (!controlsEnabled) { return; }
+        if (!controlsEnabled) {
+            return;
+        }
 
         let eventVelocity = 0;
         let eventAngle = 0;
@@ -291,15 +307,21 @@ const HighResolutionMovementControls = () => {
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (!controlsEnabled || e.repeat) { return; }
-            if (!KEY_COMMAND_MAP[e.key]) { return; }
+            if (!controlsEnabled || e.repeat) {
+                return;
+            }
+            if (!KEY_COMMAND_MAP[e.key]) {
+                return;
+            }
             heldKeysRef.current.add(e.key);
             updateVectorFromKeys();
             handleInputStateUpdate("move");
         };
 
         const handleKeyUp = (e: KeyboardEvent) => {
-            if (!controlsEnabled || !KEY_COMMAND_MAP[e.key]) { return; }
+            if (!controlsEnabled || !KEY_COMMAND_MAP[e.key]) {
+                return;
+            }
             heldKeysRef.current.delete(e.key);
             updateVectorFromKeys();
             if (heldKeysRef.current.size === 0 && !joystickActiveRef.current) {
@@ -363,8 +385,12 @@ export const ManualControlEnableButton = (): React.ReactElement | null => {
         Capability.HighResolutionManualControl,
         Capability.ManualControl
     );
-    if (highResSupported) { return <HighResolutionEnableButton />; }
-    if (standardSupported) { return <ControlEnableButton />; }
+    if (highResSupported) {
+        return <HighResolutionEnableButton />;
+    }
+    if (standardSupported) {
+        return <ControlEnableButton />;
+    }
     return null;
 };
 

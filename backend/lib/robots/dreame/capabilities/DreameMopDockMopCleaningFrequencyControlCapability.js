@@ -1,5 +1,5 @@
-const DreameUtils = require("../DreameUtils");
 const DreameMiotServices = require("../DreameMiotServices");
+const DreameUtils = require("../DreameUtils");
 const MopDockMopCleaningFrequencyControlCapability = require("../../../core/capabilities/MopDockMopCleaningFrequencyControlCapability");
 
 /**

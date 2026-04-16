@@ -1,5 +1,5 @@
-const MaintenanceCapability = require("../../../core/capabilities/MaintenanceCapability");
 const Logger = require("../../../Logger");
+const MaintenanceCapability = require("../../../core/capabilities/MaintenanceCapability");
 
 /**
  * @extends MaintenanceCapability<import("../MockValetudoRobot")>

@@ -1,7 +1,6 @@
 const child_process = require("child_process");
 const env = require("../../../res/env");
 const fs = require("fs");
-const lodash = require("lodash");
 const Logger = require("../../../Logger");
 const path = require("path");
 const SpeakerPlayAudioCapability = require("../../../core/capabilities/SpeakerPlayAudioCapability");

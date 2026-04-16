@@ -714,7 +714,7 @@ const DockSettings: React.FC<{
             slotProps={{
                 backdrop: {
                     sx: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.2)',
+                        backgroundColor: "rgba(0, 0, 0, 0.2)",
                     }
                 }
             }}

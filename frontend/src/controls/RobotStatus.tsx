@@ -87,13 +87,27 @@ interface CommandButton {
 }
 
 const getBatteryIcon = (level: number): SvgIconComponent => {
-    if (level < 10) {return Battery0Bar;}
-    if (level < 25) {return Battery1Bar;}
-    if (level < 40) {return Battery2Bar;}
-    if (level < 55) {return Battery3Bar;}
-    if (level < 70) {return Battery4Bar;}
-    if (level < 85) {return Battery5Bar;}
-    if (level < 100) {return Battery6Bar;}
+    if (level < 10) {
+        return Battery0Bar;
+    }
+    if (level < 25) {
+        return Battery1Bar;
+    }
+    if (level < 40) {
+        return Battery2Bar;
+    }
+    if (level < 55) {
+        return Battery3Bar;
+    }
+    if (level < 70) {
+        return Battery4Bar;
+    }
+    if (level < 85) {
+        return Battery5Bar;
+    }
+    if (level < 100) {
+        return Battery6Bar;
+    }
     return BatteryFull;
 };
 
@@ -193,7 +207,9 @@ const CleanRouteControl = ({ iconColor }: { iconColor: string }): React.ReactEle
             <Box sx={{px: 0.5, pb: 0.5}}>
                 <ToggleButtonGroup exclusive fullWidth size="small" value={currentRoute ?? null}
                     onChange={(_e, value) => {
-                        if (value !== null && value !== currentRoute) { setRoute(value as CleanRoute); }
+                        if (value !== null && value !== currentRoute) {
+                            setRoute(value as CleanRoute);
+                        }
                     }}
                 >
                     {sortedRoutes.map((r) => {
@@ -387,20 +403,26 @@ const ConsumableRow = ({consumable, state, label, color}: {
     };
 
     React.useEffect(() => {
-        if (!confirming) {return;}
+        if (!confirming) {
+            return;
+        }
         const timer = setTimeout(() => setConfirming(false), 3000);
         return () => clearTimeout(timer);
     }, [confirming]);
 
     const percentRemaining = React.useMemo(() => {
-        if (!state || state.remaining.value <= 0) {return 0;}
+        if (!state || state.remaining.value <= 0) {
+            return 0;
+        }
         let pct: number | undefined;
         if (consumable.unit === "percent") {
             pct = state.remaining.value;
         } else if (consumable.maxValue !== undefined) {
             pct = (state.remaining.value / consumable.maxValue) * 100;
         }
-        if (pct === undefined) {return undefined;}
+        if (pct === undefined) {
+            return undefined;
+        }
         return Math.min(100, Math.max(0, Math.round(pct)));
     }, [consumable, state]);
 
@@ -444,7 +466,9 @@ const ConsumablesSubmenu = (): React.ReactElement => {
     const {data: consumablesData} = useConsumableStateQuery();
 
     const consumableRows = React.useMemo(() => {
-        if (!consumableProperties || !consumablesData) {return [];}
+        if (!consumableProperties || !consumablesData) {
+            return [];
+        }
         return consumableProperties.availableConsumables.map(consumable => ({
             consumable: consumable,
             state: consumablesData.find(e => e.type === consumable.type && e.subType === consumable.subType),
@@ -452,21 +476,31 @@ const ConsumablesSubmenu = (): React.ReactElement => {
     }, [consumableProperties, consumablesData]);
 
     const getColor = (consumable: ConsumableMeta, state: ConsumableState | undefined): string => {
-        if (!state) {return "text.secondary";}
-        if (state.remaining.value <= 0) {return palette.red;}
+        if (!state) {
+            return "text.secondary";
+        }
+        if (state.remaining.value <= 0) {
+            return palette.red;
+        }
         let pct: number | undefined;
         if (consumable.unit === "percent") {
             pct = state.remaining.value;
         } else if (consumable.maxValue !== undefined) {
             pct = (state.remaining.value / consumable.maxValue) * 100;
         }
-        if (pct !== undefined && pct < 20) {return palette.yellow;}
+        if (pct !== undefined && pct < 20) {
+            return palette.yellow;
+        }
         return palette.green;
     };
 
     const getLabel = (_consumable: ConsumableMeta, state: ConsumableState | undefined): string => {
-        if (!state) {return "—";}
-        if (state.remaining.value <= 0) {return "Depleted";}
+        if (!state) {
+            return "—";
+        }
+        if (state.remaining.value <= 0) {
+            return "Depleted";
+        }
         return state.remaining.unit === "minutes" ?
             `${Math.round(state.remaining.value / 60)}h` :
             `${state.remaining.value}%`;
@@ -476,8 +510,12 @@ const ConsumablesSubmenu = (): React.ReactElement => {
         let color = palette.green;
         for (const {consumable, state} of consumableRows) {
             const c = getColor(consumable, state);
-            if (c === palette.red) {return palette.red;}
-            if (c === palette.yellow) {color = palette.yellow;}
+            if (c === palette.red) {
+                return palette.red;
+            }
+            if (c === palette.yellow) {
+                color = palette.yellow;
+            }
         }
         return color;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -487,7 +525,9 @@ const ConsumablesSubmenu = (): React.ReactElement => {
     const [expanded, setExpanded] = React.useState<boolean>(!isOk);
 
     React.useEffect(() => {
-        if (!isOk) {setExpanded(true);}
+        if (!isOk) {
+            setExpanded(true);
+        }
     }, [isOk]);
 
     return (
@@ -549,8 +589,12 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
     const {setMode} = useLiveMapMode();
 
     const getBatteryColor = (level: number) => {
-        if (level > 75) {return palette.green;}
-        if (level > 25) {return palette.yellow;}
+        if (level > 75) {
+            return palette.green;
+        }
+        if (level > 25) {
+            return palette.yellow;
+        }
         return palette.red;
     };
 

@@ -1,5 +1,5 @@
-const MaintenanceCapability = require("../../../core/capabilities/MaintenanceCapability");
 const DreameMiotServices = require("../DreameMiotServices");
+const MaintenanceCapability = require("../../../core/capabilities/MaintenanceCapability");
 const stateAttrs = require("../../../entities/state/attributes");
 
 /**

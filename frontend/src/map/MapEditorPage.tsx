@@ -81,10 +81,18 @@ const MapEditorPage = (): React.ReactElement => {
 
     const availableModes = React.useMemo<ManagementMode[]>(() => {
         const modes: ManagementMode[] = [];
-        if (segmentsSupported) {modes.push("segments");}
-        if (combinedVirtualRestrictionsCapabilitySupported) {modes.push("virtual_restrictions");}
-        if (combinedVirtualThresholdsCapabilitySupported) {modes.push("virtual_thresholds");}
-        if (curtainsCapabilitySupported) {modes.push("curtains");}
+        if (segmentsSupported) {
+            modes.push("segments");
+        }
+        if (combinedVirtualRestrictionsCapabilitySupported) {
+            modes.push("virtual_restrictions");
+        }
+        if (combinedVirtualThresholdsCapabilitySupported) {
+            modes.push("virtual_thresholds");
+        }
+        if (curtainsCapabilitySupported) {
+            modes.push("curtains");
+        }
         return modes;
     }, [segmentsSupported, combinedVirtualRestrictionsCapabilitySupported, combinedVirtualThresholdsCapabilitySupported, curtainsCapabilitySupported]);
 

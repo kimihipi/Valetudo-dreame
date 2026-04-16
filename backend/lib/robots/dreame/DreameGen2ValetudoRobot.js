@@ -685,9 +685,9 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
 
                             const existingBattery = this.state.getFirstMatchingAttribute({attributeClass: stateAttrs.BatteryStateAttribute.name});
                             if (existingBattery) {
-                                const chargingFlag = elem.value === 1
-                                    ? stateAttrs.BatteryStateAttribute.FLAG.CHARGING
-                                    : stateAttrs.BatteryStateAttribute.FLAG.DISCHARGING;
+                                const chargingFlag = elem.value === 1 ?
+                                    stateAttrs.BatteryStateAttribute.FLAG.CHARGING :
+                                    stateAttrs.BatteryStateAttribute.FLAG.DISCHARGING;
                                 this.state.upsertFirstMatchingAttribute(new stateAttrs.BatteryStateAttribute({
                                     level: existingBattery.level,
                                     flag: chargingFlag

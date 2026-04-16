@@ -27,7 +27,9 @@ class PassableThresholdMapStructure extends MapStructure {
         const dx = p1.x - p0.x;
         const dy = p1.y - p0.y;
         const len = Math.sqrt(dx * dx + dy * dy);
-        if (len === 0) {return;}
+        if (len === 0) {
+            return;
+        }
 
         const ux = dx / len;
         const uy = dy / len;

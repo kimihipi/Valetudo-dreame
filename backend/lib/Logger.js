@@ -232,6 +232,7 @@ Logger.EVENTS = {
     LogMessage: "LogMessage",
 };
 
+// eslint-disable-next-line jsdoc/no-undefined-types
 Logger.LogLevels = /** @type {Readonly<Record<string, {level: number, callback: Function}>>} */ (Object.freeze({
     // eslint-disable-next-line no-console
     "trace": {"level": -2, "callback": console.debug},
