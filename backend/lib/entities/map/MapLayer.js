@@ -29,6 +29,7 @@ class MapLayer extends SerializableEntity {
      * @param {number} [options.metaData.cleanOrder]
      * @param {boolean} [options.metaData.active]
      * @param {MapLayerMaterial} [options.metaData.material]
+     * @param {boolean} [options.metaData.hidden]
      */
     constructor(options) {
         super(options);

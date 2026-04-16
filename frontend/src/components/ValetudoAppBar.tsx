@@ -18,6 +18,7 @@ import {
 import React from "react";
 import {
     DarkMode as DarkModeIcon,
+    LightMode as LightModeIcon,
     Map as MapManagementIcon,
     Home as HomeIcon,
     Menu as MenuIcon,
@@ -452,6 +453,16 @@ const ValetudoAppBar: React.FunctionComponent<{ paletteMode: PaletteMode, setPal
                 <Toolbar>
                     {toolbarContent}
                     <div>
+                        <IconButton
+                            size="large"
+                            color="inherit"
+                            title={paletteMode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                            onClick={() => {
+                                setPaletteMode(paletteMode === "dark" ? "light" : "dark");
+                            }}
+                        >
+                            {paletteMode === "dark" ? <LightModeIcon/> : <DarkModeIcon/>}
+                        </IconButton>
                         <IconButton
                             size="large"
                             color="inherit"
