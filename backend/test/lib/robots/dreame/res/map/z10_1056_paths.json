@@ -1,7 +1,7 @@
 {
   "__class": "ValetudoMap",
   "metaData": {
-		"id": "4",
+    "id": "4",
     "rotation": 0,
     "version": 2,
     "totalLayerArea": 477350
@@ -3747,7 +3747,8 @@
         "active": false,
         "source": "regular",
         "name": "Bad",
-        "area": 28425
+        "area": 28425,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -3905,7 +3906,8 @@
         "active": false,
         "source": "regular",
         "name": "Schlafzimmer",
-        "area": 91350
+        "area": 91350,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -4681,7 +4683,8 @@
         "active": false,
         "source": "regular",
         "name": "Küche",
-        "area": 57850
+        "area": 57850,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -4923,7 +4926,8 @@
         "active": false,
         "source": "regular",
         "name": "Flur",
-        "area": 42950
+        "area": 42950,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -5321,7 +5325,8 @@
         "active": false,
         "source": "regular",
         "name": "Wohnzimmer",
-        "area": 101650
+        "area": 101650,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -5890,7 +5895,8 @@
         "active": false,
         "source": "regular",
         "name": "Essbereich",
-        "area": 35150
+        "area": 35150,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -6213,7 +6219,8 @@
         "active": false,
         "source": "regular",
         "name": "Schreibtisch",
-        "area": 48250
+        "area": 48250,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],

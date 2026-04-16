@@ -1939,7 +1939,8 @@
         "segmentId": "1",
         "active": false,
         "source": "rism",
-        "area": 58850
+        "area": 58850,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -2114,7 +2115,8 @@
         "segmentId": "3",
         "active": false,
         "source": "rism",
-        "area": 302150
+        "area": 302150,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -2586,7 +2588,8 @@
         "segmentId": "4",
         "active": false,
         "source": "rism",
-        "area": 41375
+        "area": 41375,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -2797,7 +2800,8 @@
         "segmentId": "5",
         "active": false,
         "source": "rism",
-        "area": 20925
+        "area": 20925,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -2912,7 +2916,8 @@
         "segmentId": "6",
         "active": false,
         "source": "rism",
-        "area": 77325
+        "area": 77325,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -3096,7 +3101,8 @@
         "segmentId": "7",
         "active": false,
         "source": "rism",
-        "area": 310425
+        "area": 310425,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],

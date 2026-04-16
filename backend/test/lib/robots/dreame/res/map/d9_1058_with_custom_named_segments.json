@@ -1,7 +1,7 @@
 {
   "__class": "ValetudoMap",
   "metaData": {
-		"id": "0",
+    "id": "0",
     "version": 2,
     "totalLayerArea": 429875
   },
@@ -2544,7 +2544,8 @@
         "segmentId": "1",
         "active": false,
         "source": "regular",
-        "area": 84775
+        "area": 84775,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -2885,7 +2886,8 @@
         "active": false,
         "source": "regular",
         "name": "Bad",
-        "area": 23950
+        "area": 23950,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -3019,7 +3021,8 @@
         "active": false,
         "source": "regular",
         "name": "Flur",
-        "area": 44950
+        "area": 44950,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -3206,7 +3209,8 @@
         "segmentId": "4",
         "active": false,
         "source": "regular",
-        "area": 81400
+        "area": 81400,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -3726,7 +3730,8 @@
         "segmentId": "5",
         "active": false,
         "source": "regular",
-        "area": 50175
+        "area": 50175,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -4006,7 +4011,8 @@
         "segmentId": "6",
         "active": true,
         "source": "regular",
-        "area": 97050
+        "area": 97050,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],

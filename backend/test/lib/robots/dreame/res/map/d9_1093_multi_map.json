@@ -2806,7 +2806,8 @@
         "segmentId": "1",
         "active": false,
         "source": "rism",
-        "area": 27225
+        "area": 27225,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [
@@ -5008,7 +5009,8 @@
         "segmentId": "2",
         "active": false,
         "source": "rism",
-        "area": 53400
+        "area": 53400,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [
@@ -9305,7 +9307,8 @@
         "active": false,
         "source": "rism",
         "name": "Flur",
-        "area": 47375
+        "area": 47375,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [
@@ -13119,7 +13122,8 @@
         "segmentId": "4",
         "active": false,
         "source": "rism",
-        "area": 105500
+        "area": 105500,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [
@@ -21583,7 +21587,8 @@
         "segmentId": "5",
         "active": false,
         "source": "rism",
-        "area": 99100
+        "area": 99100,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [
@@ -29535,7 +29540,8 @@
         "segmentId": "6",
         "active": false,
         "source": "rism",
-        "area": 94775
+        "area": 94775,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [
@@ -37141,7 +37147,8 @@
         "segmentId": "7",
         "active": false,
         "source": "rism",
-        "area": 12725
+        "area": 12725,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [

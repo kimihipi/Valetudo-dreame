@@ -65,7 +65,6 @@ import {
     useDoNotDisturbConfigurationQuery,
     useDoNotDisturbConfigurationMutation,
     DoNotDisturbConfiguration,
-    DoNotDisturbTime,
     useVoicePackManagementStateQuery,
     useVoicePackManagementMutation,
     VoicePackManagementCommand,

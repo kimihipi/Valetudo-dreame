@@ -29,10 +29,8 @@ import {
     useConsumablePropertiesQuery,
     useConsumableResetMutation,
     useConsumableStateQuery,
-    useQuirksQuery,
     useRobotAttributeQuery,
     useRobotStatusQuery,
-    useSetQuirkValueMutation,
     useSuctionBoostControlQuery,
     useSuctionBoostControlMutation,
     usePresetSelectionsQuery,
@@ -251,10 +249,6 @@ const PresetsSubmenu = ({ operationMode, fanSpeed, waterControl, cleanRoute }: P
         RobotAttributeClass.PresetSelectionState,
         (attrs) => attrs.find(a => a.type === "water_grade")
     );
-    const [quirksSupported] = useCapabilitiesSupported(Capability.Quirks);
-    const {data: quirks} = useQuirksQuery({enabled: quirksSupported});
-    const {mutate: setQuirkValue} = useSetQuirkValueMutation();
-
     const [suctionBoostSupported] = useCapabilitiesSupported(Capability.SuctionBoostControl);
     const {data: suctionBoostState} = useSuctionBoostControlQuery();
     const {mutate: setSuctionBoost} = useSuctionBoostControlMutation();

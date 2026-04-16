@@ -1,7 +1,7 @@
 {
   "__class": "ValetudoMap",
   "metaData": {
-		"id": "0",
+    "id": "0",
     "version": 2,
     "totalLayerArea": 426700
   },
@@ -2730,7 +2730,8 @@
         "segmentId": "1",
         "active": false,
         "source": "regular",
-        "area": 24475
+        "area": 24475,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -2959,7 +2960,8 @@
         "segmentId": "2",
         "active": false,
         "source": "regular",
-        "area": 359975
+        "area": 359975,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],

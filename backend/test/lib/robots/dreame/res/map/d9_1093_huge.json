@@ -12577,7 +12577,8 @@
         "segmentId": "1",
         "active": false,
         "source": "regular",
-        "area": 191500
+        "area": 191500,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -13007,7 +13008,8 @@
         "segmentId": "2",
         "active": false,
         "source": "regular",
-        "area": 133025
+        "area": 133025,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -13413,7 +13415,8 @@
         "segmentId": "3",
         "active": false,
         "source": "regular",
-        "area": 260725
+        "area": 260725,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -14335,7 +14338,8 @@
         "segmentId": "4",
         "active": false,
         "source": "regular",
-        "area": 287425
+        "area": 287425,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -15359,7 +15363,8 @@
         "segmentId": "5",
         "active": false,
         "source": "regular",
-        "area": 38475
+        "area": 38475,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -15597,7 +15602,8 @@
         "segmentId": "6",
         "active": false,
         "source": "regular",
-        "area": 180225
+        "area": 180225,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -16249,7 +16255,8 @@
         "segmentId": "7",
         "active": false,
         "source": "regular",
-        "area": 35475
+        "area": 35475,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -16454,7 +16461,8 @@
         "segmentId": "8",
         "active": false,
         "source": "regular",
-        "area": 235075
+        "area": 235075,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -17223,7 +17231,8 @@
         "segmentId": "9",
         "active": false,
         "source": "regular",
-        "area": 180025
+        "area": 180025,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -17833,7 +17842,8 @@
         "segmentId": "10",
         "active": false,
         "source": "regular",
-        "area": 126125
+        "area": 126125,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -18473,7 +18483,8 @@
         "segmentId": "11",
         "active": false,
         "source": "regular",
-        "area": 400775
+        "area": 400775,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -19776,7 +19787,8 @@
         "segmentId": "12",
         "active": false,
         "source": "regular",
-        "area": 112375
+        "area": 112375,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -20251,7 +20263,8 @@
         "segmentId": "13",
         "active": false,
         "source": "regular",
-        "area": 208400
+        "area": 208400,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -21032,7 +21045,8 @@
         "segmentId": "14",
         "active": false,
         "source": "regular",
-        "area": 107700
+        "area": 107700,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],

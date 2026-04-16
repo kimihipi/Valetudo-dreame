@@ -18,7 +18,8 @@
         "segmentId": "1",
         "active": true,
         "source": "regular",
-        "area": 37525
+        "area": 37525,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -247,7 +248,8 @@
         "segmentId": "2",
         "active": true,
         "source": "regular",
-        "area": 25250
+        "area": 25250,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -494,7 +496,8 @@
         "segmentId": "4",
         "active": false,
         "source": "regular",
-        "area": 70100
+        "area": 70100,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -993,7 +996,8 @@
         "segmentId": "5",
         "active": true,
         "source": "regular",
-        "area": 46875
+        "area": 46875,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -1261,7 +1265,8 @@
         "segmentId": "6",
         "active": true,
         "source": "regular",
-        "area": 78225
+        "area": 78225,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -1691,7 +1696,8 @@
         "segmentId": "7",
         "active": true,
         "source": "regular",
-        "area": 90700
+        "area": 90700,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],

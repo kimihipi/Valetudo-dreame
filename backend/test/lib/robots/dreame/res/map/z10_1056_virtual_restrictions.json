@@ -1,7 +1,7 @@
 {
   "__class": "ValetudoMap",
   "metaData": {
-		"id": "4",
+    "id": "4",
     "rotation": 0,
     "version": 2,
     "totalLayerArea": 481675
@@ -1780,7 +1780,8 @@
         "segmentId": "1",
         "active": false,
         "source": "rism",
-        "area": 27700
+        "area": 27700,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -1892,7 +1893,8 @@
         "segmentId": "2",
         "active": false,
         "source": "rism",
-        "area": 105425
+        "area": 105425,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -2301,7 +2303,8 @@
         "segmentId": "3",
         "active": false,
         "source": "rism",
-        "area": 60675
+        "area": 60675,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -2440,7 +2443,8 @@
         "segmentId": "4",
         "active": false,
         "source": "rism",
-        "area": 47900
+        "area": 47900,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -2603,7 +2607,8 @@
         "segmentId": "5",
         "active": false,
         "source": "rism",
-        "area": 108350
+        "area": 108350,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
@@ -2904,7 +2909,8 @@
         "segmentId": "6",
         "active": false,
         "source": "rism",
-        "area": 99675
+        "area": 99675,
+        "hidden": false
       },
       "type": "segment",
       "pixels": [],
