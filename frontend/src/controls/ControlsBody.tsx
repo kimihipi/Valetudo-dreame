@@ -9,12 +9,10 @@ import MultipleMap from "./MultipleMap";
 
 const ControlsBody = (): React.ReactElement => {
     const [
-        multipleMapSupported,
         triggerEmptySupported,
         mopDockCleanTriggerSupported,
         mopDockDryTriggerSupported,
     ] = useCapabilitiesSupported(
-        Capability.MultipleMap,
         Capability.AutoEmptyDockManualTrigger,
         Capability.MopDockCleanManualTrigger,
         Capability.MopDockDryManualTrigger,
@@ -37,7 +35,7 @@ const ControlsBody = (): React.ReactElement => {
                 <Dock/>
             }
 
-            {multipleMapSupported && <MultipleMap />}
+            <MultipleMap />
         </Grid2>
     );
 };

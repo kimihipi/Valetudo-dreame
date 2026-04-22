@@ -198,6 +198,51 @@ const MissingResourceEventControl: FunctionComponent<ValetudoEventRenderProps> =
         );
     };
 
+const DockStatusErrorEventControl = CreateDismissableEventControl("The dock has encountered an error.");
+
+const DOCK_COMPONENT_LABELS: Record<string, string> = {
+    "water_tank_clean": "clean water tank",
+    "water_tank_dirty": "dirty water tank",
+    "dustbag": "dust bag",
+    "detergent": "detergent tank",
+};
+
+const DOCK_COMPONENT_VALUE_LABELS: Record<string, string> = {
+    "missing": "is missing",
+    "full": "is full",
+    "empty": "is empty",
+};
+
+const DockComponentErrorEventControl: FunctionComponent<ValetudoEventRenderProps> =
+    ({event, interact}) => {
+        const color = event.processed ? "textSecondary" : "warning";
+        const textStyle = event.processed ? {textDecoration: "line-through"} : {};
+        const componentLabel = event.type ? (DOCK_COMPONENT_LABELS[event.type] ?? event.type) : "Unknown component";
+        const valueLabel = event.value ? (DOCK_COMPONENT_VALUE_LABELS[event.value] ?? event.value) : "";
+
+        return (
+            <EventRow>
+                <Stack>
+                    <EventTimestamp timestamp={event.timestamp}/>
+                    <Typography color={color} style={textStyle} sx={{mr: 1}}>
+                        Dock <em>{componentLabel}</em> {valueLabel}
+                    </Typography>
+                </Stack>
+                <Button
+                    size="small"
+                    variant={"contained"}
+                    disabled={event.processed}
+                    onClick={() => {
+                        interact({interaction: "ok"});
+                    }}
+                    color="warning"
+                >
+                    Dismiss
+                </Button>
+            </EventRow>
+        );
+    };
+
 const UnknownEventControl: FunctionComponent<ValetudoEventRenderProps> =
     ({event}) => {
         return (
@@ -209,10 +254,12 @@ const UnknownEventControl: FunctionComponent<ValetudoEventRenderProps> =
 
 export const eventControls: Record<string, React.ComponentType<ValetudoEventRenderProps>> = {
     ConsumableDepletedValetudoEvent: ConsumableDepletedEventControl,
-    ErrorStateValetudoEvent: ErrorEventControl,
-    PendingMapChangeValetudoEvent: PendingMapChangeEventControl,
+    DockComponentErrorValetudoEvent: DockComponentErrorEventControl,
+    DockStatusErrorValetudoEvent: DockStatusErrorEventControl,
     DustBinFullValetudoEvent: CreateDismissableEventControl("The dust bin is full. Please empty it."),
-    MopAttachmentReminderValetudoEvent: CreateDismissableEventControl("The mop is still attached to the robot."),
+    ErrorStateValetudoEvent: ErrorEventControl,
     MissingResourceValetudoEvent: MissingResourceEventControl,
+    MopAttachmentReminderValetudoEvent: CreateDismissableEventControl("The mop is still attached to the robot."),
+    PendingMapChangeValetudoEvent: PendingMapChangeEventControl,
     Default: UnknownEventControl,
 };

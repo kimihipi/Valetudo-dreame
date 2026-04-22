@@ -416,6 +416,7 @@ export interface ValetudoEvent {
     type?: string;
     subType?: string;
     message?: string;
+    value?: string;
 }
 
 export interface ValetudoEventInteraction {

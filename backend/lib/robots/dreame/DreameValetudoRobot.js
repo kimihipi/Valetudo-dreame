@@ -14,6 +14,8 @@ const entities = require("../../entities");
 const MiioDummycloudNotConnectedError = require("../../miio/MiioDummycloudNotConnectedError");
 const MiioErrorResponseRobotFirmwareError = require("../../miio/MiioErrorResponseRobotFirmwareError");
 const MiioValetudoRobot = require("../MiioValetudoRobot");
+const DockComponentErrorValetudoEvent = require("../../valetudo_events/events/DockComponentErrorValetudoEvent");
+const DockStatusErrorValetudoEvent = require("../../valetudo_events/events/DockStatusErrorValetudoEvent");
 const MopAttachmentReminderValetudoEvent = require("../../valetudo_events/events/MopAttachmentReminderValetudoEvent");
 const PendingMapChangeValetudoEvent = require("../../valetudo_events/events/PendingMapChangeValetudoEvent");
 const ValetudoMap = require("../../entities/map/ValetudoMap");
@@ -215,7 +217,7 @@ class DreameValetudoRobot extends MiioValetudoRobot {
         super.initInternalSubscriptions();
 
         this.state.subscribe(
-            new CallbackAttributeSubscriber((eventType,attachment, prevStatus) => {
+            new CallbackAttributeSubscriber((eventType, attachment, prevStatus) => {
                 if (
                     eventType === AttributeSubscriber.EVENT_TYPE.CHANGE &&
                     attachment.type === AttachmentStateAttribute.TYPE.MOP &&
@@ -230,6 +232,62 @@ class DreameValetudoRobot extends MiioValetudoRobot {
                 }
             }),
             {attributeClass: AttachmentStateAttribute.name}
+        );
+
+        this.state.subscribe(
+            new CallbackAttributeSubscriber((eventType, dockStatus, prevDockStatus) => {
+                //@ts-ignore
+                if (dockStatus.value === stateAttrs.DockStatusStateAttribute.VALUE.ERROR) {
+                    if (
+                        eventType === AttributeSubscriber.EVENT_TYPE.ADD ||
+                        //@ts-ignore
+                        (eventType === AttributeSubscriber.EVENT_TYPE.CHANGE && prevDockStatus?.value !== stateAttrs.DockStatusStateAttribute.VALUE.ERROR)
+                    ) {
+                        this.valetudoEventStore.raise(new DockStatusErrorValetudoEvent({}));
+                    }
+                } else if (eventType === AttributeSubscriber.EVENT_TYPE.CHANGE) {
+                    try {
+                        this.valetudoEventStore.setProcessed(DockStatusErrorValetudoEvent.ID);
+                    } catch (e) {
+                        //intentional
+                    }
+                }
+            }),
+            {attributeClass: stateAttrs.DockStatusStateAttribute.name}
+        );
+
+        this.state.subscribe(
+            new CallbackAttributeSubscriber((eventType, component, prevComponent) => {
+                const problematicValues = [
+                    stateAttrs.DockComponentStateAttribute.VALUE.MISSING,
+                    stateAttrs.DockComponentStateAttribute.VALUE.FULL,
+                    stateAttrs.DockComponentStateAttribute.VALUE.EMPTY,
+                ];
+
+                //@ts-ignore
+                if (problematicValues.includes(component.value)) {
+                    if (
+                        eventType === AttributeSubscriber.EVENT_TYPE.ADD ||
+                        //@ts-ignore
+                        (eventType === AttributeSubscriber.EVENT_TYPE.CHANGE && prevComponent?.value !== component.value)
+                    ) {
+                        this.valetudoEventStore.raise(new DockComponentErrorValetudoEvent({
+                            //@ts-ignore
+                            type: component.type,
+                            //@ts-ignore
+                            value: component.value,
+                        }));
+                    }
+                } else if (eventType === AttributeSubscriber.EVENT_TYPE.CHANGE) {
+                    try {
+                        //@ts-ignore
+                        this.valetudoEventStore.setProcessed(DockComponentErrorValetudoEvent.idForType(component.type));
+                    } catch (e) {
+                        //intentional
+                    }
+                }
+            }),
+            {attributeClass: stateAttrs.DockComponentStateAttribute.name}
         );
     }
 

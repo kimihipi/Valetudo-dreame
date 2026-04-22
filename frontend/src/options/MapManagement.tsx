@@ -1,6 +1,4 @@
-import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import {
-    Capability,
     useIntelligentMapRecognitionControlMutation,
     useIntelligentMapRecognitionControlQuery,
     useMapResetMutation,
@@ -21,7 +19,6 @@ import {
     Save as PersistentMapControlIcon,
     LibraryAdd as MappingPassIcon,
     LayersClear as MapResetIcon,
-    Crop as CleanupCoverageIcon,
     Download as ValetudoMapDownloadIcon,
     Map,
     Delete,
@@ -31,17 +28,11 @@ import {
 } from "@mui/icons-material";
 import React from "react";
 import ConfirmationDialog from "../components/ConfirmationDialog";
-import { LinkListMenuItem } from "../components/list_menu/LinkListMenuItem";
 import { ButtonListMenuItem } from "../components/list_menu/ButtonListMenuItem";
-import {ListMenu} from "../components/list_menu/ListMenu";
 import {ToggleSwitchListMenuItem} from "../components/list_menu/ToggleSwitchListMenuItem";
-import {MapManagementHelp} from "./res/MapManagementHelp";
-import PaperContainer from "../components/PaperContainer";
-import {MapUtilitiesHelp} from "./res/MapUtilitiesHelp";
 import {RenameIcon} from "../components/CustomIcons";
 import { SelectListMenuItem, SelectListMenuItemOption } from "../components/list_menu/SelectListMenuItem";
-import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Grid2, TextField } from "@mui/material";
-import { MultipleMapHelp } from "./res/MultipleMapHelp";
+import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField } from "@mui/material";
 
 interface MapRenameDialogProps {
     open: boolean;
@@ -175,7 +166,7 @@ export const MappingPassButtonItem = (): React.ReactElement => {
     );
 };
 
-const MapResetButtonItem = (): React.ReactElement => {
+export const MapResetButtonItem = (): React.ReactElement => {
     const {mutate: resetMap, isPending: mapResetting} = useMapResetMutation();
 
     return (
@@ -245,7 +236,7 @@ export const PersistentMapSwitchListItem = () => {
     );
 };
 
-const MultipleMapSelectListMenuItem = () => {
+export const MultipleMapSelectListMenuItem = () => {
     const {
         data: maps,
         isPending: mapsIsPending,
@@ -291,7 +282,7 @@ const MultipleMapSelectListMenuItem = () => {
     );
 };
 
-const MultipleMapRenameButtonItem = (): React.ReactElement => {
+export const MultipleMapRenameButtonItem = (): React.ReactElement => {
     const { data: maps } = useMultipleMapMapsQuery();
     const activeMap = React.useMemo(() => (maps ?? []).find(entry => entry.active), [maps]);
 
@@ -329,7 +320,7 @@ const MultipleMapRenameButtonItem = (): React.ReactElement => {
     );
 };
 
-const MultipleMapRotateButtonItem = (): React.ReactElement => {
+export const MultipleMapRotateButtonItem = (): React.ReactElement => {
     const { data: maps } = useMultipleMapMapsQuery();
     const activeMap = React.useMemo(() => (maps ?? []).find(entry => entry.active), [maps]);
 
@@ -369,7 +360,7 @@ const MultipleMapRotateButtonItem = (): React.ReactElement => {
     );
 };
 
-const MultipleMapControlSwitchListItem = () => {
+export const MultipleMapControlSwitchListItem = () => {
     const {
         data: multipleMapControlData,
         isFetching: multipleMapControlDataLoading,
@@ -395,7 +386,7 @@ const MultipleMapControlSwitchListItem = () => {
     );
 };
 
-const IntelligentMapRecognitionControlSwitchListItem = () => {
+export const IntelligentMapRecognitionControlSwitchListItem = () => {
     const {
         data: intelligentMapRecognitionData,
         isFetching: intelligentMapRecognitionDataLoading,
@@ -421,7 +412,7 @@ const IntelligentMapRecognitionControlSwitchListItem = () => {
     );
 };
 
-const MultipleMapDeleteButtonItem = (): React.ReactElement => {
+export const MultipleMapDeleteButtonItem = (): React.ReactElement => {
     const { data: maps } = useMultipleMapMapsQuery();
     const activeMap = React.useMemo(() => (maps ?? []).find(entry => entry.active), [maps]);
 
@@ -444,7 +435,7 @@ const MultipleMapDeleteButtonItem = (): React.ReactElement => {
     );
 };
 
-const ValetudoMapDataExportButtonItem = (): React.ReactElement => {
+export const ValetudoMapDataExportButtonItem = (): React.ReactElement => {
     const {
         data: valetudoInformation,
         isPending: valetudoInformationPending
@@ -483,149 +474,3 @@ const ValetudoMapDataExportButtonItem = (): React.ReactElement => {
     );
 };
 
-const MapManagement = (): React.ReactElement => {
-    const [
-        persistentMapControlCapabilitySupported,
-        multipleMapCapabilitySupported,
-        multipleMapRenameCapabilitySupported,
-        multipleMapRotateCapabilitySupported,
-        multipleMapDeleteCapabilitySupported,
-        multipleMapControlCapabilitySupported,
-        intelligentMapRecognitionControlCapabilitySupported,
-        mappingPassCapabilitySupported,
-        mapResetCapabilitySupported,
-    ] = useCapabilitiesSupported(
-        Capability.PersistentMapControl,
-        Capability.MultipleMap,
-        Capability.MultipleMapRename,
-        Capability.MultipleMapRotate,
-        Capability.MultipleMapDelete,
-        Capability.MultipleMapControl,
-        Capability.IntelligentMapRecognitionControl,
-        Capability.MappingPass,
-        Capability.MapReset
-    );
-
-    const multipleMapListItems = React.useMemo(() => {
-        const items = [];
-
-        if (multipleMapCapabilitySupported) {
-            items.push(
-                <MultipleMapSelectListMenuItem key="multipleMapSelect"/>
-            );
-        }
-
-        if (multipleMapRenameCapabilitySupported) {
-            items.push(
-                <MultipleMapRenameButtonItem key="multipleMapRename"/>
-            );
-        }
-
-        if (multipleMapRotateCapabilitySupported) {
-            items.push(
-                <MultipleMapRotateButtonItem key="multipleMapRotate"/>
-            );
-        }
-
-        if (multipleMapDeleteCapabilitySupported) {
-            items.push(
-                <MultipleMapDeleteButtonItem key="multipleMapDelete"/>
-            );
-        }
-
-        if (multipleMapControlCapabilitySupported) {
-            items.push(
-                <MultipleMapControlSwitchListItem key="multipleMapControl"/>
-            );
-        }
-
-        if (intelligentMapRecognitionControlCapabilitySupported) {
-            items.push(
-                <IntelligentMapRecognitionControlSwitchListItem key="intelligentMapRecognitionControl"/>
-            );
-        }
-
-        if (
-            persistentMapControlCapabilitySupported ||
-            mappingPassCapabilitySupported ||
-            mapResetCapabilitySupported
-        ) {
-            if (persistentMapControlCapabilitySupported) {
-                items.push(
-                    <PersistentMapSwitchListItem key="persistentMapSwitch"/>
-                );
-            }
-
-            if (mappingPassCapabilitySupported) {
-                items.push(
-                    <MappingPassButtonItem key="mappingPass"/>
-                );
-            }
-
-            if (mapResetCapabilitySupported) {
-                items.push(
-                    <MapResetButtonItem key="mapReset"/>
-                );
-            }
-
-        }
-
-        return items;
-    }, [
-        multipleMapCapabilitySupported,
-        multipleMapRenameCapabilitySupported,
-        multipleMapRotateCapabilitySupported,
-        multipleMapDeleteCapabilitySupported,
-        multipleMapControlCapabilitySupported,
-        intelligentMapRecognitionControlCapabilitySupported,
-        persistentMapControlCapabilitySupported,
-        mappingPassCapabilitySupported,
-        mapResetCapabilitySupported,
-    ]);
-
-    const robotManagedListItems: React.ReactElement[] = [];
-
-    const utilityMapItems = React.useMemo(() => {
-        return [
-            <LinkListMenuItem
-                key="robotCoverageMap"
-                url="/options/map_management/robot_coverage"
-                primaryLabel="Robot Coverage Map"
-                secondaryLabel="Check the robots coverage"
-                icon={<CleanupCoverageIcon/>}
-            />,
-            <ValetudoMapDataExportButtonItem key="valetudoMapDataExport" />
-        ];
-    }, []);
-
-    return (
-        <PaperContainer>
-            <Grid2 container spacing={2} direction="column">
-                {multipleMapListItems.length > 0 && (
-                    <ListMenu
-                        primaryHeader={"Map Management"}
-                        secondaryHeader={"Manage the maps stored on the robot and create new maps."}
-                        listItems={multipleMapListItems}
-                        helpText={MultipleMapHelp}
-                    />
-                )}
-                {robotManagedListItems.length > 0 && (
-                    <ListMenu
-                        primaryHeader={"Map Features"}
-                        secondaryHeader={"Edit segments and virtual restrictions within existing maps."}
-                        listItems={robotManagedListItems}
-                        helpText={MapManagementHelp}
-                    />
-                )}
-                <ListMenu
-                    primaryHeader={"Map Utilities"}
-                    secondaryHeader={"Do neat things with the map."}
-                    listItems={utilityMapItems}
-                    helpText={MapUtilitiesHelp}
-                />
-            </Grid2>
-        </PaperContainer>
-    );
-};
-
-export default MapManagement;

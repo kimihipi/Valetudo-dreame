@@ -60,7 +60,6 @@ export const ButtonListMenuItem: React.FunctionComponent<{
                     sx={{
                         mt: 1,
                         mb: 1,
-                        minWidth: 0
                     }}
                 >
                     {buttonLabel}
