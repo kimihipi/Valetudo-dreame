@@ -25,9 +25,9 @@ const CameraStream = (props: { iframeStyle?: React.CSSProperties; setVisible?: (
     }
 
     return (
-        <Grid2 display="flex">
+        <Grid2 display="flex" sx={{minHeight: 0, flex: 1}}>
             <iframe
-                style={{flexGrow: 1, border: 0, ...props.iframeStyle}}
+                style={{flexGrow: 1, border: 0, height: "100%", ...props.iframeStyle}}
                 src={`/streamer/stream.html?src=${firstStreamKey}`}
                 onLoad={handleIFrameLoad}
             />

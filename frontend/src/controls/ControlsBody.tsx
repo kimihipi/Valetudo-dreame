@@ -2,10 +2,10 @@ import {Box, Grid2, Paper} from "@mui/material";
 import {Capability} from "../api";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import RobotStatus from "./RobotStatus";
-import Dock from "./Dock";
+import DockCard from "./DockCard";
 import React from "react";
 import CameraStream from "./CameraStream";
-import MultipleMap from "./MultipleMap";
+import MapCard from "./MapCard";
 
 const ControlsBody = (): React.ReactElement => {
     const [
@@ -32,10 +32,10 @@ const ControlsBody = (): React.ReactElement => {
 
             {
                 (triggerEmptySupported || mopDockCleanTriggerSupported || mopDockDryTriggerSupported) &&
-                <Dock/>
+                <DockCard/>
             }
 
-            <MultipleMap />
+            <MapCard />
         </Grid2>
     );
 };

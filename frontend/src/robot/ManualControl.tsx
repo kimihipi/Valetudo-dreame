@@ -170,7 +170,7 @@ const MovementControls = () => {
     }, [controlsEnabled, sendInteraction, manualControlProperties]);
 
     return (
-        <Stack direction="row" sx={{width: "100%", height: "30vh"}} justifyContent="center" alignItems="center">
+        <Stack direction="row" sx={{width: "100%", height: "clamp(140px, 25vh, 220px)"}} justifyContent="center" alignItems="center">
             <SideButton
                 variant={activeCommands.has("rotate_counterclockwise") ? "contained" : "outlined"}
                 disabled={!rotateCcwEnabled}
@@ -349,10 +349,26 @@ const HighResolutionMovementControls = () => {
     const baseColor = controlsEnabled ? theme.palette.grey[600] : theme.palette.grey[800];
     const stickColor = controlsEnabled ? theme.palette.primary.main : theme.palette.grey[600];
 
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [joystickSize, setJoystickSize] = useState(200);
+
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) {
+            return;
+        }
+        const observer = new ResizeObserver(([entry]) => {
+            const width = entry.contentRect.width;
+            setJoystickSize(Math.max(120, Math.min(200, Math.floor(width * 0.45))));
+        });
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+
     return (
-        <Box sx={{ my: 2, display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <Box ref={containerRef} sx={{ my: 2, display: "flex", flexDirection: "column", alignItems: "center" }}>
             <Joystick
-                size={200}
+                size={joystickSize}
                 move={handleJoystickInput}
                 stop={handleJoystickInput}
                 disabled={!controlsEnabled}
@@ -405,12 +421,15 @@ const ManualControl = (): React.ReactElement => {
             <Typography color="error">This robot does not support manual control.</Typography>;
 
     return (
-        <PaperContainer>
-            <Box sx={{userSelect: "none"}}>
+        <PaperContainer
+            containerStyle={{ height: "100%", display: "flex", flexDirection: "column" }}
+            paperStyle={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}
+        >
+            <Box sx={{ userSelect: "none", display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
                 <CameraStream
-                    iframeStyle={{ minHeight: "50vh", width: "100%" }}
+                    iframeStyle={{ width: "100%" }}
                 />
-                <Box sx={{ px: 1, pb: 1 }}>
+                <Box sx={{ px: 1, pb: 1, flexShrink: 0 }}>
                     {controls}
                     <Box sx={{ mt: 1, display: "flex", justifyContent: "center" }}>
                         <ManualControlEnableButton />

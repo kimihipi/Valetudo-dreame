@@ -212,7 +212,7 @@ const DockComponents = ({ supportedTypes, dockComponents }: { supportedTypes: Do
     );
 };
 
-const Dock = (): React.ReactElement => {
+const DockCard = (): React.ReactElement => {
     const [settingsDialogOpen, setSettingsDialogOpen] = React.useState(false);
 
     const { data: robotStatus, isPending: isRobotStatusPending } = useRobotStatusQuery();
@@ -413,4 +413,4 @@ const Dock = (): React.ReactElement => {
     );
 };
 
-export default Dock;
+export default DockCard;

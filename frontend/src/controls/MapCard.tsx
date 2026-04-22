@@ -12,7 +12,7 @@ type SelectItemOption = {
     label: string
 }
 
-const MultipleMap = (): React.ReactElement => {
+const MapCard = (): React.ReactElement => {
     const [multipleMapSupported] = useCapabilitiesSupported(Capability.MultipleMap);
 
     const {
@@ -83,4 +83,4 @@ const MultipleMap = (): React.ReactElement => {
     );
 };
 
-export default MultipleMap;
+export default MapCard;
