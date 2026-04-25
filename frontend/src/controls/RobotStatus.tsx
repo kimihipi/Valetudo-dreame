@@ -34,6 +34,10 @@ import {
     useSuctionBoostControlQuery,
     useSuctionBoostControlMutation,
     usePresetSelectionsQuery,
+    useAutomaticControlAttributeQuery,
+    useSetAutomaticControlMutation,
+    useAutomaticSubModeControlAttributeQuery,
+    useSetAutomaticSubModeControlMutation,
 } from "../api";
 import {RobotMonochromeIcon} from "../components/CustomIcons";
 import ControlsCard from "./ControlsCard";
@@ -71,7 +75,7 @@ import MapModeControls from "./MapModeControls";
 import PresetSelectionControl from "./PresetSelection";
 import {DeepRouteIcon, FanSpeedMediumIcon, IntensiveRouteIcon, NormalRouteIcon, QuickRouteIcon, WaterGradeLowIcon} from "../components/CustomIcons";
 import {getPresetIconOrLabel, presetFriendlyNames, sortPresets} from "../presetUtils";
-import {getConsumableName} from "../utils";
+import {getConsumableName, STATUS_FLAG_LABELS} from "../utils";
 import RobotSettings from "./RobotSettings";
 
 const ActiveStates: StatusState["value"][] = ["cleaning", "returning", "moving"];
@@ -164,15 +168,15 @@ const AttachmentsSubmenu = ({mop}: AttachmentsSubmenuProps): React.ReactElement 
 };
 
 const CLEAN_ROUTE_ORDER: Record<CleanRoute, number> = {
-    "quick": 1, "normal": 2, "intensive": 3, "deep": 4,
+    "quick": 1, "routine": 2, "intensive": 3, "deep": 4,
 };
 const CLEAN_ROUTE_LABELS: Record<CleanRoute, string> = {
-    "quick": "Quick", "normal": "Normal", "intensive": "Intensive", "deep": "Deep",
+    "quick": "Quick", "routine": "Routine", "intensive": "Intensive", "deep": "Deep",
 };
 const CLEAN_ROUTE_ICON_STYLE: React.CSSProperties = {height: "14px", width: "auto"};
 const CLEAN_ROUTE_ICON_COMPONENTS: Record<CleanRoute, React.ComponentType<{style?: React.CSSProperties}>> = {
     "quick": QuickRouteIcon,
-    "normal": NormalRouteIcon,
+    "routine": NormalRouteIcon,
     "intensive": IntensiveRouteIcon,
     "deep": DeepRouteIcon,
 };
@@ -231,11 +235,24 @@ interface PresetsSubmenuProps {
     fanSpeed: boolean;
     waterControl: boolean;
     cleanRoute: boolean;
+    automaticControl: boolean;
+    automaticSubModeControl: boolean;
 }
 
-const PresetsSubmenu = ({ operationMode, fanSpeed, waterControl, cleanRoute }: PresetsSubmenuProps): React.ReactElement => {
+const PresetsSubmenu = ({ operationMode, fanSpeed, waterControl, cleanRoute, automaticControl, automaticSubModeControl }: PresetsSubmenuProps): React.ReactElement => {
     const palette = useValetudoColorsInverse();
     const [expanded, setExpanded] = React.useState(false);
+
+    const {data: automaticAttribute} = useAutomaticControlAttributeQuery();
+    const {mutate: setAutomaticControl} = useSetAutomaticControlMutation();
+    const {data: automaticSubModeAttribute} = useAutomaticSubModeControlAttributeQuery();
+    const {mutate: setAutomaticSubModeControl} = useSetAutomaticSubModeControlMutation();
+
+    const automaticPreset = automaticAttribute?.value ?? "off";
+    const automaticIsActive = automaticControl && automaticPreset !== "off";
+
+    const currentLevel = automaticPreset !== "off" ? automaticPreset : "routine";
+    const currentSubMode = automaticSubModeAttribute?.value ?? "vacuum_and_mop";
 
     const {data: operationModePreset} = useRobotAttributeQuery(
         RobotAttributeClass.PresetSelectionState,
@@ -266,10 +283,20 @@ const PresetsSubmenu = ({ operationMode, fanSpeed, waterControl, cleanRoute }: P
     const modeIconStyle = React.useMemo(() => ({...ICON_STYLE, color: palette.teal}), [palette.teal]);
     const fanIconStyle = React.useMemo(() => ({...ICON_STYLE, color: palette.green}), [palette.green]);
     const waterIconStyle = React.useMemo(() => ({...ICON_STYLE, color: palette.lightBlue}), [palette.lightBlue]);
+    const purpleIconStyle = React.useMemo(() => ({...ICON_STYLE, color: palette.purple}), [palette.purple]);
 
     const summaryParts = React.useMemo(() => {
         const parts: React.ReactElement[] = [];
 
+        if (automaticIsActive) {
+            parts.push(
+                <Box key="route" sx={{display: "inline-flex", alignItems: "center", gap: "3px"}}>
+                    {getPresetIconOrLabel(Capability.AutomaticControl, currentLevel, purpleIconStyle)}
+                    {presetFriendlyNames[currentLevel] ?? currentLevel}
+                </Box>
+            );
+            return parts;
+        }
         if (fanSpeed && fanSpeedPreset?.value) {
             parts.push(
                 <Box key="fan" sx={{display: "inline-flex", alignItems: "center", gap: "3px"}}>
@@ -287,7 +314,7 @@ const PresetsSubmenu = ({ operationMode, fanSpeed, waterControl, cleanRoute }: P
             );
         }
         return parts;
-    }, [fanSpeed, fanSpeedPreset, fanIconStyle, waterControl, waterPreset, waterIconStyle]);
+    }, [automaticIsActive, currentLevel, purpleIconStyle, fanSpeed, fanSpeedPreset, fanIconStyle, waterControl, waterPreset, waterIconStyle]);
 
     return (
         <Paper variant="outlined" sx={{mt: 1, p: 1, backgroundColor: "transparent"}}>
@@ -298,7 +325,14 @@ const PresetsSubmenu = ({ operationMode, fanSpeed, waterControl, cleanRoute }: P
                 sx={{cursor: "pointer"}}
             >
                 <Grid2 sx={{flexGrow: 1}}>
-                    {operationMode && operationModePreset?.value ? (
+                    {automaticIsActive ? (
+                        <Box sx={{display: "inline-flex", alignItems: "center", gap: "4px", ml: 0.5}}>
+                            {getPresetIconOrLabel(Capability.OperationModeControl, currentSubMode, modeIconStyle)}
+                            <Typography variant="subtitle2">
+                                {presetFriendlyNames[currentSubMode] ?? currentSubMode}
+                            </Typography>
+                        </Box>
+                    ) : operationMode && operationModePreset?.value ? (
                         <Box sx={{display: "inline-flex", alignItems: "center", gap: "4px", ml: 0.5}}>
                             {getPresetIconOrLabel(Capability.OperationModeControl, operationModePreset.value, modeIconStyle)}
                             <Typography variant="subtitle2">
@@ -328,7 +362,30 @@ const PresetsSubmenu = ({ operationMode, fanSpeed, waterControl, cleanRoute }: P
                 </Grid2>
             </Grid2>
             <Box sx={{display: expanded ? "block" : "none", pt: 1}}>
-                {operationMode && (
+                {automaticIsActive ? (
+                    automaticSubModeControl ? (
+                        <Box sx={{px: 0.5, pb: 0.5}}>
+                            <ToggleButtonGroup exclusive fullWidth size="small" value={currentSubMode}
+                                onChange={(_e, value) => {
+                                    if (value !== null && value !== currentSubMode) {
+                                        setAutomaticSubModeControl(value);
+                                    }
+                                }}
+                            >
+                                <Tooltip title="Vacuum & Mop" arrow>
+                                    <ToggleButton value="vacuum_and_mop" sx={{py: 1}}>
+                                        {getPresetIconOrLabel(Capability.OperationModeControl, "vacuum_and_mop", {height: "14px", width: "auto", color: currentSubMode === "vacuum_and_mop" ? palette.teal : undefined})}
+                                    </ToggleButton>
+                                </Tooltip>
+                                <Tooltip title="Vacuum then Mop" arrow>
+                                    <ToggleButton value="vacuum_then_mop" sx={{py: 1}}>
+                                        {getPresetIconOrLabel(Capability.OperationModeControl, "vacuum_then_mop", {height: "14px", width: "auto", color: currentSubMode === "vacuum_then_mop" ? palette.teal : undefined})}
+                                    </ToggleButton>
+                                </Tooltip>
+                            </ToggleButtonGroup>
+                        </Box>
+                    ) : null
+                ) : operationMode && (
                     <PresetSelectionControl
                         noPaper
                         noHeader
@@ -338,40 +395,76 @@ const PresetsSubmenu = ({ operationMode, fanSpeed, waterControl, cleanRoute }: P
                         iconColor={palette.teal}
                     />
                 )}
-                {operationMode && fanSpeed && <Divider sx={{my: 1}} />}
+                {(automaticIsActive || operationMode) && fanSpeed && <Divider sx={{my: 1}} />}
                 {fanSpeed && (
-                    <PresetSelectionControl
-                        noPaper
-                        capability={Capability.FanSpeedControl}
-                        label="Fan"
-                        icon={<FanSpeedMediumIcon style={{height: "14px", width: "auto", color: palette.green}} />}
-                        iconColor={palette.green}
-                        onPresetReselect={suctionBoostSupported ? (value) => {
-                            if (value === maxFanPreset) {
-                                setSuctionBoost(!boostActive);
-                            }
-                        } : undefined}
-                        onPresetChange={suctionBoostSupported && boostActive ? (value) => {
-                            if (value !== maxFanPreset) {
-                                setSuctionBoost(false);
-                            }
-                        } : undefined}
-                        valueBadge={boostActive ? {value: maxFanPreset, color: palette.yellow} : undefined}
-                    />
+                    <Box sx={automaticIsActive ? {opacity: 0.5, pointerEvents: "none"} : undefined}>
+                        <PresetSelectionControl
+                            noPaper
+                            capability={Capability.FanSpeedControl}
+                            label="Fan"
+                            icon={<FanSpeedMediumIcon style={{height: "14px", width: "auto", color: palette.green}} />}
+                            iconColor={palette.green}
+                            onPresetReselect={suctionBoostSupported ? (value) => {
+                                if (value === maxFanPreset) {
+                                    setSuctionBoost(!boostActive);
+                                }
+                            } : undefined}
+                            onPresetChange={suctionBoostSupported && boostActive ? (value) => {
+                                if (value !== maxFanPreset) {
+                                    setSuctionBoost(false);
+                                }
+                            } : undefined}
+                            valueBadge={boostActive ? {value: maxFanPreset, color: palette.yellow} : undefined}
+                        />
+                    </Box>
                 )}
                 {fanSpeed && waterControl && <Divider sx={{my: 1}} />}
                 {waterControl && (
-                    <PresetSelectionControl
-                        noPaper
-                        capability={Capability.WaterUsageControl}
-                        label="Water"
-                        icon={<WaterGradeLowIcon style={{height: "14px", width: "auto", color: palette.lightBlue}} />}
-                        iconColor={palette.lightBlue}
-                    />
+                    <Box sx={automaticIsActive ? {opacity: 0.5, pointerEvents: "none"} : undefined}>
+                        <PresetSelectionControl
+                            noPaper
+                            capability={Capability.WaterUsageControl}
+                            label="Water"
+                            icon={<WaterGradeLowIcon style={{height: "14px", width: "auto", color: palette.lightBlue}} />}
+                            iconColor={palette.lightBlue}
+                        />
+                    </Box>
                 )}
-                {(waterControl || fanSpeed || operationMode) && cleanRoute && <Divider sx={{my: 1}} />}
-                {cleanRoute && (
-                    <CleanRouteControl iconColor={palette.purple} />
+                {(waterControl || fanSpeed || automaticIsActive || operationMode) && (cleanRoute || automaticIsActive) && <Divider sx={{my: 1}} />}
+                {(cleanRoute || automaticIsActive) && (
+                    automaticIsActive ? (
+                        <Grid2>
+                            <Box sx={{display: "flex", alignItems: "center", gap: "4px", px: 0.5, pt: 0, pb: 1}}>
+                                <CleanRouteIcon style={{height: "14px", width: "auto", color: palette.purple}} />
+                                <Typography variant="subtitle2">Route</Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ml: "auto", fontWeight: 600}}>
+                                    {presetFriendlyNames[currentLevel] ?? currentLevel}
+                                </Typography>
+                            </Box>
+                            <Box sx={{px: 0.5, pb: 0.5}}>
+                                <ToggleButtonGroup exclusive fullWidth size="small" value={currentLevel}
+                                    onChange={(_e, value) => {
+                                        if (value !== null && value !== currentLevel) {
+                                            setAutomaticControl(value);
+                                        }
+                                    }}
+                                >
+                                    <Tooltip title="Routine" arrow>
+                                        <ToggleButton value="routine" sx={{py: 1}}>
+                                            <NormalRouteIcon style={{height: "14px", width: "auto", color: currentLevel === "routine" ? palette.purple : undefined}}/>
+                                        </ToggleButton>
+                                    </Tooltip>
+                                    <Tooltip title="Deep" arrow>
+                                        <ToggleButton value="deep" sx={{py: 1}}>
+                                            <DeepRouteIcon style={{height: "14px", width: "auto", color: currentLevel === "deep" ? palette.purple : undefined}}/>
+                                        </ToggleButton>
+                                    </Tooltip>
+                                </ToggleButtonGroup>
+                            </Box>
+                        </Grid2>
+                    ) : (
+                        <CleanRouteControl iconColor={palette.purple} />
+                    )
                 )}
             </Box>
         </Paper>
@@ -580,7 +673,7 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
     } = useBasicControlMutation();
     const {hasPendingMapAction} = usePendingMapAction();
     const {isMapEditorOpen} = useMapEditorOpen();
-    const {setMode} = useLiveMapMode();
+    const {mode, setMode} = useLiveMapMode();
 
     const getBatteryColor = (level: number) => {
         if (level > 75) {
@@ -596,7 +689,7 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
         if (command === "start" && hasPendingMapAction) {
             setStartConfirmationDialogOpen(true);
         } else if (command === "start") {
-            if (setMode) {
+            if (setMode && mode !== "automatic") {
                 setMode("all");
             }
             executeBasicControlCommand(command);
@@ -636,7 +729,9 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
         if (isStatusError || !status) {
             return undefined;
         }
-        return status.flag !== "none" ? `${status.value} \u2013 ${status.flag}` : status.value;
+        const showFlag = status.flag !== "none" && status.value !== "docked";
+        const flagLabel = showFlag ? (STATUS_FLAG_LABELS[status.flag] ?? status.flag) : null;
+        return flagLabel ? `${status.value} \u2013 ${flagLabel}` : status.value;
     }, [isStatusError, status]);
 
     const buttons: CommandButton[] = React.useMemo(() => {
@@ -746,16 +841,20 @@ const RobotStatus = (): React.ReactElement => {
         waterControl,
         consumableMonitoringSupported,
         cleanRouteControlSupported,
+        automaticControlSupported,
+        automaticSubModeControlSupported,
     ] = useCapabilitiesSupported(
         Capability.OperationModeControl,
         Capability.FanSpeedControl,
         Capability.WaterUsageControl,
         Capability.ConsumableMonitoring,
         Capability.CleanRouteControl,
+        Capability.AutomaticControl,
+        Capability.AutomaticSubModeControl,
     );
 
     const mop = attachments?.find(a => a.type === "mop");
-    const hasPresets = operationMode || fanSpeed || waterControl || cleanRouteControlSupported;
+    const hasPresets = operationMode || fanSpeed || waterControl || cleanRouteControlSupported || automaticControlSupported;
 
     return (
         <>
@@ -775,6 +874,8 @@ const RobotStatus = (): React.ReactElement => {
                         fanSpeed={fanSpeed}
                         waterControl={waterControl}
                         cleanRoute={cleanRouteControlSupported}
+                        automaticControl={automaticControlSupported}
+                        automaticSubModeControl={automaticSubModeControlSupported}
                     />
                 )}
                 {mop !== undefined && (

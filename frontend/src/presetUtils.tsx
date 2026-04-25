@@ -1,6 +1,7 @@
 import {Capability, PresetSelectionState} from "./api";
 import React, {ReactElement} from "react";
 import {
+    DeepRouteIcon,
     FanSpeedHighIcon,
     FanSpeedLowIcon,
     FanSpeedMaxIcon,
@@ -8,6 +9,7 @@ import {
     FanSpeedMinIcon,
     FanSpeedOffIcon,
     FanSpeedTurboIcon,
+    NormalRouteIcon,
     OperationModeMop,
     OperationModeVacuum,
     OperationModeVacuumAndMop,
@@ -30,6 +32,8 @@ export const sortPresets = (presets: PresetSelectionState["value"][]) => {
 };
 export const presetFriendlyNames: Record<string, string> = Object.freeze({
     "off": "Off",
+    "routine": "Routine",
+    "deep": "Deep",
     "min": "Min",
     "low": "Low",
     "medium": "Medium",
@@ -95,6 +99,7 @@ export function getPresetIconOrLabel(capability: Capability, preset: string, sty
                     return presetFriendlyNames[preset];
             }
         case Capability.OperationModeControl:
+        case Capability.AutomaticSubModeControl:
             switch (preset) {
                 case "vacuum":
                     return <OperationModeVacuum style={style}/>;
@@ -106,6 +111,15 @@ export function getPresetIconOrLabel(capability: Capability, preset: string, sty
                     return <OperationModeVacuumThenMop style={style}/>;
                 default:
                     return presetFriendlyNames[preset];
+            }
+        case Capability.AutomaticControl:
+            switch (preset) {
+                case "routine":
+                    return <NormalRouteIcon style={style}/>;
+                case "deep":
+                    return <DeepRouteIcon style={style}/>;
+                default:
+                    return presetFriendlyNames[preset] ?? preset;
             }
         default:
             return presetFriendlyNames[preset] ?? preset;

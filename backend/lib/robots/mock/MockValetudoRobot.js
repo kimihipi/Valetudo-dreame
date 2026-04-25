@@ -22,6 +22,7 @@ class MockValetudoRobot extends ValetudoRobot {
 
         this.registerCapability(new capabilities.MockBasicControlCapability({robot: this}));
         this.registerCapability(new capabilities.MockCarpetModeControlCapability({robot: this}));
+        this.registerCapability(new capabilities.MockCleanRouteControlCapability({robot: this}));
         this.registerCapability(new capabilities.MockConsumableMonitoringCapability({robot: this}));
         this.registerCapability(new capabilities.MockDoNotDisturbCapability({robot: this}));
         this.registerCapability(new capabilities.MockFanSpeedControlCapability({robot: this}));
@@ -57,6 +58,8 @@ class MockValetudoRobot extends ValetudoRobot {
         this.registerCapability(new capabilities.MockCurrentStatisticsCapability({robot: this}));
         this.registerCapability(new capabilities.MockTotalStatisticsCapability({robot: this}));
         this.registerCapability(new capabilities.MockOperationModeControlCapability({robot: this}));
+        this.registerCapability(new capabilities.MockAutomaticControlCapability({robot: this}));
+        this.registerCapability(new capabilities.MockAutomaticSubModeControlCapability({robot: this}));
         this.registerCapability(new capabilities.MockPetObstacleAvoidanceControlCapability({robot: this}));
         this.registerCapability(new capabilities.MockCollisionAvoidantNavigationControlCapability({robot: this}));
         this.registerCapability(new capabilities.MockCarpetSensorModeControlCapability({robot: this}));

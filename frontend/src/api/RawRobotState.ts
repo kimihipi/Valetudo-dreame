@@ -31,7 +31,7 @@ export interface StatusState {
         | "paused"
         | "manual_control"
         | "moving";
-    flag: "none" | "zone" | "segment" | "spot" | "target" | "resumable";
+    flag: string;
 }
 
 export interface BatteryState {
@@ -46,7 +46,7 @@ export type PresetValue = string;
 export interface PresetSelectionState {
     __class: RobotAttributeClass.PresetSelectionState;
     metaData: Record<string, never>;
-    type: "fan_speed" | "water_grade" | "operation_mode" | "mop_dock_mop_cleaning_frequency" | "mop_dock_detergent" | "mop_dock_mop_wash_intensity";
+    type: "fan_speed" | "water_grade" | "operation_mode" | "mop_dock_mop_cleaning_frequency" | "mop_dock_detergent" | "mop_dock_mop_wash_intensity" | "automatic_control" | "automatic_sub_mode";
     value: PresetValue;
     customValue?: number;
 }

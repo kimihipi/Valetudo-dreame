@@ -39,6 +39,8 @@ PresetSelectionStateAttribute.TYPE = Object.freeze({
     MOP_DOCK_MOP_CLEANING_FREQUENCY: "mop_dock_mop_cleaning_frequency",
     MOP_DOCK_DETERGENT: "mop_dock_detergent",
     MOP_DOCK_MOP_WASH_INTENSITY: "mop_dock_mop_wash_intensity",
+    AUTOMATIC_CONTROL: "automatic_control",
+    AUTOMATIC_SUB_MODE: "automatic_sub_mode",
 });
 
 /**

@@ -29,22 +29,16 @@ const ControlsCard: React.FC<ControlsCardProps> = ({
             <Grid2 container direction="column">
                 <Box px={1.5} py={1.5}>
                     <Grid2 container alignItems="center" spacing={1}>
-                        {inline ? (
-                            <Grid2 display="flex" alignItems="center" justifyContent="center">
-                                <Icon fontSize="small" />
-                            </Grid2>
-                        ) : (
-                            <Grid2><Icon fontSize="medium" /></Grid2>
-                        )}
-                        <Grid2 sx={inline ? {paddingTop: 0} : {marginTop: "-8px"}}>
-                            <Typography variant="subtitle1">
-                                {title}
-                                {!inline && subtitle && (
-                                    <Typography component="span" variant="body2" color="text.secondary" sx={{textTransform: "uppercase", letterSpacing: "0.05em"}}>
-                                        {" \u2014 "}{subtitle}
-                                    </Typography>
-                                )}
-                            </Typography>
+                        <Grid2 display="flex" alignItems="center" justifyContent="center">
+                            <Icon sx={{fontSize: "2rem"}} />
+                        </Grid2>
+                        <Grid2 sx={inline ? {paddingTop: 0} : {flexGrow: 1, minWidth: 0}}>
+                            <Typography variant="subtitle1">{title}</Typography>
+                            {!inline && subtitle && (
+                                <Typography variant="body2" color="text.secondary" sx={{textTransform: "uppercase", letterSpacing: "0.05em", lineHeight: 1.2}}>
+                                    {subtitle}
+                                </Typography>
+                            )}
                         </Grid2>
                         {inline ? (
                             <Grid2 display="flex" justifyContent="end" size="grow">
@@ -63,14 +57,14 @@ const ControlsCard: React.FC<ControlsCardProps> = ({
                             <Grid2
                                 display="flex"
                                 alignItems="center"
-                                sx={inline ? {} : {marginLeft: "auto", marginTop: "-8px"}}
+                                sx={inline ? {} : {marginLeft: "auto"}}
                             >
                                 {headerExtra}
                             </Grid2>
                         )}
                     </Grid2>
                     {!inline && (
-                        <Grid2 px={0.5}>
+                        <Grid2 px={0.5} pt={1}>
                             {isLoading ? <Skeleton height="4rem" /> : children}
                         </Grid2>
                     )}

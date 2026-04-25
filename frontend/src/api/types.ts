@@ -2,6 +2,8 @@ import {AttachmentStateAttributeType, DockComponentStateAttributeType} from "./R
 
 export enum Capability {
     AutoEmptyDockAutoEmptyIntervalControl = "AutoEmptyDockAutoEmptyIntervalControlCapability",
+    AutomaticControl = "AutomaticControlCapability",
+    AutomaticSubModeControl = "AutomaticSubModeControlCapability",
     AutoEmptyDockAutoEmptyDurationControl = "AutoEmptyDockAutoEmptyDurationControlCapability",
     AutoEmptyDockManualTrigger = "AutoEmptyDockManualTriggerCapability",
     BasicControl = "BasicControlCapability",
@@ -696,7 +698,7 @@ export interface MopDockMopWashTemperatureProperties {
 }
 
 
-export type CleanRoute = "quick" | "normal" | "intensive" | "deep";
+export type CleanRoute = "quick" | "routine" | "intensive" | "deep";
 
 export interface CleanRoutePayload {
     route: CleanRoute
@@ -732,4 +734,13 @@ export type MaintenanceAction = string;
 
 export interface MaintenanceProperties {
     supportedActions: Array<MaintenanceAction>;
+}
+
+export interface ActivityHistoryEntry {
+    timestamp: string;
+    robotStatus: string;
+    robotFlag: string;
+    dockStatus: string | null;
+    batteryLevel: number | null;
+    batteryFlag: string | null;
 }

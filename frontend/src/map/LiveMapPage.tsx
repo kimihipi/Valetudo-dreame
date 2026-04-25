@@ -13,6 +13,7 @@ import {ArrowBack as ArrowBackIcon, Equalizer as StatisticsIcon} from "@mui/icon
 import MapEditorPage from "./MapEditorPage";
 import {useValetudoColors} from "../hooks/useValetudoColors";
 import {useMapEditorOpen} from "./BaseMap";
+import ActivityHistory from "../controls/ActivityHistory";
 
 const Container = styled(Box)({
     flex: "1",
@@ -37,6 +38,7 @@ const LiveMapPage = (): React.ReactElement => {
         goToLocationCapabilitySupported,
         mapSegmentationCapabilitySupported,
         zoneCleaningCapabilitySupported,
+        automaticControlCapabilitySupported,
 
         obstacleImagesSupported,
         manualControlSupported,
@@ -51,6 +53,7 @@ const LiveMapPage = (): React.ReactElement => {
         Capability.GoToLocation,
         Capability.MapSegmentation,
         Capability.ZoneCleaning,
+        Capability.AutomaticControl,
 
         Capability.ObstacleImages,
         Capability.ManualControl,
@@ -137,6 +140,8 @@ const LiveMapPage = (): React.ReactElement => {
                 <Box sx={{ pt: 8, px: 2, pb: 2 }}>
                     <CurrentStatistics />
                     <Box mt={2} />
+                    <ActivityHistory />
+                    <Box mt={2} />
                     <ControlsCard icon={StatisticsIcon} title="Total Statistics">
                         <TotalStatisticsInternal />
                     </ControlsCard>
@@ -196,7 +201,8 @@ const LiveMapPage = (): React.ReactElement => {
         supportedCapabilities={{
             [Capability.MapSegmentation]: mapSegmentationCapabilitySupported,
             [Capability.ZoneCleaning]: zoneCleaningCapabilitySupported,
-            [Capability.GoToLocation]: goToLocationCapabilitySupported
+            [Capability.GoToLocation]: goToLocationCapabilitySupported,
+            [Capability.AutomaticControl]: automaticControlCapabilitySupported,
         }}
 
         onManualControlOpen={

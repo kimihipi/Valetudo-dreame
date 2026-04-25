@@ -22,7 +22,7 @@ class MideaCleanRouteControlCapability extends CleanRouteControlCapability {
                 case 0:
                     return MideaCleanRouteControlCapability.ROUTE.QUICK;
                 case 1:
-                    return MideaCleanRouteControlCapability.ROUTE.NORMAL;
+                    return MideaCleanRouteControlCapability.ROUTE.ROUTINE;
                 case 2:
                     return MideaCleanRouteControlCapability.ROUTE.DEEP;
             }
@@ -38,7 +38,7 @@ class MideaCleanRouteControlCapability extends CleanRouteControlCapability {
             case MideaCleanRouteControlCapability.ROUTE.QUICK:
                 val = 0;
                 break;
-            case MideaCleanRouteControlCapability.ROUTE.NORMAL:
+            case MideaCleanRouteControlCapability.ROUTE.ROUTINE:
                 val = 1;
                 break;
             case MideaCleanRouteControlCapability.ROUTE.DEEP:
@@ -66,7 +66,7 @@ class MideaCleanRouteControlCapability extends CleanRouteControlCapability {
         return {
             supportedRoutes: [
                 MideaCleanRouteControlCapability.ROUTE.QUICK,
-                MideaCleanRouteControlCapability.ROUTE.NORMAL,
+                MideaCleanRouteControlCapability.ROUTE.ROUTINE,
                 MideaCleanRouteControlCapability.ROUTE.DEEP,
             ],
             mopOnly: [],

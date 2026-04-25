@@ -404,6 +404,23 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
             robot: this
         }));
 
+        this.registerCapability(new capabilities.DreameAutomaticControlCapability({
+            robot: this,
+            presets: [
+                new ValetudoSelectionPreset({name: "off", value: 0}),
+                new ValetudoSelectionPreset({name: "routine", value: 1}),
+                new ValetudoSelectionPreset({name: "deep", value: 2}),
+            ]
+        }));
+
+        this.registerCapability(new capabilities.DreameAutomaticSubModeControlCapability({
+            robot: this,
+            presets: [
+                new ValetudoSelectionPreset({name: "vacuum_and_mop", value: 2}),
+                new ValetudoSelectionPreset({name: "vacuum_then_mop", value: 3}),
+            ]
+        }));
+
         this.registerCapability(new QuirksCapability({
             robot: this,
             quirks: [
@@ -415,6 +432,11 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.DETACH_MOPS),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.SIDE_BRUSH_ON_CARPET),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_FIRST),
+                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CLEAN_GENIUS_AUTO_RECLEANING),
+                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CLEAN_GENIUS_AUTO_REWASHING),
+                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CLEAN_GENIUS_STAIN_AVOIDANCE),
+                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.SMART_MOP_WASHING),
+                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.LARGE_PARTICLE_BOOST),
             ]
         }));
 
@@ -500,6 +522,10 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
             {
                 siid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.SIID,
                 piid: DreameGen2ValetudoRobot.MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DOCK_WATER_USAGE.PIID
+            },
+            {
+                siid: DreameGen2ValetudoRobot.MIOT_SERVICES.MOP_EXPANSION.SIID,
+                piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MOP_EXPANSION.PROPERTIES.CLEANGENIUS_MODE.PIID
             }
         ];
     }

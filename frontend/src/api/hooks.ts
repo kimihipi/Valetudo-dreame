@@ -12,6 +12,7 @@ import {
 import {
     BasicControlCommand,
     deleteTimer,
+    fetchActivityHistory,
     fetchCapabilities,
     fetchCarpetModeState,
     fetchCombinedVirtualRestrictionsProperties,
@@ -268,6 +269,7 @@ enum QueryKey {
     CombinedVirtualRestrictionsProperties = "combined_virtual_restrictions_properties",
     UpdaterConfiguration = "updater_configuration",
     UpdaterState = "updater_state",
+    ActivityHistory = "activity_history",
     CurrentStatistics = "current_statistics",
     CurrentStatisticsProperties = "current_statistics_properties",
     TotalStatistics = "total_statistics",
@@ -452,7 +454,7 @@ export function useRobotStatusQuery(select?: (status: StatusState) => any) {
 }
 
 export const usePresetSelectionsQuery = (
-    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl
+    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl | Capability.AutomaticControl | Capability.AutomaticSubModeControl
 ) => {
     return useQuery({
         queryKey: [QueryKey.PresetSelections, capability],
@@ -472,9 +474,11 @@ export const capabilityToPresetType: Record<Parameters<typeof usePresetSelection
         [Capability.MopDockMopCleaningFrequencyControl]: "mop_dock_mop_cleaning_frequency",
         [Capability.MopDockDetergentControl]: "mop_dock_detergent",
         [Capability.MopDockMopWashIntensityControl]: "mop_dock_mop_wash_intensity",
+        [Capability.AutomaticControl]: "automatic_control",
+        [Capability.AutomaticSubModeControl]: "automatic_sub_mode",
     };
 export const usePresetSelectionMutation = (
-    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl
+    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl | Capability.AutomaticControl | Capability.AutomaticSubModeControl
 ) => {
     const queryClient = useQueryClient();
 
@@ -490,6 +494,72 @@ export const usePresetSelectionMutation = (
             });
         },
         onError: useOnCommandError(capability),
+    });
+};
+
+export const useAutomaticControlPresetsQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.PresetSelections, Capability.AutomaticControl],
+        queryFn: () => fetchPresetSelections(Capability.AutomaticControl),
+        staleTime: Infinity,
+    });
+};
+
+export const useAutomaticControlAttributeQuery = () => {
+    return useRobotAttributeQuery(
+        RobotAttributeClass.PresetSelectionState,
+        (attrs) => attrs.find(a => a.type === "automatic_control")
+    );
+};
+
+export const useSetAutomaticControlMutation = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (preset: PresetSelectionState["value"]) => {
+            return updatePresetSelection(Capability.AutomaticControl, preset).then(
+                fetchStateAttributes
+            );
+        },
+        onSuccess: (data) => {
+            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
+                updatedAt: Date.now(),
+            });
+        },
+        onError: useOnCommandError(Capability.AutomaticControl),
+    });
+};
+
+export const useAutomaticSubModeControlPresetsQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.PresetSelections, Capability.AutomaticSubModeControl],
+        queryFn: () => fetchPresetSelections(Capability.AutomaticSubModeControl),
+        staleTime: Infinity,
+    });
+};
+
+export const useAutomaticSubModeControlAttributeQuery = () => {
+    return useRobotAttributeQuery(
+        RobotAttributeClass.PresetSelectionState,
+        (attrs) => attrs.find(a => a.type === "automatic_sub_mode")
+    );
+};
+
+export const useSetAutomaticSubModeControlMutation = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (preset: PresetSelectionState["value"]) => {
+            return updatePresetSelection(Capability.AutomaticSubModeControl, preset).then(
+                fetchStateAttributes
+            );
+        },
+        onSuccess: (data) => {
+            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
+                updatedAt: Date.now(),
+            });
+        },
+        onError: useOnCommandError(Capability.AutomaticSubModeControl),
     });
 };
 
@@ -1619,6 +1689,16 @@ export const useUpdaterCommandMutation = () => {
         onSuccess: () => {
             refetchUpdaterState().catch(() => {/*intentional*/});
         }
+    });
+};
+
+export const useActivityHistoryQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.ActivityHistory],
+        queryFn: fetchActivityHistory,
+
+        staleTime: 5_000,
+        refetchInterval: 10_000
     });
 };
 

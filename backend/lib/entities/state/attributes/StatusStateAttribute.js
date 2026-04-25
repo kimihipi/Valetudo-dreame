@@ -55,7 +55,24 @@ StatusStateAttribute.FLAG = Object.freeze({
     SPOT: "spot",
     TARGET: "target",
     RESUMABLE: "resumable",
-    MAPPING: "mapping"
+    MAPPING: "mapping",
+    // Cleaning type
+    VACUUMING: "vacuuming",
+    MOPPING: "mopping",
+    VACUUMING_AND_MOPPING: "vacuuming_and_mopping",
+    AUTO_RECLEANING: "auto_recleaning",
+    // Returning reason
+    TO_WASH: "to_wash",
+    INSTALL_MOP: "install_mop",
+    REMOVE_MOP: "remove_mop",
+    TO_EMPTY: "to_empty",
+    TO_DRAIN: "to_drain",
+    // Docked activity
+    WASHING: "washing",
+    DRYING: "drying",
+    EMPTYING: "emptying",
+    DRAINING: "draining",
+    CHANGING_MOP: "changing_mop",
 });
 
 

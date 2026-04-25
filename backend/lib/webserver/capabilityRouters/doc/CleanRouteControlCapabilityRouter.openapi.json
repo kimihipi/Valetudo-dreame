@@ -16,7 +16,7 @@
                   "route": {
                     "type": "string",
                     "enum": [
-                      "normal",
+                      "routine",
                       "quick",
                       "intensive",
                       "deep"
@@ -43,7 +43,7 @@
                 "route": {
                   "type": "string",
                   "enum": [
-                    "normal",
+                    "routine",
                     "quick",
                     "intensive",
                     "deep"
@@ -83,7 +83,7 @@
                     "items": {
                       "type": "string",
                       "enum": [
-                        "normal",
+                        "routine",
                         "quick",
                         "intensive",
                         "deep"
@@ -95,7 +95,7 @@
                     "items": {
                       "type": "string",
                       "enum": [
-                        "normal",
+                        "routine",
                         "quick",
                         "intensive",
                         "deep"
@@ -107,7 +107,7 @@
                     "items": {
                       "type": "string",
                       "enum": [
-                        "normal",
+                        "routine",
                         "quick",
                         "intensive",
                         "deep"

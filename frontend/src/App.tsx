@@ -13,7 +13,9 @@ import "@fontsource/ibm-plex-sans/700.css";
 import "@fontsource/jetbrains-mono/200.css";
 
 const ANIMATION_SPEED = 2;
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+    defaultOptions: {queries: {refetchOnWindowFocus: false}}
+});
 
 const App = (): React.ReactElement => {
     const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");

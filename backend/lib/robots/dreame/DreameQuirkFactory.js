@@ -882,6 +882,229 @@ class DreameQuirkFactory {
                         );
                     }
                 });
+            case DreameQuirkFactory.KNOWN_QUIRKS.CLEAN_GENIUS_AUTO_RECLEANING:
+                return new Quirk({
+                    id: id,
+                    title: "Automatic: Re-Cleaning",
+                    description: "When active, the robot will automatically re-clean after the first pass. Only active in Automatic mode.",
+                    options: ["off", "in_deep_mode", "in_all_automatic_modes"],
+                    getter: async () => {
+                        const res = await this.robot.miotHelper.readProperty(
+                            DreameMiotServices["GEN2"].VACUUM_2.SIID,
+                            DreameMiotServices["GEN2"].VACUUM_2.PROPERTIES.MISC_TUNABLES.PIID
+                        );
+
+                        const deserializedResponse = DreameUtils.DESERIALIZE_MISC_TUNABLES(res);
+                        if ((deserializedResponse.SmartAutoMop ?? 0) < 0) {
+                            return "off";
+                        }
+                        switch (deserializedResponse.SmartAutoMop) {
+                            case 0:
+                                return "off";
+                            case 1:
+                                return "in_deep_mode";
+                            case 2:
+                                return "in_all_automatic_modes";
+                            default:
+                                throw new Error(`Received invalid value ${deserializedResponse.SmartAutoMop}`);
+                        }
+                    },
+                    setter: async (value) => {
+                        let val;
+
+                        switch (value) {
+                            case "off":
+                                val = 0;
+                                break;
+                            case "in_deep_mode":
+                                val = 1;
+                                break;
+                            case "in_all_automatic_modes":
+                                val = 2;
+                                break;
+                            default:
+                                throw new Error(`Received invalid value ${value}`);
+                        }
+
+                        return this.robot.miotHelper.writeProperty(
+                            DreameMiotServices["GEN2"].VACUUM_2.SIID,
+                            DreameMiotServices["GEN2"].VACUUM_2.PROPERTIES.MISC_TUNABLES.PIID,
+                            DreameUtils.SERIALIZE_MISC_TUNABLES_SINGLE_TUNABLE({
+                                SmartAutoMop: val
+                            })
+                        );
+                    }
+                });
+            case DreameQuirkFactory.KNOWN_QUIRKS.CLEAN_GENIUS_AUTO_REWASHING:
+                return new Quirk({
+                    id: id,
+                    title: "Automatic: Mop-Rewashing",
+                    description: "When active, the robot will automatically rewash the mop during cleaning. Only active in Automatic mode.",
+                    options: ["off", "in_deep_mode", "in_all_automatic_modes"],
+                    getter: async () => {
+                        const res = await this.robot.miotHelper.readProperty(
+                            DreameMiotServices["GEN2"].VACUUM_2.SIID,
+                            DreameMiotServices["GEN2"].VACUUM_2.PROPERTIES.MISC_TUNABLES.PIID
+                        );
+
+                        const deserializedResponse = DreameUtils.DESERIALIZE_MISC_TUNABLES(res);
+                        if ((deserializedResponse.SmartAutoWash ?? 0) < 0) {
+                            return "off";
+                        }
+                        switch (deserializedResponse.SmartAutoWash) {
+                            case 0:
+                                return "off";
+                            case 1:
+                                return "in_deep_mode";
+                            case 2:
+                                return "in_all_automatic_modes";
+                            default:
+                                throw new Error(`Received invalid value ${deserializedResponse.SmartAutoWash}`);
+                        }
+                    },
+                    setter: async (value) => {
+                        let val;
+
+                        switch (value) {
+                            case "off":
+                                val = 0;
+                                break;
+                            case "in_deep_mode":
+                                val = 1;
+                                break;
+                            case "in_all_automatic_modes":
+                                val = 2;
+                                break;
+                            default:
+                                throw new Error(`Received invalid value ${value}`);
+                        }
+
+                        return this.robot.miotHelper.writeProperty(
+                            DreameMiotServices["GEN2"].VACUUM_2.SIID,
+                            DreameMiotServices["GEN2"].VACUUM_2.PROPERTIES.MISC_TUNABLES.PIID,
+                            DreameUtils.SERIALIZE_MISC_TUNABLES_SINGLE_TUNABLE({
+                                SmartAutoWash: val
+                            })
+                        );
+                    }
+                });
+            case DreameQuirkFactory.KNOWN_QUIRKS.CLEAN_GENIUS_STAIN_AVOIDANCE:
+                return new Quirk({
+                    id: id,
+                    title: "Automatic: Stain Detection",
+                    description: "When enabled, the robot will detect and treat stains during cleaning. Only active in Automatic mode.",
+                    options: ["off", "on"],
+                    getter: async () => {
+                        const res = await this.robot.miotHelper.readProperty(
+                            DreameMiotServices["GEN2"].VACUUM_2.SIID,
+                            DreameMiotServices["GEN2"].VACUUM_2.PROPERTIES.MISC_TUNABLES.PIID
+                        );
+
+                        const deserializedResponse = DreameUtils.DESERIALIZE_MISC_TUNABLES(res);
+                        switch (deserializedResponse.StainIdentify) {
+                            case 0:
+                                return "off";
+                            case 1:
+                            case 2:
+                                return "on";
+                            default:
+                                throw new Error(`Received invalid value ${deserializedResponse.StainIdentify}`);
+                        }
+                    },
+                    setter: async (value) => {
+                        let val;
+
+                        switch (value) {
+                            case "off":
+                                val = 0;
+                                break;
+                            case "on":
+                                val = 2;
+                                break;
+                            default:
+                                throw new Error(`Received invalid value ${value}`);
+                        }
+
+                        return this.robot.miotHelper.writeProperty(
+                            DreameMiotServices["GEN2"].VACUUM_2.SIID,
+                            DreameMiotServices["GEN2"].VACUUM_2.PROPERTIES.MISC_TUNABLES.PIID,
+                            DreameUtils.SERIALIZE_MISC_TUNABLES_SINGLE_TUNABLE({
+                                StainIdentify: val
+                            })
+                        );
+                    }
+                });
+            case DreameQuirkFactory.KNOWN_QUIRKS.SMART_MOP_WASHING:
+                return new Quirk({
+                    id: id,
+                    title: "Smart Mop-Washing",
+                    description: "When enabled, the robot will intelligently wash the mop based on detected dirt levels.",
+                    options: ["on", "off"],
+                    getter: async () => {
+                        const res = await this.robot.miotHelper.readProperty(
+                            DreameMiotServices["GEN2"].MOP_EXPANSION.SIID,
+                            DreameMiotServices["GEN2"].MOP_EXPANSION.PROPERTIES.SMART_MOP_WASHING.PIID
+                        );
+
+                        switch (res) {
+                            case 1:
+                                return "on";
+                            case 0:
+                                return "off";
+                            default:
+                                throw new Error(`Received invalid value ${res}`);
+                        }
+                    },
+                    setter: async (value) => {
+                        let val;
+
+                        switch (value) {
+                            case "on":
+                                val = 1;
+                                break;
+                            case "off":
+                                val = 0;
+                                break;
+                            default:
+                                throw new Error(`Received invalid value ${value}`);
+                        }
+
+                        return this.robot.miotHelper.writeProperty(
+                            DreameMiotServices["GEN2"].MOP_EXPANSION.SIID,
+                            DreameMiotServices["GEN2"].MOP_EXPANSION.PROPERTIES.SMART_MOP_WASHING.PIID,
+                            val
+                        );
+                    }
+                });
+            case DreameQuirkFactory.KNOWN_QUIRKS.LARGE_PARTICLE_BOOST:
+                return new Quirk({
+                    id: id,
+                    title: "Large Particle Boost",
+                    description: "When enabled, the robot boosts suction to handle larger debris and particles.",
+                    options: ["on", "off"],
+                    getter: async () => {
+                        const res = await this.robot.miotHelper.readProperty(
+                            DreameMiotServices["GEN2"].VACUUM_2.SIID,
+                            DreameMiotServices["GEN2"].VACUUM_2.PROPERTIES.AI_CAMERA_SETTINGS.PIID
+                        );
+
+                        return (res & 2048) ? "on" : "off";
+                    },
+                    setter: async (value) => {
+                        const res = await this.robot.miotHelper.readProperty(
+                            DreameMiotServices["GEN2"].VACUUM_2.SIID,
+                            DreameMiotServices["GEN2"].VACUUM_2.PROPERTIES.AI_CAMERA_SETTINGS.PIID
+                        );
+
+                        const newVal = value === "on" ? (res | 2048) : (res & ~2048);
+
+                        return this.robot.miotHelper.writeProperty(
+                            DreameMiotServices["GEN2"].VACUUM_2.SIID,
+                            DreameMiotServices["GEN2"].VACUUM_2.PROPERTIES.AI_CAMERA_SETTINGS.PIID,
+                            newVal
+                        );
+                    }
+                });
             default:
                 throw new Error(`There's no quirk with id ${id}`);
         }
@@ -908,7 +1131,12 @@ DreameQuirkFactory.KNOWN_QUIRKS = {
     CARPET_FIRST: "3d6cd658-c72a-48d9-ba54-38cf2d26e2f6",
     MULTI_MAP: "bd9e34f6-6780-4507-ad32-20e80f5c6b8d",
     INTELLIGENT_MAP_RECOGNITION: "ee22d7ed-e5ec-45ab-bfa6-df7258eb19eb",
-    SUCTION_MAX: "4d7df230-78d7-4a88-bf92-cf97a69607bb"
+    SUCTION_MAX: "4d7df230-78d7-4a88-bf92-cf97a69607bb",
+    CLEAN_GENIUS_AUTO_RECLEANING: "b1a2c3d4-e5f6-7890-abcd-ef1234567890",
+    CLEAN_GENIUS_AUTO_REWASHING: "c2b3d4e5-f6a7-8901-bcde-f12345678901",
+    CLEAN_GENIUS_STAIN_AVOIDANCE: "d3c4e5f6-a7b8-9012-cdef-123456789012",
+    SMART_MOP_WASHING: "e4d5f6a7-b8c9-0123-def0-234567890123",
+    LARGE_PARTICLE_BOOST: "f5e6a7b8-c9d0-1234-ef01-345678901234"
 };
 
 module.exports = DreameQuirkFactory;

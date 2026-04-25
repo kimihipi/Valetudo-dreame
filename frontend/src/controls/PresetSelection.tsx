@@ -25,7 +25,7 @@ import {getPresetIconOrLabel, presetFriendlyNames, sortPresets} from "../presetU
 const StyledIcon = Icon;
 
 export interface PresetSelectionProps {
-    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl;
+    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl | Capability.AutomaticControl | Capability.AutomaticSubModeControl;
     label: string;
     icon: React.ReactElement;
     noPaper?: boolean;

@@ -33,7 +33,7 @@ class DreameCleanRouteControlCapabilityV2 extends CleanRouteControlCapability {
             case 2:
                 return DreameCleanRouteControlCapabilityV2.ROUTE.INTENSIVE;
             case 1:
-                return DreameCleanRouteControlCapabilityV2.ROUTE.NORMAL;
+                return DreameCleanRouteControlCapabilityV2.ROUTE.ROUTINE;
             default:
                 throw new Error(`Received invalid value ${deserializedResponse.CleanRoute}`);
         }
@@ -52,7 +52,7 @@ class DreameCleanRouteControlCapabilityV2 extends CleanRouteControlCapability {
             case DreameCleanRouteControlCapabilityV2.ROUTE.INTENSIVE:
                 val = 2;
                 break;
-            case DreameCleanRouteControlCapabilityV2.ROUTE.NORMAL:
+            case DreameCleanRouteControlCapabilityV2.ROUTE.ROUTINE:
                 val = 1;
                 break;
             default:
@@ -71,7 +71,7 @@ class DreameCleanRouteControlCapabilityV2 extends CleanRouteControlCapability {
     getProperties() {
         const properties = {
             supportedRoutes: [
-                DreameCleanRouteControlCapabilityV2.ROUTE.NORMAL,
+                DreameCleanRouteControlCapabilityV2.ROUTE.ROUTINE,
                 DreameCleanRouteControlCapabilityV2.ROUTE.INTENSIVE,
                 DreameCleanRouteControlCapabilityV2.ROUTE.DEEP,
             ],

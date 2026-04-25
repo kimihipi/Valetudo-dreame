@@ -2,6 +2,7 @@ import axios from "axios";
 import { RawMapData } from "./RawMapData";
 import {PresetSelectionState, PresetValue, RobotAttribute} from "./RawRobotState";
 import {
+    ActivityHistoryEntry,
     AutoEmptyDockAutoEmptyDuration,
     AutoEmptyDockAutoEmptyDurationControlProperties,
     AutoEmptyDockAutoEmptyDurationPayload,
@@ -278,7 +279,7 @@ export const subscribeToCleanRouteControl = (
 };
 
 export const fetchPresetSelections = async (
-    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl
+    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl | Capability.AutomaticControl | Capability.AutomaticSubModeControl
 ): Promise<Array<PresetValue>> => {
     return valetudoAPI
         .get<PresetSelectionState["value"][]>(
@@ -290,7 +291,7 @@ export const fetchPresetSelections = async (
 };
 
 export const updatePresetSelection = async (
-    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl,
+    capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl | Capability.AutomaticControl | Capability.AutomaticSubModeControl,
     level: PresetSelectionState["value"]
 ): Promise<void> => {
     await valetudoAPI.put(`/robot/capabilities/${capability}/preset`, {
@@ -1231,6 +1232,12 @@ export const fetchTotalStatisticsProperties = async (): Promise<StatisticsProper
         .then(({ data }) => {
             return data;
         });
+};
+
+export const fetchActivityHistory = async (): Promise<ActivityHistoryEntry[]> => {
+    return valetudoAPI
+        .get<ActivityHistoryEntry[]>("/robot/activityHistory")
+        .then(({ data }) => data);
 };
 
 export const fetchQuirks = async (): Promise<Array<Quirk>> => {

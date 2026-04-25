@@ -2,6 +2,8 @@ module.exports = {
     AutoEmptyDockAutoEmptyDurationControlCapability: require("./AutoEmptyDockAutoEmptyDurationControlCapability"),
     AutoEmptyDockAutoEmptyIntervalControlCapability: require("./AutoEmptyDockAutoEmptyIntervalControlCapability"),
     AutoEmptyDockManualTriggerCapability: require("./AutoEmptyDockManualTriggerCapability"),
+    AutomaticControlCapability: require("./AutomaticControlCapability"),
+    AutomaticSubModeControlCapability: require("./AutomaticSubModeControlCapability"),
     BasicControlCapability: require("./BasicControlCapability"),
     CameraLightControlCapability: require("./CameraLightControlCapability"),
     CarpetModeControlCapability: require("./CarpetModeControlCapability"),

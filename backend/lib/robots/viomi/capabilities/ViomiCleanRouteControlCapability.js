@@ -12,7 +12,7 @@ class ViomiCleanRouteControlCapability extends CleanRouteControlCapability {
             throw new Error(`Received invalid response: ${res}`);
         }
 
-        return res[0] === 1 ? ViomiCleanRouteControlCapability.ROUTE.DEEP : ViomiCleanRouteControlCapability.ROUTE.NORMAL;
+        return res[0] === 1 ? ViomiCleanRouteControlCapability.ROUTE.DEEP : ViomiCleanRouteControlCapability.ROUTE.ROUTINE;
     }
 
     async setRoute(newRoute) {
@@ -30,7 +30,7 @@ class ViomiCleanRouteControlCapability extends CleanRouteControlCapability {
     getProperties() {
         return {
             supportedRoutes: [
-                ViomiCleanRouteControlCapability.ROUTE.NORMAL,
+                ViomiCleanRouteControlCapability.ROUTE.ROUTINE,
                 ViomiCleanRouteControlCapability.ROUTE.DEEP
             ],
             mopOnly: [

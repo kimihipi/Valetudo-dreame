@@ -2,6 +2,33 @@
 import {ConsumableSubType, ConsumableType, ValetudoDataPoint} from "./api";
 import {useCallback, useLayoutEffect, useRef} from "react";
 
+export const STATUS_FLAG_LABELS: Record<string, string> = {
+    // Existing
+    zone: "Zone",
+    segment: "Segment",
+    spot: "Spot",
+    target: "Target",
+    resumable: "Resumable",
+    mapping: "Mapping",
+    // Cleaning type
+    vacuuming: "Vacuuming",
+    mopping: "Mopping",
+    vacuuming_and_mopping: "Vacuuming & Mopping",
+    auto_recleaning: "Auto Recleaning",
+    // Returning reason
+    to_wash: "To Wash",
+    install_mop: "Installing Mop",
+    remove_mop: "Removing Mop",
+    to_empty: "To Empty",
+    to_drain: "To Drain",
+    // Docked activity
+    washing: "Washing Mop",
+    drying: "Drying",
+    emptying: "Emptying",
+    draining: "Draining",
+    changing_mop: "Changing Mop",
+};
+
 export function convertSecondsToHumans(seconds: number, showSeconds = true, showDays = true): string {
     let levels;
 

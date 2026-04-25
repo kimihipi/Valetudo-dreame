@@ -110,6 +110,8 @@ const CAPABILITY_TYPE_TO_ROUTER_MAPPING = {
     [capabilities.MopDockMopCleaningFrequencyControlCapability.TYPE]: capabilityRouters.PresetSelectionCapabilityRouter,
     [capabilities.MopDockDetergentControlCapability.TYPE]: capabilityRouters.PresetSelectionCapabilityRouter,
     [capabilities.MopDockMopWashIntensityControlCapability.TYPE]: capabilityRouters.PresetSelectionCapabilityRouter,
+    [capabilities.AutomaticControlCapability.TYPE]: capabilityRouters.PresetSelectionCapabilityRouter,
+    [capabilities.AutomaticSubModeControlCapability.TYPE]: capabilityRouters.PresetSelectionCapabilityRouter,
     [capabilities.MapSegmentMaterialControlCapability.TYPE]: capabilityRouters.MapSegmentMaterialControlCapabilityRouter,
     [capabilities.FloorMaterialDirectionAwareNavigationControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
     [capabilities.CleanRouteControlCapability.TYPE]: capabilityRouters.CleanRouteControlCapabilityRouter,

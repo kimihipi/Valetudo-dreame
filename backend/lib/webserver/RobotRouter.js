@@ -19,6 +19,11 @@ class RobotRouter {
 
         this.validator = options.validator;
 
+        /** @type {{timestamp: string, robotStatus: string, robotFlag: string, dockStatus: string|null, batteryLevel: number|null, batteryFlag: string|null}[]} */
+        this.activityHistory = [];
+        /** @type {string|null} */
+        this.prevStatusKey = null;
+
         this.initRoutes();
         this.initSSE();
     }
@@ -67,6 +72,10 @@ class RobotRouter {
         });
 
 
+        this.router.get("/activityHistory", (req, res) => {
+            res.json(this.activityHistory);
+        });
+
         this.router.use("/capabilities/", new CapabilitiesRouter({
             robot: this.robot,
             validator: this.validator
@@ -82,6 +91,7 @@ class RobotRouter {
         this.sseHubs = sseHubs;
 
         this.stateUpdateListener = () => {
+            if (sseHubs.state.clients.size === 0) return;
             sseHubs.state.event(
                 ValetudoRobot.EVENTS.StateUpdated,
                 JSON.stringify(this.robot.state)
@@ -89,6 +99,7 @@ class RobotRouter {
         };
 
         this.stateAttributesUpdateListener = () => {
+            if (sseHubs.attributes.clients.size === 0) return;
             sseHubs.attributes.event(
                 ValetudoRobot.EVENTS.StateAttributesUpdated,
                 JSON.stringify(this.robot.state.attributes)
@@ -96,14 +107,42 @@ class RobotRouter {
         };
 
         this.mapUpdateListener = () => {
+            if (sseHubs.map.clients.size === 0) return;
             sseHubs.map.event(
                 ValetudoRobot.EVENTS.MapUpdated,
                 JSON.stringify(this.robot.state.map)
             );
         };
 
+        this.activityHistoryListener = () => {
+            const attrs = this.robot.state.attributes;
+            const status = /** @type {{value: string, flag: string}|undefined} */ (attrs.find(a => a.__class === "StatusStateAttribute"));
+            if (!status) return;
+
+            const currentKey = `${status.value}:${status.flag}`;
+            if (this.prevStatusKey === currentKey) return;
+            this.prevStatusKey = currentKey;
+
+            const battery = /** @type {{level: number, flag: string}|undefined} */ (attrs.find(a => a.__class === "BatteryStateAttribute"));
+            const dock    = /** @type {{value: string}|undefined} */ (attrs.find(a => a.__class === "DockStatusStateAttribute"));
+
+            this.activityHistory.unshift({
+                timestamp: new Date().toISOString(),
+                robotStatus: status.value,
+                robotFlag:   status.flag,
+                dockStatus:  dock && dock.value !== "idle" ? dock.value : null,
+                batteryLevel: battery ? Math.round(battery.level) : null,
+                batteryFlag:  battery ? battery.flag : null,
+            });
+
+            if (this.activityHistory.length > 500) {
+                this.activityHistory.length = 500;
+            }
+        };
+
         this.robot.onStateUpdated(this.stateUpdateListener);
         this.robot.onStateAttributesUpdated(this.stateAttributesUpdateListener);
+        this.robot.onStateAttributesUpdated(this.activityHistoryListener);
         this.robot.onMapUpdated(this.mapUpdateListener);
 
         this.router.get(
@@ -154,6 +193,9 @@ class RobotRouter {
         }
         if (this.stateAttributesUpdateListener) {
             this.robot.offStateAttributesUpdated(this.stateAttributesUpdateListener);
+        }
+        if (this.activityHistoryListener) {
+            this.robot.offStateAttributesUpdated(this.activityHistoryListener);
         }
         if (this.mapUpdateListener) {
             this.robot.offMapUpdated(this.mapUpdateListener);

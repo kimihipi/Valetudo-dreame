@@ -5,6 +5,7 @@ import {
     Room as GoToModeIcon,
     QuestionMark as NoneModeIcon,
     SelectAll as AllModeIcon,
+    AutoMode as AutomaticModeIcon,
 } from "@mui/icons-material";
 import React from "react";
 import {TransitionProps} from "@mui/material/transitions";
@@ -43,7 +44,8 @@ const modeToIcon: Record<LiveMapMode, React.ReactElement> = {
     "zones": <ZoneModeIcon/>,
     "goto": <GoToModeIcon/>,
     "none": <NoneModeIcon/>,
-    "all": <AllModeIcon/>
+    "all": <AllModeIcon/>,
+    "automatic": <AutomaticModeIcon/>
 };
 
 const modeToLabel: Record<LiveMapMode, string> = {
@@ -51,7 +53,8 @@ const modeToLabel: Record<LiveMapMode, string> = {
     "zones": "Zones",
     "goto": "Go To",
     "none": "None",
-    "all": "All"
+    "all": "All",
+    "automatic": "Automatic"
 };
 
 /* eslint-disable react/display-name */

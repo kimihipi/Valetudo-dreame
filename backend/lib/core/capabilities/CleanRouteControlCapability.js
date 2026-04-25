@@ -56,7 +56,7 @@ CleanRouteControlCapability.TYPE = "CleanRouteControlCapability";
  *
  */
 CleanRouteControlCapability.ROUTE = Object.freeze({
-    NORMAL: "normal",
+    ROUTINE: "routine",
     QUICK: "quick",
     INTENSIVE: "intensive",
     DEEP: "deep",

@@ -20,7 +20,7 @@ class DreameCleanRouteControlCapabilityV1 extends CleanRouteControlCapability {
     async getRoute() {
         const res = await this.robot.miotHelper.readProperty(this.siid, this.piid);
 
-        return res === 1 ? DreameCleanRouteControlCapabilityV1.ROUTE.DEEP : DreameCleanRouteControlCapabilityV1.ROUTE.NORMAL;
+        return res === 1 ? DreameCleanRouteControlCapabilityV1.ROUTE.DEEP : DreameCleanRouteControlCapabilityV1.ROUTE.ROUTINE;
     }
 
     async setRoute(newRoute) {
@@ -34,7 +34,7 @@ class DreameCleanRouteControlCapabilityV1 extends CleanRouteControlCapability {
     getProperties() {
         return {
             supportedRoutes: [
-                DreameCleanRouteControlCapabilityV1.ROUTE.NORMAL,
+                DreameCleanRouteControlCapabilityV1.ROUTE.ROUTINE,
                 DreameCleanRouteControlCapabilityV1.ROUTE.DEEP
             ],
             mopOnly: [

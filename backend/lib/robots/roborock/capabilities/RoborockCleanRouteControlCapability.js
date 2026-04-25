@@ -8,7 +8,7 @@ class RoborockCleanRouteControlCapability extends CleanRouteControlCapability {
     async getRoute() {
         const res = await this.robot.sendCommand("get_mop_mode", [], {});
 
-        return res?.[0] === 301 ? RoborockCleanRouteControlCapability.ROUTE.DEEP : RoborockCleanRouteControlCapability.ROUTE.NORMAL;
+        return res?.[0] === 301 ? RoborockCleanRouteControlCapability.ROUTE.DEEP : RoborockCleanRouteControlCapability.ROUTE.ROUTINE;
     }
 
     async setRoute(newRoute) {
@@ -24,7 +24,7 @@ class RoborockCleanRouteControlCapability extends CleanRouteControlCapability {
     getProperties() {
         return {
             supportedRoutes: [
-                RoborockCleanRouteControlCapability.ROUTE.NORMAL,
+                RoborockCleanRouteControlCapability.ROUTE.ROUTINE,
                 RoborockCleanRouteControlCapability.ROUTE.DEEP
             ],
             mopOnly: [

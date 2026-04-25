@@ -1,5 +1,5 @@
 import BaseMap, {MapContainer, MapProps, MapState, usePendingMapAction} from "./BaseMap";
-import {Capability, RawMapLayerType} from "../api";
+import {Capability, RawMapLayerType, useAutomaticControlAttributeQuery, useSetAutomaticControlMutation} from "../api";
 import GoToTargetClientStructure from "./structures/client_structures/GoToTargetClientStructure";
 import {ActionsContainer, ActionButton, MapOverlayTopLeft, MapToolbarContainer, MapOverlayBottomLeft, StatsOverlayButton} from "./Styled";
 import {LiveMapModeSwitcher} from "./LiveMapModeSwitcher";
@@ -51,7 +51,7 @@ const StatsOverlayWidget = ({onClick}: {onClick: () => void}): React.ReactElemen
 };
 
 
-export type LiveMapMode = "segments" | "zones" | "goto" | "none" | "all";
+export type LiveMapMode = "segments" | "zones" | "goto" | "none" | "all" | "automatic";
 const LIVE_MAP_MODE_LOCAL_STORAGE_KEY = "live-map-mode";
 
 export const useLiveMapMode = create<{
@@ -64,11 +64,56 @@ export const useLiveMapMode = create<{
     setMode: null,
 }));
 
+const LiveMapModeSwitcherWithAutomatic: React.FunctionComponent<{
+    supportedModes: Array<LiveMapMode>;
+    currentMode: LiveMapMode;
+    setMode: (newMode: LiveMapMode) => void;
+}> = ({supportedModes, currentMode, setMode}) => {
+    const {data: automaticAttribute} = useAutomaticControlAttributeQuery();
+    const {mutate: setAutomaticControl} = useSetAutomaticControlMutation();
+    const automaticControlSupported = supportedModes.includes("automatic");
+    const hasSyncedRef = React.useRef(false);
+
+    React.useEffect(() => {
+        if (hasSyncedRef.current || !automaticControlSupported || automaticAttribute === undefined) {
+            return;
+        }
+        hasSyncedRef.current = true;
+        if (automaticAttribute.value !== "off" && currentMode !== "automatic") {
+            setMode("automatic");
+        }
+    }, [automaticAttribute, automaticControlSupported, currentMode, setMode]);
+
+    const handleModeChange = (newMode: LiveMapMode) => {
+        setMode(newMode);
+        if (!automaticControlSupported) {
+            return;
+        }
+        if (newMode === "automatic") {
+            const level = automaticAttribute?.value && automaticAttribute.value !== "off" ?
+                automaticAttribute.value :
+                "routine";
+            setAutomaticControl(level);
+        } else if (currentMode === "automatic") {
+            setAutomaticControl("off");
+        }
+    };
+
+    return (
+        <LiveMapModeSwitcher
+            supportedModes={supportedModes}
+            currentMode={currentMode}
+            setMode={handleModeChange}
+        />
+    );
+};
+
 interface LiveMapProps extends MapProps {
     supportedCapabilities: {
         [Capability.MapSegmentation]: boolean,
         [Capability.ZoneCleaning]: boolean,
-        [Capability.GoToLocation]: boolean
+        [Capability.GoToLocation]: boolean,
+        [Capability.AutomaticControl]: boolean,
     },
     onManualControlOpen?: () => void,
     onStatisticsOpen?: () => void,
@@ -100,6 +145,9 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
         if (props.supportedCapabilities[Capability.GoToLocation]) {
             this.supportedModes.push("goto");
         }
+        if (props.supportedCapabilities[Capability.AutomaticControl]) {
+            this.supportedModes.push("automatic");
+        }
 
         let modeIdxToUse = 0;
         try {
@@ -125,7 +173,7 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
             goToTarget: undefined
         };
 
-        this._cleanOrderActive = this.state.mode === "all";
+        this._cleanOrderActive = this.state.mode === "all" || this.state.mode === "automatic";
         this.mapLayerManager.setAlwaysDimUnselectedSegments((this.supportedModes[modeIdxToUse] ?? "none") === "segments");
     }
 
@@ -263,7 +311,7 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
     }
 
     private handleModeChange = (newMode: LiveMapMode): void => {
-        this._cleanOrderActive = newMode === "all";
+        this._cleanOrderActive = newMode === "all" || newMode === "automatic";
         this.mapLayerManager.setAlwaysDimUnselectedSegments(newMode === "segments" || newMode === "zones");
 
         this.structureManager.getMapStructures().forEach(s => {
@@ -407,7 +455,7 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
                         </Box>
                         {
                             this.supportedModes.length > 1 &&
-                            <LiveMapModeSwitcher
+                            <LiveMapModeSwitcherWithAutomatic
                                 supportedModes={this.supportedModes}
                                 currentMode={this.state.mode}
                                 setMode={this.handleModeChange}

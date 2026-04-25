@@ -13,6 +13,10 @@ class DreameGen4ValetudoRobot extends DreameGen2LidarValetudoRobot {
         ));
     }
 
+    get supportsExtendedStatus() {
+        return true;
+    }
+
     getStatePropertiesToPoll() {
         const superProps = super.getStatePropertiesToPoll();
 

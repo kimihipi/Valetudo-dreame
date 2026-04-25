@@ -1,8 +1,11 @@
 module.exports = {
     MockAutoEmptyDockAutoEmptyIntervalControlCapability: require("./MockAutoEmptyDockAutoEmptyIntervalControlCapability"),
     MockAutoEmptyDockManualTriggerCapability: require("./MockAutoEmptyDockManualTriggerCapability"),
+    MockAutomaticControlCapability: require("./MockAutomaticControlCapability"),
+    MockAutomaticSubModeControlCapability: require("./MockAutomaticSubModeControlCapability"),
     MockBasicControlCapability: require("./MockBasicControlCapability"),
     MockCarpetModeControlCapability: require("./MockCarpetModeControlCapability"),
+    MockCleanRouteControlCapability: require("./MockCleanRouteControlCapability"),
     MockCarpetSensorModeControlCapability: require("./MockCarpetSensorModeControlCapability"),
     MockCollisionAvoidantNavigationControlCapability: require("./MockCollisionAvoidantNavigationControlCapability"),
     MockCombinedVirtualRestrictionsCapability: require("./MockCombinedVirtualRestrictionsCapability"),
