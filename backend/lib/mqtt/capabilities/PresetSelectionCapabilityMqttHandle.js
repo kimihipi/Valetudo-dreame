@@ -130,6 +130,8 @@ const CAPABILITIES_TO_FRIENDLY_NAME_MAPPING = {
     [capabilities.FanSpeedControlCapability.TYPE]: "Fan",
     [capabilities.WaterUsageControlCapability.TYPE]: "Water",
     [capabilities.OperationModeControlCapability.TYPE]: "Mode",
+    [capabilities.AutomaticControlCapability.TYPE]: "Auto Mode",
+    [capabilities.AutomaticSubModeControlCapability.TYPE]: "Auto Sub Mode",
 };
 
 const CAPABILITIES_TO_STATE_ATTR_MAPPING = {
@@ -145,12 +147,22 @@ const CAPABILITIES_TO_STATE_ATTR_MAPPING = {
         attributeClass: stateAttrs.PresetSelectionStateAttribute.name,
         attributeType: stateAttrs.PresetSelectionStateAttribute.TYPE.OPERATION_MODE
     },
+    [capabilities.AutomaticControlCapability.TYPE]: {
+        attributeClass: stateAttrs.PresetSelectionStateAttribute.name,
+        attributeType: stateAttrs.PresetSelectionStateAttribute.TYPE.AUTOMATIC_CONTROL
+    },
+    [capabilities.AutomaticSubModeControlCapability.TYPE]: {
+        attributeClass: stateAttrs.PresetSelectionStateAttribute.name,
+        attributeType: stateAttrs.PresetSelectionStateAttribute.TYPE.AUTOMATIC_SUB_MODE
+    },
 };
 
 const CAPABILITIES_TO_ICON_MAPPING = {
     [capabilities.FanSpeedControlCapability.TYPE]: "mdi:fan",
     [capabilities.WaterUsageControlCapability.TYPE]: "mdi:water-pump",
     [capabilities.OperationModeControlCapability.TYPE]: "mdi:developer-board",
+    [capabilities.AutomaticControlCapability.TYPE]: "mdi:auto-mode",
+    [capabilities.AutomaticSubModeControlCapability.TYPE]: "mdi:robot-vacuum",
 };
 
 module.exports = PresetSelectionCapabilityMqttHandle;

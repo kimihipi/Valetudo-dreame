@@ -23,6 +23,8 @@ class RobotRouter {
         this.activityHistory = [];
         /** @type {string|null} */
         this.prevStatusKey = null;
+        /** @type {ReturnType<typeof setTimeout>|null} */
+        this.activityHistoryDebounceTimer = null;
 
         this.initRoutes();
         this.initSSE();
@@ -116,28 +118,47 @@ class RobotRouter {
 
         this.activityHistoryListener = () => {
             const attrs = this.robot.state.attributes;
-            const status = /** @type {{value: string, flag: string}|undefined} */ (attrs.find(a => a.__class === "StatusStateAttribute"));
+            const status = /** @type {{value: string, flag: string}|undefined} */ (/** @type {unknown} */ (attrs.find(a => a.__class === "StatusStateAttribute")));
             if (!status) return;
 
             const currentKey = `${status.value}:${status.flag}`;
-            if (this.prevStatusKey === currentKey) return;
-            this.prevStatusKey = currentKey;
 
-            const battery = /** @type {{level: number, flag: string}|undefined} */ (attrs.find(a => a.__class === "BatteryStateAttribute"));
-            const dock    = /** @type {{value: string}|undefined} */ (attrs.find(a => a.__class === "DockStatusStateAttribute"));
+            // Status returned to last committed state — cancel any pending transient entry
+            if (currentKey === this.prevStatusKey) {
+                if (this.activityHistoryDebounceTimer !== null) {
+                    clearTimeout(this.activityHistoryDebounceTimer);
+                    this.activityHistoryDebounceTimer = null;
+                }
+                return;
+            }
 
-            this.activityHistory.unshift({
+            const battery = /** @type {{level: number, flag: string}|undefined} */ (/** @type {unknown} */ (attrs.find(a => a.__class === "BatteryStateAttribute")));
+            const dock    = /** @type {{value: string}|undefined} */ (/** @type {unknown} */ (attrs.find(a => a.__class === "DockStatusStateAttribute")));
+
+            // Snapshot the entry at the moment of transition
+            const pendingEntry = {
                 timestamp: new Date().toISOString(),
                 robotStatus: status.value,
                 robotFlag:   status.flag,
                 dockStatus:  dock && dock.value !== "idle" ? dock.value : null,
                 batteryLevel: battery ? Math.round(battery.level) : null,
                 batteryFlag:  battery ? battery.flag : null,
-            });
+            };
+            const pendingKey = currentKey;
 
-            if (this.activityHistory.length > 500) {
-                this.activityHistory.length = 500;
+            // Cancel any previous pending entry and wait for this state to stabilise
+            if (this.activityHistoryDebounceTimer !== null) {
+                clearTimeout(this.activityHistoryDebounceTimer);
             }
+
+            this.activityHistoryDebounceTimer = setTimeout(() => {
+                this.activityHistoryDebounceTimer = null;
+                this.prevStatusKey = pendingKey;
+                this.activityHistory.unshift(pendingEntry);
+                if (this.activityHistory.length > 500) {
+                    this.activityHistory.length = 500;
+                }
+            }, 2000);
         };
 
         this.robot.onStateUpdated(this.stateUpdateListener);
@@ -196,6 +217,10 @@ class RobotRouter {
         }
         if (this.activityHistoryListener) {
             this.robot.offStateAttributesUpdated(this.activityHistoryListener);
+        }
+        if (this.activityHistoryDebounceTimer !== null) {
+            clearTimeout(this.activityHistoryDebounceTimer);
+            this.activityHistoryDebounceTimer = null;
         }
         if (this.mapUpdateListener) {
             this.robot.offMapUpdated(this.mapUpdateListener);

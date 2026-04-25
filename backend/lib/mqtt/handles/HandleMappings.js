@@ -4,7 +4,10 @@ const stateAttrs = require("../../entities/state/attributes");
 const stateHandles = require("../status");
 
 const CAPABILITY_TYPE_TO_HANDLE_MAPPING = {
+    [capabilities.AutomaticControlCapability.TYPE]: capabilityHandles.PresetSelectionCapabilityMqttHandle,
+    [capabilities.AutomaticSubModeControlCapability.TYPE]: capabilityHandles.PresetSelectionCapabilityMqttHandle,
     [capabilities.BasicControlCapability.TYPE]: capabilityHandles.BasicControlCapabilityMqttHandle,
+    [capabilities.CleanRouteControlCapability.TYPE]: capabilityHandles.CleanRouteControlCapabilityMqttHandle,
     [capabilities.ConsumableMonitoringCapability.TYPE]: capabilityHandles.ConsumableMonitoringCapabilityMqttHandle,
     [capabilities.FanSpeedControlCapability.TYPE]: capabilityHandles.PresetSelectionCapabilityMqttHandle,
     [capabilities.GoToLocationCapability.TYPE]: capabilityHandles.GoToLocationCapabilityMqttHandle,
