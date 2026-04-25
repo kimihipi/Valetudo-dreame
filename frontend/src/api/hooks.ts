@@ -148,6 +148,10 @@ import {
     sendMopTwistControlState,
     fetchMopDockMopAutoDryingControlState,
     sendMopDockMopAutoDryingControlState,
+    fetchMopDockMopPreWetControlState,
+    sendMopDockMopPreWetControlState,
+    fetchMopDockSmartMopWashingControlState,
+    sendMopDockSmartMopWashingControlState,
     fetchSuctionBoostControlState,
     sendSuctionBoostControlState,
     fetchMapSegmentMaterialControlProperties,
@@ -289,6 +293,8 @@ enum QueryKey {
     MopTwistControl = "mop_twist_control",
     MopExtensionFurnitureLegHandlingControl = "mop_extension_furniture_leg_handling_control",
     MopDockMopAutoDryingControl = "mop_dock_mop_auto_drying_control",
+    MopDockMopPreWetControl = "mop_dock_mop_pre_wet_control",
+    MopDockSmartMopWashingControl = "mop_dock_smart_mop_washing_control",
     MapSegmentMaterialControlProperties = "map_segment_material_control_properties",
     FloorMaterialDirectionAwareNavigationControl = "floor_material_direction_aware_navigation_control",
     CleanRouteControl = "clean_route_control",
@@ -2035,6 +2041,44 @@ export const useMopDockMopAutoDryingControlMutation = () => {
             return sendMopDockMopAutoDryingControlState(enable).then(fetchMopDockMopAutoDryingControlState);
         },
         onError: useOnCommandError(Capability.MopDockMopAutoDryingControl)
+    });
+};
+
+export const useMopDockMopPreWetControlQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.MopDockMopPreWetControl],
+        queryFn: fetchMopDockMopPreWetControlState,
+
+        staleTime: Infinity
+    });
+};
+
+export const useMopDockMopPreWetControlMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.MopDockMopPreWetControl],
+        mutationFn: (enable: boolean) => {
+            return sendMopDockMopPreWetControlState(enable).then(fetchMopDockMopPreWetControlState);
+        },
+        onError: useOnCommandError(Capability.MopDockMopPreWetControl)
+    });
+};
+
+export const useMopDockSmartMopWashingControlQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.MopDockSmartMopWashingControl],
+        queryFn: fetchMopDockSmartMopWashingControlState,
+
+        staleTime: Infinity
+    });
+};
+
+export const useMopDockSmartMopWashingControlMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.MopDockSmartMopWashingControl],
+        mutationFn: (enable: boolean) => {
+            return sendMopDockSmartMopWashingControlState(enable).then(fetchMopDockSmartMopWashingControlState);
+        },
+        onError: useOnCommandError(Capability.MopDockSmartMopWashingControl)
     });
 };
 

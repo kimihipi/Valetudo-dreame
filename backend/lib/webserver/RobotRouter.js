@@ -19,11 +19,10 @@ class RobotRouter {
 
         this.validator = options.validator;
 
-        /** @type {{timestamp: string, robotStatus: string, robotFlag: string, dockStatus: string|null, batteryLevel: number|null, batteryFlag: string|null}[]} */
+        /** @type {{timestamp: string, robotStatus: string, robotFlag: string, dockStatus: string|null, batteryLevel: number|null, batteryFlag: string|null, dockActivities?: {timestamp: string, robotFlag: string, dockStatus: string|null, batteryLevel: number|null, batteryFlag: string|null}[]}[]} */
         this.activityHistory = [];
         /** @type {string|null} */
         this.prevStatusKey = null;
-        /** @type {ReturnType<typeof setTimeout>|null} */
         this.activityHistoryDebounceTimer = null;
 
         this.initRoutes();
@@ -93,7 +92,9 @@ class RobotRouter {
         this.sseHubs = sseHubs;
 
         this.stateUpdateListener = () => {
-            if (sseHubs.state.clients.size === 0) return;
+            if (sseHubs.state.clients.size === 0) {
+                return;
+            }
             sseHubs.state.event(
                 ValetudoRobot.EVENTS.StateUpdated,
                 JSON.stringify(this.robot.state)
@@ -101,7 +102,9 @@ class RobotRouter {
         };
 
         this.stateAttributesUpdateListener = () => {
-            if (sseHubs.attributes.clients.size === 0) return;
+            if (sseHubs.attributes.clients.size === 0) {
+                return;
+            }
             sseHubs.attributes.event(
                 ValetudoRobot.EVENTS.StateAttributesUpdated,
                 JSON.stringify(this.robot.state.attributes)
@@ -109,7 +112,9 @@ class RobotRouter {
         };
 
         this.mapUpdateListener = () => {
-            if (sseHubs.map.clients.size === 0) return;
+            if (sseHubs.map.clients.size === 0) {
+                return;
+            }
             sseHubs.map.event(
                 ValetudoRobot.EVENTS.MapUpdated,
                 JSON.stringify(this.robot.state.map)
@@ -119,7 +124,9 @@ class RobotRouter {
         this.activityHistoryListener = () => {
             const attrs = this.robot.state.attributes;
             const status = /** @type {{value: string, flag: string}|undefined} */ (/** @type {unknown} */ (attrs.find(a => a.__class === "StatusStateAttribute")));
-            if (!status) return;
+            if (!status) {
+                return;
+            }
 
             const currentKey = `${status.value}:${status.flag}`;
 
@@ -133,7 +140,7 @@ class RobotRouter {
             }
 
             const battery = /** @type {{level: number, flag: string}|undefined} */ (/** @type {unknown} */ (attrs.find(a => a.__class === "BatteryStateAttribute")));
-            const dock    = /** @type {{value: string}|undefined} */ (/** @type {unknown} */ (attrs.find(a => a.__class === "DockStatusStateAttribute")));
+            const dock = /** @type {{value: string}|undefined} */ (/** @type {unknown} */ (attrs.find(a => a.__class === "DockStatusStateAttribute")));
 
             // Snapshot the entry at the moment of transition
             const pendingEntry = {
@@ -143,6 +150,8 @@ class RobotRouter {
                 dockStatus:  dock && dock.value !== "idle" ? dock.value : null,
                 batteryLevel: battery ? Math.round(battery.level) : null,
                 batteryFlag:  battery ? battery.flag : null,
+                /** @type {{timestamp: string, robotFlag: string, dockStatus: string|null, batteryLevel: number|null, batteryFlag: string|null}[]|undefined} */
+                dockActivities: undefined,
             };
             const pendingKey = currentKey;
 
@@ -154,9 +163,50 @@ class RobotRouter {
             this.activityHistoryDebounceTimer = setTimeout(() => {
                 this.activityHistoryDebounceTimer = null;
                 this.prevStatusKey = pendingKey;
-                this.activityHistory.unshift(pendingEntry);
-                if (this.activityHistory.length > 500) {
-                    this.activityHistory.length = 500;
+
+                const lastEntry = this.activityHistory[0];
+                if (pendingEntry.robotStatus === "docked" && lastEntry && lastEntry.robotStatus === "docked") {
+                    // Only record a sub-activity when the dock switches to a new operation.
+                    // Ignore null-dockStatus transitions (idle between operations) and
+                    // repeated oscillations of the same dock activity (e.g. washing flag cycling).
+                    if (pendingEntry.dockStatus !== null) {
+                        const subs = lastEntry.dockActivities;
+                        const prevDockStatus = subs && subs.length > 0 ?
+                            subs[subs.length - 1].dockStatus :
+                            lastEntry.dockStatus;
+                        if (pendingEntry.dockStatus !== prevDockStatus) {
+                            if (!lastEntry.dockActivities) {
+                                lastEntry.dockActivities = [];
+                            }
+                            lastEntry.dockActivities.push({
+                                timestamp: pendingEntry.timestamp,
+                                robotFlag: pendingEntry.robotFlag,
+                                dockStatus: pendingEntry.dockStatus,
+                                batteryLevel: pendingEntry.batteryLevel,
+                                batteryFlag: pendingEntry.batteryFlag,
+                            });
+                        }
+                    }
+                    lastEntry.robotFlag = pendingEntry.robotFlag;
+                    lastEntry.dockStatus = pendingEntry.dockStatus;
+                    lastEntry.batteryLevel = pendingEntry.batteryLevel;
+                    lastEntry.batteryFlag = pendingEntry.batteryFlag;
+                } else {
+                    // Seed dockActivities with the initial dock state so it isn't
+                    // lost when the dock briefly goes idle between operations.
+                    if (pendingEntry.robotStatus === "docked" && pendingEntry.dockStatus !== null) {
+                        pendingEntry.dockActivities = [{
+                            timestamp: pendingEntry.timestamp,
+                            robotFlag: pendingEntry.robotFlag,
+                            dockStatus: pendingEntry.dockStatus,
+                            batteryLevel: pendingEntry.batteryLevel,
+                            batteryFlag: pendingEntry.batteryFlag,
+                        }];
+                    }
+                    this.activityHistory.unshift(pendingEntry);
+                    if (this.activityHistory.length > 500) {
+                        this.activityHistory.length = 500;
+                    }
                 }
             }, 2000);
         };

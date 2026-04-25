@@ -107,6 +107,8 @@ const CAPABILITY_TYPE_TO_ROUTER_MAPPING = {
     [capabilities.MopTwistControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
     [capabilities.MopExtensionFurnitureLegHandlingControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
     [capabilities.MopDockMopAutoDryingControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
+    [capabilities.MopDockMopPreWetControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
+    [capabilities.MopDockSmartMopWashingControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
     [capabilities.MopDockMopCleaningFrequencyControlCapability.TYPE]: capabilityRouters.PresetSelectionCapabilityRouter,
     [capabilities.MopDockDetergentControlCapability.TYPE]: capabilityRouters.PresetSelectionCapabilityRouter,
     [capabilities.MopDockMopWashIntensityControlCapability.TYPE]: capabilityRouters.PresetSelectionCapabilityRouter,

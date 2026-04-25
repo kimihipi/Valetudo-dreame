@@ -1473,6 +1473,30 @@ export const sendMopDockMopAutoDryingControlState = async (enable: boolean): Pro
     await sendToggleMutation(Capability.MopDockMopAutoDryingControl, enable);
 };
 
+export const fetchMopDockMopPreWetControlState = async (): Promise<SimpleToggleState> => {
+    return valetudoAPI
+        .get<SimpleToggleState>(`/robot/capabilities/${Capability.MopDockMopPreWetControl}`)
+        .then(({ data }) => {
+            return data;
+        });
+};
+
+export const sendMopDockMopPreWetControlState = async (enable: boolean): Promise<void> => {
+    await sendToggleMutation(Capability.MopDockMopPreWetControl, enable);
+};
+
+export const fetchMopDockSmartMopWashingControlState = async (): Promise<SimpleToggleState> => {
+    return valetudoAPI
+        .get<SimpleToggleState>(`/robot/capabilities/${Capability.MopDockSmartMopWashingControl}`)
+        .then(({ data }) => {
+            return data;
+        });
+};
+
+export const sendMopDockSmartMopWashingControlState = async (enable: boolean): Promise<void> => {
+    await sendToggleMutation(Capability.MopDockSmartMopWashingControl, enable);
+};
+
 export const fetchSuctionBoostControlState = async (): Promise<SimpleToggleState> => {
     return valetudoAPI
         .get<SimpleToggleState>(`/robot/capabilities/${Capability.SuctionBoostControl}`)

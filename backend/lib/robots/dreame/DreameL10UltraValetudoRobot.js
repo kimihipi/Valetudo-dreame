@@ -186,6 +186,7 @@ class DreameL10UltraValetudoRobot extends DreameGen2LidarValetudoRobot {
             capabilities.DreameAutoEmptyDockAutoEmptyIntervalControlCapabilityV1,
             capabilities.DreameMopTwistControlCapabilityV1,
             capabilities.DreameMopDockMopAutoDryingControlCapability,
+            capabilities.DreameMopDockMopPreWetControlCapability,
             capabilities.DreameFloorMaterialDirectionAwareNavigationControlCapability,
             capabilities.DreameCleanRouteControlCapabilityV1,
             capabilities.DreameMopDockMopDryingTimeControlCapability,
@@ -209,7 +210,6 @@ class DreameL10UltraValetudoRobot extends DreameGen2LidarValetudoRobot {
             robot: this,
             quirks: [
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_MODE_SENSITIVITY),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WET_DRY_SWITCH),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_AUTO_REPAIR_TRIGGER),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.DRAIN_INTERNAL_WATER_TANK),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_CLEANING_PROCESS_TRIGGER),

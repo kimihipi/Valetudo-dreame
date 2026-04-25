@@ -71,6 +71,11 @@ const ActivityEntryRow = ({entry}: {entry: ActivityHistoryEntry}): React.ReactEl
         hour12: false,
     });
 
+    const dockOps = entry.dockActivities
+        ?.map(sub => (sub.dockStatus && DOCK_LABELS[sub.dockStatus]) || "")
+        .filter(Boolean)
+        .join(" · ");
+
     return (
         <Box py={0.75}>
             <Box display="flex" alignItems="baseline" gap={1}>
@@ -91,7 +96,7 @@ const ActivityEntryRow = ({entry}: {entry: ActivityHistoryEntry}): React.ReactEl
                             {flagSuffix}
                         </Typography>
                     )}
-                    {entry.dockStatus && DOCK_LABELS[entry.dockStatus] && (
+                    {!dockOps && entry.dockStatus && DOCK_LABELS[entry.dockStatus] && (
                         <Typography component="span" variant="caption" color="text.secondary">
                             {" · "}{DOCK_LABELS[entry.dockStatus]}
                         </Typography>
@@ -110,6 +115,11 @@ const ActivityEntryRow = ({entry}: {entry: ActivityHistoryEntry}): React.ReactEl
                     </Typography>
                 )}
             </Box>
+            {dockOps && (
+                <Typography variant="caption" color="text.disabled" sx={{pl: "calc(2ch + 8px)"}}>
+                    {dockOps}
+                </Typography>
+            )}
         </Box>
     );
 };

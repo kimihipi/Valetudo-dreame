@@ -363,6 +363,8 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
             capabilities.DreameMopTwistControlCapabilityV2,
             capabilities.DreameMopExtensionFurnitureLegHandlingControlCapability,
             capabilities.DreameMopDockMopAutoDryingControlCapability,
+            capabilities.DreameMopDockMopPreWetControlCapability,
+            capabilities.DreameMopDockSmartMopWashingControlCapability,
             capabilities.DreameFloorMaterialDirectionAwareNavigationControlCapability,
             capabilities.DreameCleanRouteControlCapabilityV2,
             capabilities.DreameMopDockMopDryingTimeControlCapability,
@@ -425,7 +427,6 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
             robot: this,
             quirks: [
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_MODE_SENSITIVITY),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WET_DRY_SWITCH),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_DETECTION_AUTO_DEEP_CLEANING),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.SIDE_BRUSH_EXTEND),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.EDGE_EXTENSION_FREQUENCY),
@@ -435,7 +436,6 @@ class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CLEAN_GENIUS_AUTO_RECLEANING),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CLEAN_GENIUS_AUTO_REWASHING),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CLEAN_GENIUS_STAIN_AVOIDANCE),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.SMART_MOP_WASHING),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.LARGE_PARTICLE_BOOST),
             ]
         }));

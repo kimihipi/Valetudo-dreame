@@ -24,6 +24,10 @@ import {
     useAutoEmptyDockAutoEmptyIntervalQuery,
     useMopDockMopAutoDryingControlMutation,
     useMopDockMopAutoDryingControlQuery,
+    useMopDockMopPreWetControlMutation,
+    useMopDockMopPreWetControlQuery,
+    useMopDockSmartMopWashingControlMutation,
+    useMopDockSmartMopWashingControlQuery,
     useMopDockMopDryingTimeControlPropertiesQuery,
     useMopDockMopDryingTimeMutation,
     useMopDockMopDryingTimeQuery,
@@ -45,6 +49,8 @@ import {SubHeaderListMenuItem} from "../components/list_menu/SubHeaderListMenuIt
 import {ButtonListMenuItem} from "../components/list_menu/ButtonListMenuItem";
 import {
     Air as MopDockMopAutoDryingControlIcon,
+    WaterDrop as MopDockMopPreWetControlIcon,
+    AutoMode as MopDockSmartMopWashingControlIcon,
     AvTimer as MopDockMopDryingTimeControlIcon,
     AvTimer as AutoEmptyDockAutoEmptyDurationControlIcon,
     AutoDelete as AutoEmptyIntervalControlIcon,
@@ -343,6 +349,64 @@ const MopAutoDryingSetting = () => {
     );
 };
 
+// Pre-Wet Mops Setting
+const MopPreWetSetting = () => {
+    const {
+        data: data,
+        isFetching: isFetching,
+        isError: isError,
+    } = useMopDockMopPreWetControlQuery();
+
+    const {mutate: mutate, isPending: isChanging} = useMopDockMopPreWetControlMutation();
+    const loading = isFetching || isChanging;
+    const disabled = loading || isChanging || isError;
+
+    const isChecked = typeof data === "boolean" ? data : (data?.enabled ?? false);
+
+    return (
+        <ToggleSwitchListMenuItem
+            disabled={disabled}
+            loadError={isError}
+            primaryLabel={"Pre-Wet Mops"}
+            secondaryLabel={"Wet the mop pads before starting a cleanup."}
+            icon={<MopDockMopPreWetControlIcon/>}
+            value={isChecked}
+            setValue={(newValue: boolean) => {
+                mutate(newValue);
+            }}
+        />
+    );
+};
+
+// Smart Mop-Washing Setting
+const SmartMopWashingSetting = () => {
+    const {
+        data: data,
+        isFetching: isFetching,
+        isError: isError,
+    } = useMopDockSmartMopWashingControlQuery();
+
+    const {mutate: mutate, isPending: isChanging} = useMopDockSmartMopWashingControlMutation();
+    const loading = isFetching || isChanging;
+    const disabled = loading || isChanging || isError;
+
+    const isChecked = typeof data === "boolean" ? data : (data?.enabled ?? false);
+
+    return (
+        <ToggleSwitchListMenuItem
+            disabled={disabled}
+            loadError={isError}
+            primaryLabel={"Smart Mop-Washing"}
+            secondaryLabel={"Automatically wash the mop based on detected dirt levels. Overrides other wash temperature and intensity levels."}
+            icon={<MopDockSmartMopWashingControlIcon/>}
+            value={isChecked}
+            setValue={(newValue: boolean) => {
+                mutate(newValue);
+            }}
+        />
+    );
+};
+
 // Mop Drying Time Setting
 const MopDryingTimeSetting = () => {
     const SORT_ORDER: Record<MopDockMopDryingDuration, number> = {
@@ -623,6 +687,8 @@ const DockSettings: React.FC<{
         autoEmptyDurationSupported,
         mopWashTemperatureSupported,
         mopAutoDryingSupported,
+        mopPreWetSupported,
+        smartMopWashingSupported,
         mopDryingTimeSupported,
         mopCleaningFrequencySupported,
         detergentSupported,
@@ -633,6 +699,8 @@ const DockSettings: React.FC<{
         Capability.AutoEmptyDockAutoEmptyDurationControl,
         Capability.MopDockMopWashTemperatureControl,
         Capability.MopDockMopAutoDryingControl,
+        Capability.MopDockMopPreWetControl,
+        Capability.MopDockSmartMopWashingControl,
         Capability.MopDockMopDryingTimeControl,
         Capability.MopDockMopCleaningFrequencyControl,
         Capability.MopDockDetergentControl,
@@ -644,7 +712,8 @@ const DockSettings: React.FC<{
         const items = [];
 
         const hasGeneralSettings = autoEmptyIntervalSupported || autoEmptyDurationSupported ||
-            mopWashTemperatureSupported || mopAutoDryingSupported || mopDryingTimeSupported ||
+            mopWashTemperatureSupported || mopAutoDryingSupported || mopPreWetSupported ||
+            smartMopWashingSupported || mopDryingTimeSupported ||
             mopCleaningFrequencySupported || detergentSupported || mopWashIntensitySupported;
 
         if (hasGeneralSettings) {
@@ -663,10 +732,6 @@ const DockSettings: React.FC<{
             items.push(<SpacerListMenuItem key="spacer-auto-empty" halfHeight={true} />);
         }
 
-        if (mopWashTemperatureSupported) {
-            items.push(<MopWashTemperatureSetting key="mopWashTemperature" />);
-        }
-
         if (mopAutoDryingSupported) {
             items.push(<MopAutoDryingSetting key="mopAutoDrying" />);
         }
@@ -675,16 +740,28 @@ const DockSettings: React.FC<{
             items.push(<MopDryingTimeSetting key="mopDryingTime" />);
         }
 
-        if (mopCleaningFrequencySupported) {
-            items.push(<MopCleaningFrequencySetting key="mopCleaningFrequency" />);
-        }
-
         if (detergentSupported) {
             items.push(<DetergentSetting key="detergent" />);
         }
 
+        if (mopCleaningFrequencySupported) {
+            items.push(<MopCleaningFrequencySetting key="mopCleaningFrequency" />);
+        }
+
+        if (smartMopWashingSupported) {
+            items.push(<SmartMopWashingSetting key="smartMopWashing" />);
+        }
+
+        if (mopWashTemperatureSupported) {
+            items.push(<MopWashTemperatureSetting key="mopWashTemperature" />);
+        }
+
         if (mopWashIntensitySupported) {
             items.push(<MopWashIntensitySetting key="mopWashIntensity" />);
+        }
+
+        if (mopPreWetSupported) {
+            items.push(<MopPreWetSetting key="mopPreWet" />);
         }
 
         if (maintenanceSupported) {
@@ -698,6 +775,8 @@ const DockSettings: React.FC<{
         autoEmptyDurationSupported,
         mopWashTemperatureSupported,
         mopAutoDryingSupported,
+        mopPreWetSupported,
+        smartMopWashingSupported,
         mopDryingTimeSupported,
         mopCleaningFrequencySupported,
         detergentSupported,

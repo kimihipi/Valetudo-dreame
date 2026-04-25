@@ -204,6 +204,7 @@ class DreameX30UltraValetudoRobot extends DreameGen4ValetudoRobot {
             capabilities.DreameMopTwistControlCapabilityV2,
             capabilities.DreameMopExtensionFurnitureLegHandlingControlCapability,
             capabilities.DreameMopDockMopAutoDryingControlCapability,
+            capabilities.DreameMopDockMopPreWetControlCapability,
             capabilities.DreameFloorMaterialDirectionAwareNavigationControlCapability,
             capabilities.DreameCleanRouteControlCapabilityV2,
             capabilities.DreameMopDockMopDryingTimeControlCapability,
@@ -245,7 +246,6 @@ class DreameX30UltraValetudoRobot extends DreameGen4ValetudoRobot {
             robot: this,
             quirks: [
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_MODE_SENSITIVITY),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WET_DRY_SWITCH),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_AUTO_REPAIR_TRIGGER),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.DRAIN_INTERNAL_WATER_TANK),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_DETECTION_AUTO_DEEP_CLEANING),

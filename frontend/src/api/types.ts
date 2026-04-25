@@ -49,6 +49,8 @@ export enum Capability {
     MopDockCleanManualTrigger = "MopDockCleanManualTriggerCapability",
     MopDockDryManualTrigger = "MopDockDryManualTriggerCapability",
     MopDockMopAutoDryingControl = "MopDockMopAutoDryingControlCapability",
+    MopDockMopPreWetControl = "MopDockMopPreWetControlCapability",
+    MopDockSmartMopWashingControl = "MopDockSmartMopWashingControlCapability",
     MopDockMopCleaningFrequencyControl = "MopDockMopCleaningFrequencyControlCapability",
     MopDockDetergentControl = "MopDockDetergentControlCapability",
     MopDockMopWashIntensityControl = "MopDockMopWashIntensityControlCapability",
@@ -736,6 +738,14 @@ export interface MaintenanceProperties {
     supportedActions: Array<MaintenanceAction>;
 }
 
+export interface DockSubActivity {
+    timestamp: string;
+    robotFlag: string;
+    dockStatus: string | null;
+    batteryLevel: number | null;
+    batteryFlag: string | null;
+}
+
 export interface ActivityHistoryEntry {
     timestamp: string;
     robotStatus: string;
@@ -743,4 +753,5 @@ export interface ActivityHistoryEntry {
     dockStatus: string | null;
     batteryLevel: number | null;
     batteryFlag: string | null;
+    dockActivities?: DockSubActivity[];
 }

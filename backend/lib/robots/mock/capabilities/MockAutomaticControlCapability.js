@@ -1,5 +1,5 @@
-const entities = require("../../../entities");
 const AutomaticControlCapability = require("../../../core/capabilities/AutomaticControlCapability");
+const entities = require("../../../entities");
 const ValetudoSelectionPreset = require("../../../entities/core/ValetudoSelectionPreset");
 const stateAttrs = entities.state.attributes;
 
@@ -18,7 +18,7 @@ class MockAutomaticControlCapability extends AutomaticControlCapability {
             new ValetudoSelectionPreset({name: "deep", value: 2}),
         ];
 
-        super({robot: options.robot, presets});
+        super({robot: options.robot, presets: presets});
 
         this.StateAttr = new stateAttrs.PresetSelectionStateAttribute({
             type: stateAttrs.PresetSelectionStateAttribute.TYPE.AUTOMATIC_CONTROL,

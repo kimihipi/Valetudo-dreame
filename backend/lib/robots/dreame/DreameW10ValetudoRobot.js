@@ -37,11 +37,12 @@ class DreameW10ValetudoRobot extends DreameMopValetudoRobot {
             ]
         }));
 
+        this.registerCapability(new capabilities.DreameMopDockMopPreWetControlCapability({robot: this}));
+
         this.registerCapability(new QuirksCapability({
             robot: this,
             quirks: [
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_MOP_ONLY_MODE),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WET_DRY_SWITCH),
             ]
         }));
     }

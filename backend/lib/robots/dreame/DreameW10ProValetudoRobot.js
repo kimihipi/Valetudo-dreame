@@ -1,11 +1,9 @@
 const capabilities = require("./capabilities");
 const DreameMiotServices = require("./DreameMiotServices");
 const DreameMopValetudoRobot = require("./DreameMopValetudoRobot");
-const DreameQuirkFactory = require("./DreameQuirkFactory");
 const DreameValetudoRobot = require("./DreameValetudoRobot");
 const fs = require("fs");
 const MiioValetudoRobot = require("../MiioValetudoRobot");
-const QuirksCapability = require("../../core/capabilities/QuirksCapability");
 const stateAttrs = require("../../entities/state/attributes");
 const ValetudoSelectionPreset = require("../../entities/core/ValetudoSelectionPreset");
 
@@ -32,10 +30,6 @@ class DreameW10ProValetudoRobot extends DreameMopValetudoRobot {
                 options,
             )
         );
-
-        const quirkFactory = new DreameQuirkFactory({
-            robot: this
-        });
 
         this.registerCapability(new capabilities.DreameCarpetSensorModeControlCapability({
             robot: this
@@ -70,12 +64,7 @@ class DreameW10ProValetudoRobot extends DreameMopValetudoRobot {
             ]
         }));
 
-        this.registerCapability(new QuirksCapability({
-            robot: this,
-            quirks: [
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WET_DRY_SWITCH),
-            ]
-        }));
+        this.registerCapability(new capabilities.DreameMopDockMopPreWetControlCapability({robot: this}));
     }
 
     getCloudSecretFromFS() {

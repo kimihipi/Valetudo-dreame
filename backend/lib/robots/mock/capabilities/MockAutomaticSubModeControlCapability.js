@@ -1,5 +1,5 @@
-const entities = require("../../../entities");
 const AutomaticSubModeControlCapability = require("../../../core/capabilities/AutomaticSubModeControlCapability");
+const entities = require("../../../entities");
 const ValetudoSelectionPreset = require("../../../entities/core/ValetudoSelectionPreset");
 const stateAttrs = entities.state.attributes;
 
@@ -17,7 +17,7 @@ class MockAutomaticSubModeControlCapability extends AutomaticSubModeControlCapab
             new ValetudoSelectionPreset({name: "vacuum_then_mop", value: 3}),
         ];
 
-        super({robot: options.robot, presets});
+        super({robot: options.robot, presets: presets});
 
         this.StateAttr = new stateAttrs.PresetSelectionStateAttribute({
             type: stateAttrs.PresetSelectionStateAttribute.TYPE.AUTOMATIC_SUB_MODE,

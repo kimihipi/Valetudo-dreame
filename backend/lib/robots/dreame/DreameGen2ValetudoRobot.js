@@ -1,6 +1,8 @@
 const capabilities = require("./capabilities");
 
 const ConsumableMonitoringCapability = require("../../core/capabilities/ConsumableMonitoringCapability");
+const DreameAutomaticControlCapability = require("./capabilities/DreameAutomaticControlCapability");
+const DreameAutomaticSubModeControlCapability = require("./capabilities/DreameAutomaticSubModeControlCapability");
 const DreameConst = require("./DreameConst");
 const DreameMiotServices = require("./DreameMiotServices");
 const DreameUtils = require("./DreameUtils");
@@ -13,8 +15,6 @@ const MopAttachmentReminderValetudoEvent = require("../../valetudo_events/events
 const MopDockDetergentControlCapability = require("../../core/capabilities/MopDockDetergentControlCapability");
 const MopDockMopCleaningFrequencyControlCapability = require("../../core/capabilities/MopDockMopCleaningFrequencyControlCapability");
 const MopDockMopWashIntensityControlCapability = require("../../core/capabilities/MopDockMopWashIntensityControlCapability");
-const DreameAutomaticControlCapability = require("./capabilities/DreameAutomaticControlCapability");
-const DreameAutomaticSubModeControlCapability = require("./capabilities/DreameAutomaticSubModeControlCapability");
 const SuctionBoostControlCapability = require("../../core/capabilities/SuctionBoostControlCapability");
 const ValetudoRestrictedZone = require("../../entities/core/ValetudoRestrictedZone");
 const ValetudoSelectionPreset = require("../../entities/core/ValetudoSelectionPreset");

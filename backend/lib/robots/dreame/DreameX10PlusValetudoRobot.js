@@ -186,11 +186,12 @@ class DreameX10PlusValetudoRobot extends DreameGen2LidarValetudoRobot {
             ]
         }));
 
+        this.registerCapability(new capabilities.DreameMopDockMopPreWetControlCapability({robot: this}));
+
         this.registerCapability(new QuirksCapability({
             robot: this,
             quirks: [
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CARPET_MODE_SENSITIVITY),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_WET_DRY_SWITCH),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.MOP_DOCK_AUTO_REPAIR_TRIGGER),
             ]
         }));
