@@ -27,6 +27,7 @@ import { timerActionLabels, weekdays } from "./TimerCard";
 import {TimerActionControlProps, TimerPreActionControlProps} from "./types";
 import {
     ActionFallbackControls,
+    AutomaticCleanupActionControls,
     FullCleanupActionControls,
     SegmentCleanupActionControls,
     validateParams,
@@ -43,6 +44,7 @@ const actionControls: Record<
 > = {
     [ValetudoTimerActionType.FULL_CLEANUP]: FullCleanupActionControls,
     [ValetudoTimerActionType.SEGMENT_CLEANUP]: SegmentCleanupActionControls,
+    [ValetudoTimerActionType.AUTOMATIC_CLEANUP]: AutomaticCleanupActionControls,
 };
 
 const preActionControls: Record<

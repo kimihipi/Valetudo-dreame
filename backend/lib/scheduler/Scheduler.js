@@ -1,5 +1,6 @@
 const Logger = require("../Logger");
 const Tools = require("../utils/Tools");
+const ValetudoAutomaticCleanupTimerAction = require("./actions/ValetudoAutomaticCleanupTimerAction");
 const ValetudoFanSpeedControlTimerPreAction = require("./pre_actions/ValetudoFanSpeedControlTimerPreAction");
 const ValetudoFullCleanupTimerAction = require("./actions/ValetudoFullCleanupTimerAction");
 const ValetudoNTPClientSyncedState = require("../entities/core/ntpClient/ValetudoNTPClientSyncedState");
@@ -110,6 +111,13 @@ class Scheduler {
                     segmentIds: timerDefinition.action?.params?.segment_ids,
                     iterations: timerDefinition.action?.params?.iterations,
                     customOrder: timerDefinition.action?.params?.custom_order
+                });
+                break;
+            case ValetudoTimer.ACTION_TYPE.AUTOMATIC_CLEANUP:
+                action = new ValetudoAutomaticCleanupTimerAction({
+                    robot: this.robot,
+                    preset: timerDefinition.action?.params?.preset,
+                    subMode: timerDefinition.action?.params?.sub_mode
                 });
                 break;
         }

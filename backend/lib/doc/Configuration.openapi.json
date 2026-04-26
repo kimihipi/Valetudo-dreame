@@ -293,7 +293,10 @@
                 "ObstacleAvoidanceControlCapability",
                 "PetObstacleAvoidanceControlCapability",
                 "CarpetModeControlCapability",
-                "CarpetSensorModeControlCapability"
+                "CarpetSensorModeControlCapability",
+                "CleanRouteControlCapability",
+                "AutomaticControlCapability",
+                "AutomaticSubModeControlCapability"
               ]
             }
           }
@@ -482,7 +485,8 @@
                 "type": "string",
                 "enum": [
                   "full_cleanup",
-                  "segment_cleanup"
+                  "segment_cleanup",
+                  "automatic_cleanup"
                 ]
               },
               "params": {
@@ -508,6 +512,12 @@
                   },
                   "custom_order": {
                     "type": "boolean"
+                  },
+                  "preset": {
+                    "type": "string"
+                  },
+                  "sub_mode": {
+                    "type": "string"
                   }
                 }
               }

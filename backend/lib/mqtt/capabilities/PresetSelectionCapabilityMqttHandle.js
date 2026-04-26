@@ -130,8 +130,8 @@ const CAPABILITIES_TO_FRIENDLY_NAME_MAPPING = {
     [capabilities.FanSpeedControlCapability.TYPE]: "Fan",
     [capabilities.WaterUsageControlCapability.TYPE]: "Water",
     [capabilities.OperationModeControlCapability.TYPE]: "Mode",
-    [capabilities.AutomaticControlCapability.TYPE]: "Auto Mode",
-    [capabilities.AutomaticSubModeControlCapability.TYPE]: "Auto Sub Mode",
+    [capabilities.AutomaticControlCapability.TYPE]: "Automatic",
+    [capabilities.AutomaticSubModeControlCapability.TYPE]: "Automatic Mode",
 };
 
 const CAPABILITIES_TO_STATE_ATTR_MAPPING = {

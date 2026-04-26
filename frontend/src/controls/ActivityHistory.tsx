@@ -44,13 +44,23 @@ const DateSeparator = ({timestamp}: {timestamp: string}): React.ReactElement => 
     );
 };
 
-const ActivityEntryRow = ({entry}: {entry: ActivityHistoryEntry}): React.ReactElement => {
+const formatDuration = (ms: number): string => {
+    const totalMinutes = Math.round(ms / 60000);
+    if (totalMinutes < 1) {
+        return "< 1m";
+    }
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+};
+
+const ActivityEntryRow = ({entry, duration}: {entry: ActivityHistoryEntry; duration?: number}): React.ReactElement => {
     const palette = useValetudoColorsInverse();
 
     const statusColor = (() => {
         switch (entry.robotStatus) {
             case "cleaning": return palette.green;
-            case "returning":
+            case "returning": return palette.orange;
             case "docked": return palette.teal;
             case "idle":
             case "paused": return palette.yellow;
@@ -96,6 +106,11 @@ const ActivityEntryRow = ({entry}: {entry: ActivityHistoryEntry}): React.ReactEl
                             {flagSuffix}
                         </Typography>
                     )}
+                    {duration !== undefined && (
+                        <Typography component="span" variant="caption" color="text.disabled">
+                            {" · "}{formatDuration(duration)}
+                        </Typography>
+                    )}
                     {!dockOps && entry.dockStatus && DOCK_LABELS[entry.dockStatus] && (
                         <Typography component="span" variant="caption" color="text.secondary">
                             {" · "}{DOCK_LABELS[entry.dockStatus]}
@@ -109,16 +124,26 @@ const ActivityEntryRow = ({entry}: {entry: ActivityHistoryEntry}): React.ReactEl
                         sx={{whiteSpace: "nowrap", flexShrink: 0, display: "flex", alignItems: "center", gap: 0.25}}
                     >
                         {entry.batteryLevel}%
-                        {entry.batteryFlag === "charging" && (
-                            <BatteryChargingFull sx={{fontSize: "0.875rem"}}/>
-                        )}
+                        <Box sx={{width: "0.875rem", display: "flex", alignItems: "center"}}>
+                            {entry.batteryFlag === "charging" && entry.robotStatus !== "cleaning" && (
+                                <BatteryChargingFull sx={{fontSize: "0.875rem"}}/>
+                            )}
+                        </Box>
                     </Typography>
                 )}
             </Box>
             {dockOps && (
-                <Typography variant="caption" color="text.disabled" sx={{pl: "calc(2ch + 8px)"}}>
-                    {dockOps}
-                </Typography>
+                <Box display="flex" gap={1}>
+                    <Typography
+                        variant="caption"
+                        sx={{fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", flexShrink: 0, visibility: "hidden"}}
+                    >
+                        {timeStr}
+                    </Typography>
+                    <Typography variant="caption" color="text.disabled">
+                        {dockOps}
+                    </Typography>
+                </Box>
             )}
         </Box>
     );
@@ -137,13 +162,16 @@ const ActivityHistory = (): React.ReactElement => {
                 <Box sx={{maxHeight: "20rem", overflowY: "auto", mx: -0.5, px: 0.5}}>
                     {entries.map((entry, i) => {
                         const dateChanged = i > 0 && toDateString(entry.timestamp) !== toDateString(entries[i - 1].timestamp);
+                        const duration = entry.robotStatus === "cleaning" && i > 0 ?
+                            new Date(entries[i - 1].timestamp).getTime() - new Date(entry.timestamp).getTime() :
+                            undefined;
                         return (
                             <React.Fragment key={entry.timestamp}>
                                 {dateChanged ?
                                     <DateSeparator timestamp={entry.timestamp}/> :
                                     i > 0 && <Divider/>
                                 }
-                                <ActivityEntryRow entry={entry}/>
+                                <ActivityEntryRow entry={entry} duration={duration}/>
                             </React.Fragment>
                         );
                     })}

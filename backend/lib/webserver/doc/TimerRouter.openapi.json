@@ -242,7 +242,8 @@
                       "type": "string",
                       "enum": [
                         "full_cleanup",
-                        "segment_cleanup"
+                        "segment_cleanup",
+                        "automatic_cleanup"
                       ]
                     }
                   },

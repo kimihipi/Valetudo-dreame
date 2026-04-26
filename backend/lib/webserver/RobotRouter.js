@@ -208,7 +208,7 @@ class RobotRouter {
                         this.activityHistory.length = 500;
                     }
                 }
-            }, 2000);
+            }, 5000);
         };
 
         this.robot.onStateUpdated(this.stateUpdateListener);

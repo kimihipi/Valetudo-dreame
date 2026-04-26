@@ -1,6 +1,7 @@
 export const lightPalette = {
     red: "#DF5618",
     crimson: "#C0392B",
+    orange: "#E8922A",
     yellow: "#F7C841",
     green: "#7AC037",
     teal: "#19A1A1",
@@ -12,6 +13,7 @@ export const lightPalette = {
 export const darkPalette = {
     red: "#B24513",
     crimson: "#C0392B",
+    orange: "#BA7522",
     yellow: "#C6A034",
     green: "#629A2C",
     teal: "#148181",

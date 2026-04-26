@@ -264,7 +264,8 @@ export interface ConsumableProperties {
 
 export enum ValetudoTimerActionType {
     FULL_CLEANUP = "full_cleanup",
-    SEGMENT_CLEANUP = "segment_cleanup"
+    SEGMENT_CLEANUP = "segment_cleanup",
+    AUTOMATIC_CLEANUP = "automatic_cleanup"
 }
 
 export enum ValetudoTimerPreActionType {

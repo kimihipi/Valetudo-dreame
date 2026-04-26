@@ -81,8 +81,10 @@ const LiveMapModeSwitcherWithAutomatic: React.FunctionComponent<{
         hasSyncedRef.current = true;
         if (automaticAttribute.value !== "off" && currentMode !== "automatic") {
             setMode("automatic");
+        } else if (automaticAttribute.value === "off" && currentMode === "automatic") {
+            setMode(supportedModes.find(m => m !== "automatic") ?? "none");
         }
-    }, [automaticAttribute, automaticControlSupported, currentMode, setMode]);
+    }, [automaticAttribute, automaticControlSupported, currentMode, setMode, supportedModes]);
 
     const handleModeChange = (newMode: LiveMapMode) => {
         setMode(newMode);
