@@ -21,6 +21,8 @@ class ValetudoTimer extends SerializableEntity {
      * @param {Array<string>} [options.action.params.segment_ids]
      * @param {number} [options.action.params.iterations]
      * @param {boolean} [options.action.params.custom_order]
+     * @param {string} [options.action.params.preset]
+     * @param {string} [options.action.params.sub_mode]
      * 
      * @param {Array<ValetudoTimerPreActionDefinition>} [options.pre_actions]
      * 
