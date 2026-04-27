@@ -2,6 +2,7 @@ const child_process = require("child_process");
 const env = require("../../../res/env");
 const fs = require("fs");
 const Logger = require("../../../Logger");
+const os = require("os");
 const path = require("path");
 const SpeakerPlayAudioCapability = require("../../../core/capabilities/SpeakerPlayAudioCapability");
 const util = require("util");
@@ -22,7 +23,7 @@ class DreameSpeakerPlayAudioCapability extends SpeakerPlayAudioCapability {
     constructor(options) {
         super(options);
 
-        if (!fs.existsSync(this.audioDirPath)) {
+        if (this.robot.config.get("embedded") && !fs.existsSync(this.audioDirPath)) {
             fs.mkdirSync(this.audioDirPath);
         }
     }
@@ -97,7 +98,7 @@ class DreameSpeakerPlayAudioCapability extends SpeakerPlayAudioCapability {
     }
 
     get audioDirPath() {
-        return path.join(process.env[env.DataPath], "audio");
+        return path.join(process.env[env.DataPath] ?? os.tmpdir(), "audio");
     }
 }
 
