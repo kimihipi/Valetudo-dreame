@@ -19,6 +19,7 @@
         },
         "blockExternalAccess": true,
         "streamerProxy": {
+            "enabled": false,
             "url": "http://127.0.0.1:1984",
             "timeoutMs": 15000
         }

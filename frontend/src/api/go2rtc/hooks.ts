@@ -11,6 +11,7 @@ export const useGo2RtcStreamsQuery = () => {
         queryKey: [QueryKey.Streams],
         queryFn: fetchStreams,
 
-        staleTime: Infinity
+        staleTime: Infinity,
+        retry: false,
     });
 };

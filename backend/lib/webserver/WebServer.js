@@ -181,7 +181,9 @@ class WebServer {
 
         this.app.use("/_ssdp/", new SSDPRouter({config: this.config, robot: this.robot, valetudoHelper: this.valetudoHelper}).getRouter());
 
-        this.app.use("/streamer/", new StreamerRouter({config: this.config}).getRouter());
+        if (this.config.get("webserver").streamerProxy.enabled) {
+            this.app.use("/streamer/", new StreamerRouter({config: this.config}).getRouter());
+        }
 
         this.app.use(express.static(path.join(__dirname, "../../..", "frontend/build")));
 

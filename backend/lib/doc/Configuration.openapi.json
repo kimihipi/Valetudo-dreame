@@ -350,10 +350,14 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "enabled",
           "url",
           "timeoutMs"
         ],
         "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
           "url": {
             "type": "string"
           },

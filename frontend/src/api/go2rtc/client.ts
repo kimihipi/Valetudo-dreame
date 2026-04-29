@@ -9,5 +9,10 @@ export const go2RtcAPI = axios.create({
 export const fetchStreams = (): Promise<Go2RtcStreams> => {
     return go2RtcAPI.get<Go2RtcStreams>("/streams").then(({data}) => {
         return data;
+    }).catch((err) => {
+        if (err?.response?.status === 404) {
+            return {};
+        }
+        throw err;
     });
 };
