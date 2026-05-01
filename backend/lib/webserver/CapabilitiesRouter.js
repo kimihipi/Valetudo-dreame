@@ -70,6 +70,7 @@ const CAPABILITY_TYPE_TO_ROUTER_MAPPING = {
     [capabilities.ManualControlCapability.TYPE]: capabilityRouters.ManualControlCapabilityRouter,
     [capabilities.CombinedVirtualRestrictionsCapability.TYPE]: capabilityRouters.CombinedVirtualRestrictionsCapabilityRouter,
     [capabilities.CombinedVirtualThresholdsCapability.TYPE]: capabilityRouters.CombinedVirtualThresholdsCapabilityRouter,
+    [capabilities.CarpetZonesCapability.TYPE]: capabilityRouters.CarpetZonesCapabilityRouter,
     [capabilities.CurtainsCapability.TYPE]: capabilityRouters.CurtainsCapabilityRouter,
     [capabilities.PersistentMapControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
     [capabilities.SpeakerVolumeControlCapability.TYPE]: capabilityRouters.SpeakerVolumeControlCapabilityRouter,

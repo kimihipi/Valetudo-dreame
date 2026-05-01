@@ -13,6 +13,8 @@ import ImpassableThresholdClientStructure from "./structures/client_structures/I
 import VirtualThresholdActions from "./actions/edit_map_actions/VirtualThresholdActions";
 import CurtainClientStructure from "./structures/client_structures/CurtainClientStructure";
 import CurtainActions from "./actions/edit_map_actions/CurtainActions";
+import CarpetClientStructure from "./structures/client_structures/CarpetClientStructure";
+import CarpetActions from "./actions/edit_map_actions/CarpetActions";
 import HelpDialog from "../components/HelpDialog";
 import MapToolbar from "./actions/edit_map_actions/MapToolbar";
 import {ProviderContext} from "notistack";
@@ -20,13 +22,14 @@ import React from "react";
 import {CropFree as CropFreeIcon} from "@mui/icons-material";
 import {PathDrawer} from "./PathDrawer";
 
-export type mode = "segments" | "virtual_restrictions" | "virtual_thresholds" | "curtains";
+export type mode = "segments" | "virtual_restrictions" | "virtual_thresholds" | "curtains" | "carpets";
 
 interface EditMapProps extends MapProps {
     supportedCapabilities: {
         [Capability.CombinedVirtualRestrictions]: boolean,
         [Capability.CombinedVirtualThresholds]: boolean,
         [Capability.Curtains]: boolean,
+        [Capability.CarpetZones]: boolean,
 
         [Capability.MapSegmentEdit]: boolean,
         [Capability.MapSegmentRename]: boolean
@@ -56,6 +59,8 @@ interface EditMapState extends MapState {
 
     curtains: Array<CurtainClientStructure>,
 
+    carpets: Array<CarpetClientStructure>,
+
     helpDialogOpen: boolean
 }
 
@@ -64,6 +69,7 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
     protected pendingVirtualRestrictionsStructuresUpdateCount = 0;
     protected pendingVirtualThresholdsStructuresUpdateCount = 0;
     protected pendingCurtainsStructuresUpdateCount = 0;
+    protected pendingCarpetsStructuresUpdateCount = 0;
 
     constructor(props: EditMapProps) {
         super(props);
@@ -88,12 +94,15 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
 
             curtains: [],
 
+            carpets: [],
+
             helpDialogOpen: false
         };
 
         this.updateVirtualRestrictionClientStructures(props.mode !== "virtual_restrictions");
         this.updateVirtualThresholdClientStructures(props.mode !== "virtual_thresholds");
         this.updateCurtainClientStructures(props.mode !== "curtains");
+        this.updateCarpetClientStructures(props.mode !== "carpets");
     }
 
     componentDidUpdate(prevProps: Readonly<EditMapProps>, prevState: Readonly<EditMapState>): void {
@@ -103,10 +112,12 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
             this.pendingVirtualRestrictionsStructuresUpdateCount = 0;
             this.pendingVirtualThresholdsStructuresUpdateCount = 0;
             this.pendingCurtainsStructuresUpdateCount = 0;
+            this.pendingCarpetsStructuresUpdateCount = 0;
 
             this.updateVirtualRestrictionClientStructures(this.props.mode !== "virtual_restrictions");
             this.updateVirtualThresholdClientStructures(this.props.mode !== "virtual_thresholds");
             this.updateCurtainClientStructures(this.props.mode !== "curtains");
+            this.updateCarpetClientStructures(this.props.mode !== "carpets");
             this.updateInternalDrawableState();
         }
 
@@ -132,7 +143,7 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
 
         this.updateStructures(this.props.mode);
 
-        if (this.props.mode === "virtual_restrictions" || this.props.mode === "virtual_thresholds" || this.props.mode === "curtains") {
+        if (this.props.mode === "virtual_restrictions" || this.props.mode === "virtual_thresholds" || this.props.mode === "curtains" || this.props.mode === "carpets") {
             const pathsImage = await PathDrawer.drawPaths( {
                 pathMapEntities: this.props.rawMap.entities.filter(e => {
                     return e.type === RawMapEntityType.Path;
@@ -161,8 +172,9 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
             entities: this.props.rawMap.entities.filter(e => {
                 switch (e.type) {
                     case RawMapEntityType.ChargerLocation:
-                    case RawMapEntityType.Carpet:
                         return true;
+                    case RawMapEntityType.Carpet:
+                        return mode !== "carpets" || e.points.length > 8;
                     default:
                         return false;
                 }
@@ -195,7 +207,7 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
             });
         }
 
-        if (mode === "virtual_restrictions" || mode === "virtual_thresholds" || mode === "curtains") {
+        if (mode === "virtual_restrictions" || mode === "virtual_thresholds" || mode === "curtains" || mode === "carpets") {
             // remove all segment labels
             this.structureManager.getMapStructures().forEach(s => {
                 if (s.type === SegmentLabelMapStructure.TYPE) {
@@ -260,7 +272,11 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
 
             curtains: this.structureManager.getClientStructures().filter(s => {
                 return s.type === CurtainClientStructure.TYPE;
-            }) as Array<CurtainClientStructure>
+            }) as Array<CurtainClientStructure>,
+
+            carpets: this.structureManager.getClientStructures().filter(s => {
+                return s.type === CarpetClientStructure.TYPE;
+            }) as Array<CarpetClientStructure>
         });
     }
 
@@ -389,6 +405,33 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
         }
     }
 
+    private updateCarpetClientStructures(remove: boolean): void {
+        if (remove) {
+            this.structureManager.getClientStructures().forEach(s => {
+                if (s.type === CarpetClientStructure.TYPE) {
+                    this.structureManager.removeClientStructure(s);
+                }
+            });
+        } else {
+            this.props.rawMap.entities.forEach(e => {
+                if (e.type === RawMapEntityType.Carpet && e.points.length === 8) {
+                    const p0 = this.structureManager.convertCMCoordinatesToPixelSpace({x: e.points[0], y: e.points[1]});
+                    const p1 = this.structureManager.convertCMCoordinatesToPixelSpace({x: e.points[2], y: e.points[3]});
+                    const p2 = this.structureManager.convertCMCoordinatesToPixelSpace({x: e.points[4], y: e.points[5]});
+                    const p3 = this.structureManager.convertCMCoordinatesToPixelSpace({x: e.points[6], y: e.points[7]});
+
+                    this.structureManager.addClientStructure(new CarpetClientStructure(
+                        p0.x, p0.y,
+                        p1.x, p1.y,
+                        p2.x, p2.y,
+                        p3.x, p3.y,
+                        false
+                    ));
+                }
+            });
+        }
+    }
+
     recenterMap = (): void => {
         this.redrawMap();
     };
@@ -458,6 +501,20 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
             );
             if (!hasCurtainStructures) {
                 this.updateCurtainClientStructures(false);
+            }
+        }
+
+        if (this.pendingCarpetsStructuresUpdateCount > 0 && this.props.mode === "carpets") {
+            this.updateCarpetClientStructures(true);
+            this.updateCarpetClientStructures(false);
+
+            this.pendingCarpetsStructuresUpdateCount--;
+        } else if (this.props.mode === "carpets") {
+            const hasCarpetStructures = this.structureManager.getClientStructures().some(s =>
+                s.type === CarpetClientStructure.TYPE
+            );
+            if (!hasCarpetStructures) {
+                this.updateCarpetClientStructures(false);
             }
         }
     }
@@ -831,6 +888,65 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
                                 this.props.enqueueSnackbar("Saved successfully", {
                                     preventDuplicate: true,
                                     key: "curtains_saved",
+                                    variant: "info",
+                                    autoHideDuration: 1000,
+                                });
+                            }}
+                            onRequestDraw={() => {
+                                this.draw();
+                            }}
+                        />
+                    }
+                    {
+                        this.props.supportedCapabilities[Capability.CarpetZones] &&
+                        this.props.mode === "carpets" &&
+
+                        <CarpetActions
+                            robotStatus={this.props.robotStatus}
+                            carpets={this.state.carpets}
+
+                            convertPixelCoordinatesToCMSpace={(coordinates) => {
+                                return this.structureManager.convertPixelCoordinatesToCMSpace(coordinates);
+                            }}
+
+                            onAddCarpet={() => {
+                                const currentCenter = this.getCurrentViewportCenterCoordinatesInPixelSpace();
+
+                                this.structureManager.addClientStructure(new CarpetClientStructure(
+                                    currentCenter.x - 15, currentCenter.y - 15,
+                                    currentCenter.x + 15, currentCenter.y - 15,
+                                    currentCenter.x + 15, currentCenter.y + 15,
+                                    currentCenter.x - 15, currentCenter.y + 15,
+                                    true
+                                ));
+
+                                this.updateState();
+                                this.draw();
+                            }}
+                            onRefresh={() => {
+                                this.updateCarpetClientStructures(true);
+                                this.updateCarpetClientStructures(false);
+
+                                this.updateState();
+                                this.draw();
+                            }}
+                            onClear={() => {
+                                this.updateCarpetClientStructures(true);
+
+                                this.updateState();
+                                this.draw();
+                            }}
+                            onSave={() => {
+                                this.pendingCarpetsStructuresUpdateCount = 2;
+
+                                this.structureManager.getClientStructures().forEach(s => {
+                                    s.active = false;
+                                });
+                                this.draw();
+
+                                this.props.enqueueSnackbar("Saved successfully", {
+                                    preventDuplicate: true,
+                                    key: "carpets_saved",
                                     variant: "info",
                                     autoHideDuration: 1000,
                                 });

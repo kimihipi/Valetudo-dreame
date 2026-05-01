@@ -555,39 +555,6 @@ const PlayAudioSetting = () => {
     );
 };
 
-const TimeField = ({label, hours, minutes, disabled, onChange}: {
-    label: string;
-    hours: number;
-    minutes: number;
-    disabled: boolean;
-    onChange: (h: number, m: number) => void;
-}) => (
-    <Box sx={{flex: 1}}>
-        <Typography variant="caption" color="text.secondary" sx={{display: "block", mb: 0.5}}>{label}</Typography>
-        <Box sx={{display: "flex", alignItems: "center", gap: 0.5}}>
-            <TextField
-                type="number"
-                size="small"
-                value={hours}
-                onChange={(e) => onChange(Math.min(23, Math.max(0, parseInt(e.target.value) || 0)), minutes)}
-                disabled={disabled}
-                slotProps={{htmlInput: {min: 0, max: 23, sx: {fontSize: "0.875rem"}}}}
-                sx={{width: 72}}
-            />
-            <Typography variant="body1">:</Typography>
-            <TextField
-                type="number"
-                size="small"
-                value={minutes}
-                onChange={(e) => onChange(hours, Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
-                disabled={disabled}
-                slotProps={{htmlInput: {min: 0, max: 59, sx: {fontSize: "0.875rem"}}}}
-                sx={{width: 72}}
-            />
-        </Box>
-    </Box>
-);
-
 const DoNotDisturbSetting = () => {
     const {data: dndConfig} = useDoNotDisturbConfigurationQuery();
     const {mutate: updateDndConfiguration, isPending: isUpdating} = useDoNotDisturbConfigurationMutation();
@@ -683,26 +650,38 @@ const DoNotDisturbSetting = () => {
                         </Box>
                         {editConfig?.enabled && (
                             <>
-                                <Box sx={{display: "flex", gap: 1, alignItems: "flex-end"}}>
-                                    <TimeField
+                                <Box sx={{display: "flex", gap: 1, alignItems: "center"}}>
+                                    <TextField
+                                        type="time"
                                         label="Start Time"
-                                        hours={startTimeValue.getHours()}
-                                        minutes={startTimeValue.getMinutes()}
+                                        value={`${startTimeValue.getHours().toString().padStart(2, "0")}:${startTimeValue.getMinutes().toString().padStart(2, "0")}`}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                            const [hour, minute] = e.target.value.split(":").map(Number);
+                                            handleTimeChange("start", hour, minute);
+                                        }}
                                         disabled={isUpdating}
-                                        onChange={(h, m) => handleTimeChange("start", h, m)}
+                                        size="small"
+                                        slotProps={{htmlInput: {sx: {fontSize: "0.875rem"}}}}
+                                        sx={{flex: 1}}
                                     />
-                                    <TimeField
+                                    <TextField
+                                        type="time"
                                         label="End Time"
-                                        hours={endTimeValue.getHours()}
-                                        minutes={endTimeValue.getMinutes()}
+                                        value={`${endTimeValue.getHours().toString().padStart(2, "0")}:${endTimeValue.getMinutes().toString().padStart(2, "0")}`}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                            const [hour, minute] = e.target.value.split(":").map(Number);
+                                            handleTimeChange("end", hour, minute);
+                                        }}
                                         disabled={isUpdating}
-                                        onChange={(h, m) => handleTimeChange("end", h, m)}
+                                        size="small"
+                                        slotProps={{htmlInput: {sx: {fontSize: "0.875rem"}}}}
+                                        sx={{flex: 1}}
                                     />
                                     <Button
                                         variant="outlined"
                                         onClick={handleApply}
                                         disabled={isUpdating}
-                                        sx={{whiteSpace: "nowrap", mb: 0.5}}
+                                        sx={{whiteSpace: "nowrap"}}
                                     >
                                         Apply
                                     </Button>
@@ -814,26 +793,38 @@ const EnergySavingChargingSetting = () => {
                         </Box>
                         {editConfig?.enabled && (
                             <>
-                                <Box sx={{display: "flex", gap: 1, alignItems: "flex-end"}}>
-                                    <TimeField
+                                <Box sx={{display: "flex", gap: 1, alignItems: "center"}}>
+                                    <TextField
+                                        type="time"
                                         label="Start Time"
-                                        hours={startTimeValue.getHours()}
-                                        minutes={startTimeValue.getMinutes()}
+                                        value={`${startTimeValue.getHours().toString().padStart(2, "0")}:${startTimeValue.getMinutes().toString().padStart(2, "0")}`}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                            const [hour, minute] = e.target.value.split(":").map(Number);
+                                            handleTimeChange("start", hour, minute);
+                                        }}
                                         disabled={isUpdating}
-                                        onChange={(h, m) => handleTimeChange("start", h, m)}
+                                        size="small"
+                                        slotProps={{htmlInput: {sx: {fontSize: "0.875rem"}}}}
+                                        sx={{flex: 1}}
                                     />
-                                    <TimeField
+                                    <TextField
+                                        type="time"
                                         label="End Time"
-                                        hours={endTimeValue.getHours()}
-                                        minutes={endTimeValue.getMinutes()}
+                                        value={`${endTimeValue.getHours().toString().padStart(2, "0")}:${endTimeValue.getMinutes().toString().padStart(2, "0")}`}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                            const [hour, minute] = e.target.value.split(":").map(Number);
+                                            handleTimeChange("end", hour, minute);
+                                        }}
                                         disabled={isUpdating}
-                                        onChange={(h, m) => handleTimeChange("end", h, m)}
+                                        size="small"
+                                        slotProps={{htmlInput: {sx: {fontSize: "0.875rem"}}}}
+                                        sx={{flex: 1}}
                                     />
                                     <Button
                                         variant="outlined"
                                         onClick={handleApply}
                                         disabled={isUpdating}
-                                        sx={{whiteSpace: "nowrap", mb: 0.5}}
+                                        sx={{whiteSpace: "nowrap"}}
                                     >
                                         Apply
                                     </Button>

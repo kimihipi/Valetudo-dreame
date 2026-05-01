@@ -10,6 +10,7 @@ import {SegmentEditHelp} from "./res/SegmentEditHelp";
 import {VirtualRestrictionEditHelp} from "./res/VirtualRestrictionEditHelp";
 import {VirtualThresholdEditHelp} from "./res/VirtualThresholdEditHelp";
 import {CurtainEditHelp} from "./res/CurtainEditHelp";
+import {CarpetEditHelp} from "./res/CarpetEditHelp";
 import {useSnackbar} from "notistack";
 import React from "react";
 
@@ -42,6 +43,7 @@ const EditMapPage = (props: {
         combinedVirtualRestrictionsCapabilitySupported,
         combinedVirtualThresholdsCapabilitySupported,
         curtainsCapabilitySupported,
+        carpetZonesCapabilitySupported,
 
         mapSegmentEditCapabilitySupported,
         mapSegmentRenameCapabilitySupported,
@@ -52,6 +54,7 @@ const EditMapPage = (props: {
         Capability.CombinedVirtualRestrictions,
         Capability.CombinedVirtualThresholds,
         Capability.Curtains,
+        Capability.CarpetZones,
 
         Capability.MapSegmentEdit,
         Capability.MapSegmentRename,
@@ -73,6 +76,8 @@ const EditMapPage = (props: {
         helpText = VirtualThresholdEditHelp;
     } else if (props.mode === "curtains") {
         helpText = CurtainEditHelp;
+    } else if (props.mode === "carpets") {
+        helpText = CarpetEditHelp;
     }
 
     if (mapLoadError) {
@@ -125,6 +130,7 @@ const EditMapPage = (props: {
             [Capability.CombinedVirtualRestrictions]: combinedVirtualRestrictionsCapabilitySupported,
             [Capability.CombinedVirtualThresholds]: combinedVirtualThresholdsCapabilitySupported,
             [Capability.Curtains]: curtainsCapabilitySupported,
+            [Capability.CarpetZones]: carpetZonesCapabilitySupported,
 
             [Capability.MapSegmentEdit]: mapSegmentEditCapabilitySupported,
             [Capability.MapSegmentRename]: mapSegmentRenameCapabilitySupported,

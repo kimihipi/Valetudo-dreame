@@ -48,7 +48,18 @@ class DreameEnergySavingChargingCapability extends EnergySavingChargingCapabilit
             endTime: DreameEnergySavingChargingCapability.CONVERT_TO_TIME_STRING(config.end),
         });
 
-        await this.robot.miotHelper.writeProperty(this.siid, this.piid, payload);
+        const res = await this.robot.sendCommand("set_properties", [
+            {
+                did: this.robot.deviceId,
+                siid: this.siid,
+                piid: this.piid,
+                value: payload,
+            }
+        ], {timeout: 10000});
+
+        if (!Array.isArray(res) || res[0]?.code !== 0) {
+            throw new Error("Failed to set energy saving charging: code " + (Array.isArray(res) ? res[0]?.code : "no response"));
+        }
     }
 
     /**

@@ -1068,11 +1068,6 @@ const RobotOptions = (): React.ReactElement => {
 
         keyLockControlCapabilitySupported,
 
-        speakerVolumeControlCapabilitySupported,
-        speakerTestCapabilitySupported,
-        voicePackManagementCapabilitySupported,
-        doNotDisturbCapabilitySupported,
-
         quirksCapabilitySupported,
     ] = useCapabilitiesSupported(
         Capability.Locate,
@@ -1101,11 +1096,6 @@ const RobotOptions = (): React.ReactElement => {
         Capability.MopDockMopWashIntensityControl,
 
         Capability.KeyLock,
-
-        Capability.SpeakerVolumeControl,
-        Capability.SpeakerTest,
-        Capability.VoicePackManagement,
-        Capability.DoNotDisturb,
 
         Capability.Quirks
     );
@@ -1323,11 +1313,6 @@ const RobotOptions = (): React.ReactElement => {
 
         return items;
     }, [
-        speakerVolumeControlCapabilitySupported,
-        speakerTestCapabilitySupported,
-        voicePackManagementCapabilitySupported,
-        doNotDisturbCapabilitySupported,
-
         quirksCapabilitySupported,
     ]);
 

@@ -21,6 +21,7 @@ import {
     CombinedVirtualRestrictionsProperties,
     CombinedVirtualRestrictionsUpdateRequestParameters,
     CombinedVirtualThresholdsUpdateRequestParameters,
+    CarpetZonesUpdateRequestParameters,
     CurtainsUpdateRequestParameters,
     ConsumableId,
     ConsumableProperties,
@@ -1179,6 +1180,15 @@ export const sendCurtainsUpdate = async (
 ): Promise<void> => {
     await valetudoAPI.put(
         `/robot/capabilities/${Capability.Curtains}`,
+        parameters
+    );
+};
+
+export const sendCarpetZonesUpdate = async (
+    parameters: CarpetZonesUpdateRequestParameters
+): Promise<void> => {
+    await valetudoAPI.put(
+        `/robot/capabilities/${Capability.CarpetZones}`,
         parameters
     );
 };

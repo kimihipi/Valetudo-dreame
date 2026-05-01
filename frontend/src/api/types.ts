@@ -69,6 +69,7 @@ export enum Capability {
     ZoneCleaning = "ZoneCleaningCapability",
     Quirks = "QuirksCapability",
     ObstacleImages = "ObstacleImagesCapability",
+    CarpetZones = "CarpetZonesCapability",
     Curtains = "CurtainsCapability",
     Maintenance = "MaintenanceCapability"
 }
@@ -605,6 +606,17 @@ export interface CurtainsUpdateRequestParameters {
         points: {
             pA: Point,
             pB: Point
+        }
+    }>
+}
+
+export interface CarpetZonesUpdateRequestParameters {
+    zones: Array<{
+        points: {
+            pA: Point,
+            pB: Point,
+            pC: Point,
+            pD: Point
         }
     }>
 }

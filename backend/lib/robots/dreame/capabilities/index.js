@@ -16,6 +16,7 @@ module.exports = {
     DreameCameraLightControlCapability: require("./DreameCameraLightControlCapability"),
     DreameCarpetModeControlCapability: require("./DreameCarpetModeControlCapability"),
     DreameCarpetSensorModeControlCapability: require("./DreameCarpetSensorModeControlCapability"),
+    DreameCarpetZonesCapability: require("./DreameCarpetZonesCapability"),
     DreameCleanRouteControlCapabilityV1: require("./DreameCleanRouteControlCapabilityV1"),
     DreameCleanRouteControlCapabilityV2: require("./DreameCleanRouteControlCapabilityV2"),
     DreameCollisionAvoidantNavigationControlCapability: require("./DreameCollisionAvoidantNavigationControlCapability"),

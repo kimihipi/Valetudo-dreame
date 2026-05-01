@@ -4,6 +4,7 @@ import {
     Dashboard as SegmentIcon,
     Fence as ThresholdsIcon,
     Blinds as CurtainsIcon,
+    Texture as CarpetsIcon,
 } from "@mui/icons-material";
 import {VirtualRestrictionsIcon} from "../components/CustomIcons";
 import {Capability} from "../api";
@@ -11,13 +12,14 @@ import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import EditMapPage from "./EditMapPage";
 import {NoTransition, StyledSpeedDial} from "./LiveMapModeSwitcher";
 
-type ManagementMode = "segments" | "virtual_restrictions" | "virtual_thresholds" | "curtains";
+type ManagementMode = "segments" | "virtual_restrictions" | "virtual_thresholds" | "curtains" | "carpets";
 
 const modeIcon: Record<ManagementMode, React.ReactElement> = {
     "segments": <SegmentIcon/>,
     "virtual_restrictions": <VirtualRestrictionsIcon/>,
     "virtual_thresholds": <ThresholdsIcon/>,
     "curtains": <CurtainsIcon/>,
+    "carpets": <CarpetsIcon/>,
 };
 
 const modeLabel: Record<ManagementMode, string> = {
@@ -25,6 +27,7 @@ const modeLabel: Record<ManagementMode, string> = {
     "virtual_restrictions": "Restrictions",
     "virtual_thresholds": "Thresholds",
     "curtains": "Curtains",
+    "carpets": "Carpets",
 };
 
 interface ModeSwitcherProps {
@@ -69,12 +72,14 @@ const MapEditorPage = (): React.ReactElement => {
         combinedVirtualRestrictionsCapabilitySupported,
         combinedVirtualThresholdsCapabilitySupported,
         curtainsCapabilitySupported,
+        carpetZonesCapabilitySupported,
     ] = useCapabilitiesSupported(
         Capability.MapSegmentEdit,
         Capability.MapSegmentRename,
         Capability.CombinedVirtualRestrictions,
         Capability.CombinedVirtualThresholds,
         Capability.Curtains,
+        Capability.CarpetZones,
     );
 
     const segmentsSupported = mapSegmentEditCapabilitySupported || mapSegmentRenameCapabilitySupported;
@@ -93,8 +98,11 @@ const MapEditorPage = (): React.ReactElement => {
         if (curtainsCapabilitySupported) {
             modes.push("curtains");
         }
+        if (carpetZonesCapabilitySupported) {
+            modes.push("carpets");
+        }
         return modes;
-    }, [segmentsSupported, combinedVirtualRestrictionsCapabilitySupported, combinedVirtualThresholdsCapabilitySupported, curtainsCapabilitySupported]);
+    }, [segmentsSupported, combinedVirtualRestrictionsCapabilitySupported, combinedVirtualThresholdsCapabilitySupported, curtainsCapabilitySupported, carpetZonesCapabilitySupported]);
 
     const [mode, setMode] = React.useState<ManagementMode>(() => availableModes[0] ?? "segments");
 

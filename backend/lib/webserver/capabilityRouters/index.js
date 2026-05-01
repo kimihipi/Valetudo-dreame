@@ -4,6 +4,7 @@ module.exports = {
     AutoEmptyDockManualTriggerCapabilityRouter: require("./AutoEmptyDockManualTriggerCapabilityRouter"),
     BasicControlCapabilityRouter: require("./BasicControlCapabilityRouter"),
     CarpetSensorModeControlCapabilityRouter: require("./CarpetSensorModeControlCapabilityRouter"),
+    CarpetZonesCapabilityRouter: require("./CarpetZonesCapabilityRouter"),
     CleanRouteControlCapabilityRouter: require("./CleanRouteControlCapabilityRouter"),
     CombinedVirtualRestrictionsCapabilityRouter: require("./CombinedVirtualRestrictionsCapabilityRouter"),
     CombinedVirtualThresholdsCapabilityRouter: require("./CombinedVirtualThresholdsCapabilityRouter"),

@@ -62,6 +62,7 @@ import {
     sendCleanZonesCommand,
     sendCombinedVirtualRestrictionsUpdate,
     sendCombinedVirtualThresholdsUpdate,
+    sendCarpetZonesUpdate,
     sendCurtainsUpdate,
     sendConsumableReset,
     sendDoNotDisturbConfiguration,
@@ -193,6 +194,7 @@ import {
     CleanRoute,
     CombinedVirtualRestrictionsUpdateRequestParameters,
     CombinedVirtualThresholdsUpdateRequestParameters,
+    CarpetZonesUpdateRequestParameters,
     CurtainsUpdateRequestParameters,
     ConsumableId,
     DoNotDisturbConfiguration,
@@ -1670,6 +1672,24 @@ export const useCurtainsMutation = (
         ...options,
         onSuccess: async (data, ...args) => {
             // Set the pending count before invalidating so onMapUpdate fires with it already set
+            await options?.onSuccess?.(data, ...args);
+            await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
+        },
+    });
+};
+
+export const useCarpetZonesMutation = (
+    options?: UseMutationOptions<void, unknown, CarpetZonesUpdateRequestParameters>
+) => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (parameters: CarpetZonesUpdateRequestParameters) => {
+            return sendCarpetZonesUpdate(parameters);
+        },
+        onError: useOnCommandError(Capability.CarpetZones),
+        ...options,
+        onSuccess: async (data, ...args) => {
             await options?.onSuccess?.(data, ...args);
             await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
         },

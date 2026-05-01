@@ -302,6 +302,7 @@ class DreameMapParser {
                         )
                     );
                 }
+
             }
 
             if (additionalData.vws) {
@@ -582,13 +583,20 @@ class DreameMapParser {
                         }
 
                         segments[segmentId].push(coords);
+
+                        if ((px & 0b00000011) === PIXEL_TYPES.CARPET) {
+                            carpetPixels.push(coords);
+                        }
                     } else {
                         switch (px & 0b00000011) {
                             case PIXEL_TYPES.NONE:
                                 break;
                             case PIXEL_TYPES.FLOOR:
+                                floorPixels.push(coords);
+                                break;
                             case PIXEL_TYPES.CARPET:
                                 floorPixels.push(coords);
+                                carpetPixels.push(coords);
                                 break;
                             case PIXEL_TYPES.WALL:
                                 wallPixels.push(coords);
@@ -617,7 +625,12 @@ class DreameMapParser {
                         }
 
                         segments[segmentId].push(coords);
+
+                        if (carpetFlag) {
+                            carpetPixels.push(coords);
+                        }
                     } else if (carpetFlag) {
+                        floorPixels.push(coords);
                         carpetPixels.push(coords);
                     }
                 }
@@ -755,7 +768,7 @@ class DreameMapParser {
                     ],
                     type: mapEntities.PolygonMapEntity.TYPE.CARPET,
                     metaData: {
-                        id: `rism_carpet_${carpetPolygons.length}`
+                        id: `carpet_${carpetPolygons.length}`
                     }
                 }));
             }
