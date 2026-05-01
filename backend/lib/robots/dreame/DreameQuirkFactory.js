@@ -1105,6 +1105,48 @@ class DreameQuirkFactory {
                         );
                     }
                 });
+            case DreameQuirkFactory.KNOWN_QUIRKS.AUTO_RESUME_CLEANING:
+                return new Quirk({
+                    id: id,
+                    title: "Auto-Resume Cleaning",
+                    description: "When enabled, the robot will automatically continue an interrupted cleaning task due to low battery after recharging.",
+                    options: ["off", "on"],
+                    getter: async () => {
+                        const res = await this.robot.miotHelper.readProperty(
+                            DreameMiotServices["GEN2"].VACUUM_2.SIID,
+                            DreameMiotServices["GEN2"].VACUUM_2.PROPERTIES.POST_CHARGE_CONTINUE.PIID
+                        );
+
+                        switch (res) {
+                            case 1:
+                                return "on";
+                            case 0:
+                                return "off";
+                            default:
+                                throw new Error(`Received invalid value ${res}`);
+                        }
+                    },
+                    setter: async (value) => {
+                        let val;
+
+                        switch (value) {
+                            case "on":
+                                val = 1;
+                                break;
+                            case "off":
+                                val = 0;
+                                break;
+                            default:
+                                throw new Error(`Received invalid value ${value}`);
+                        }
+
+                        return this.robot.miotHelper.writeProperty(
+                            DreameMiotServices["GEN2"].VACUUM_2.SIID,
+                            DreameMiotServices["GEN2"].VACUUM_2.PROPERTIES.POST_CHARGE_CONTINUE.PIID,
+                            val
+                        );
+                    }
+                });
             default:
                 throw new Error(`There's no quirk with id ${id}`);
         }
@@ -1136,7 +1178,8 @@ DreameQuirkFactory.KNOWN_QUIRKS = {
     CLEAN_GENIUS_AUTO_REWASHING: "c2b3d4e5-f6a7-8901-bcde-f12345678901",
     CLEAN_GENIUS_STAIN_AVOIDANCE: "d3c4e5f6-a7b8-9012-cdef-123456789012",
     SMART_MOP_WASHING: "e4d5f6a7-b8c9-0123-def0-234567890123",
-    LARGE_PARTICLE_BOOST: "f5e6a7b8-c9d0-1234-ef01-345678901234"
+    LARGE_PARTICLE_BOOST: "f5e6a7b8-c9d0-1234-ef01-345678901234",
+    AUTO_RESUME_CLEANING: "b2a3c8f4-9ca9-460c-9d62-f92092b17c4b"
 };
 
 module.exports = DreameQuirkFactory;

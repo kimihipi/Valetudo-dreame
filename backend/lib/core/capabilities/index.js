@@ -16,6 +16,7 @@ module.exports = {
     CurrentStatisticsCapability: require("./CurrentStatisticsCapability"),
     CurtainsCapability: require("./CurtainsCapability"),
     DoNotDisturbCapability: require("./DoNotDisturbCapability"),
+    EnergySavingChargingCapability: require("./EnergySavingChargingCapability"),
     FanSpeedControlCapability: require("./FanSpeedControlCapability"),
     FloorMaterialDirectionAwareNavigationControlCapability: require("./FloorMaterialDirectionAwareNavigationControlCapability"),
     GoToLocationCapability: require("./GoToLocationCapability"),

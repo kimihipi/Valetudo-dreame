@@ -1049,6 +1049,24 @@ export const sendDoNotDisturbConfiguration = async (configuration: DoNotDisturbC
         });
 };
 
+export const fetchEnergySavingChargingConfiguration = async (): Promise<DoNotDisturbConfiguration> => {
+    return valetudoAPI
+        .get<DoNotDisturbConfiguration>(`/robot/capabilities/${Capability.EnergySavingCharging}`)
+        .then(({ data }) => {
+            return data;
+        });
+};
+
+export const sendEnergySavingChargingConfiguration = async (configuration: DoNotDisturbConfiguration): Promise<void> => {
+    await valetudoAPI
+        .put(`/robot/capabilities/${Capability.EnergySavingCharging}`, configuration)
+        .then(({ status }) => {
+            if (status !== 200) {
+                throw new Error("Could not update energy saving charging configuration");
+            }
+        });
+};
+
 export const fetchWifiStatus = async (): Promise<WifiStatus> => {
     return valetudoAPI
         .get<WifiStatus>(`/robot/capabilities/${Capability.WifiConfiguration}`)

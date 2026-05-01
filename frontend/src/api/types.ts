@@ -17,6 +17,7 @@ export enum Capability {
     ConsumableMonitoring = "ConsumableMonitoringCapability",
     CurrentStatistics = "CurrentStatisticsCapability",
     DoNotDisturb = "DoNotDisturbCapability",
+    EnergySavingCharging = "EnergySavingChargingCapability",
     FanSpeedControl = "FanSpeedControlCapability",
     FloorMaterialDirectionAwareNavigationControl = "FloorMaterialDirectionAwareNavigationControlCapability",
     GoToLocation = "GoToLocationCapability",

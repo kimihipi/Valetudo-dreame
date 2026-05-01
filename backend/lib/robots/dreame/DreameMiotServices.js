@@ -382,6 +382,9 @@ module.exports = {
                 },
                 CHARGING: {
                     PIID: 2
+                },
+                OFF_PEAK_CHARGING: {
+                    PIID: 3
                 }
             },
             ACTIONS: {

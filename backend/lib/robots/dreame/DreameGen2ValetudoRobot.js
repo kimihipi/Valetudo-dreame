@@ -247,7 +247,8 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
         [
             capabilities.DreameVoicePackManagementCapability,
             capabilities.DreameHighResolutionManualControlCapability,
-            capabilities.DreameDoNotDisturbCapability
+            capabilities.DreameDoNotDisturbCapability,
+            capabilities.DreameEnergySavingChargingCapability
         ].forEach(capability => {
             this.registerCapability(new capability({robot: this}));
         });

@@ -71,7 +71,6 @@ import {
     FlashlightOn as CameraLightControlIcon,
     KeyboardDoubleArrowUp as CarpetModeIcon,
     Lock as KeyLockIcon,
-    MiscellaneousServices as SystemIcon,
     NotListedLocation as LocateIcon,
     Pets as PetObstacleAvoidanceControlIcon,
     Photo as ObstacleImagesIcon,
@@ -1309,36 +1308,6 @@ const RobotOptions = (): React.ReactElement => {
 
     const miscListItems = React.useMemo(() => {
         const items = [];
-
-        if (
-            speakerVolumeControlCapabilitySupported || speakerTestCapabilitySupported ||
-            voicePackManagementCapabilitySupported ||
-            doNotDisturbCapabilitySupported
-        ) {
-            const label = [];
-
-            if (voicePackManagementCapabilitySupported) {
-                label.push("Voice packs");
-            }
-
-            if (doNotDisturbCapabilitySupported) {
-                label.push("Do not disturb");
-            }
-
-            if (speakerVolumeControlCapabilitySupported && speakerTestCapabilitySupported) {
-                label.push("Speaker settings");
-            }
-
-            items.push(
-                <LinkListMenuItem
-                    key="systemRobotSettings"
-                    url="/options/robot/system"
-                    primaryLabel="System Options"
-                    secondaryLabel={label.join(", ")}
-                    icon={<SystemIcon/>}
-                />
-            );
-        }
 
         if (quirksCapabilitySupported) {
             items.push(

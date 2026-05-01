@@ -65,6 +65,8 @@ import {
     useDoNotDisturbConfigurationQuery,
     useDoNotDisturbConfigurationMutation,
     DoNotDisturbConfiguration,
+    useEnergySavingChargingConfigurationQuery,
+    useEnergySavingChargingConfigurationMutation,
     useVoicePackManagementStateQuery,
     useVoicePackManagementMutation,
     VoicePackManagementCommand,
@@ -95,6 +97,7 @@ import {
     VolumeUp as SpeakerIcon,
     VolumeDown as VolumeDownIcon,
     VolumeUp as VolumeUpIcon,
+    BatteryChargingFull as EnergySavingChargingIcon,
     Notifications as DoNotDisturbIcon,
     ExpandLess as CollapseIcon,
     ExpandMore as ExpandIcon,
@@ -552,6 +555,39 @@ const PlayAudioSetting = () => {
     );
 };
 
+const TimeField = ({label, hours, minutes, disabled, onChange}: {
+    label: string;
+    hours: number;
+    minutes: number;
+    disabled: boolean;
+    onChange: (h: number, m: number) => void;
+}) => (
+    <Box sx={{flex: 1}}>
+        <Typography variant="caption" color="text.secondary" sx={{display: "block", mb: 0.5}}>{label}</Typography>
+        <Box sx={{display: "flex", alignItems: "center", gap: 0.5}}>
+            <TextField
+                type="number"
+                size="small"
+                value={hours}
+                onChange={(e) => onChange(Math.min(23, Math.max(0, parseInt(e.target.value) || 0)), minutes)}
+                disabled={disabled}
+                slotProps={{htmlInput: {min: 0, max: 23, sx: {fontSize: "0.875rem"}}}}
+                sx={{width: 72}}
+            />
+            <Typography variant="body1">:</Typography>
+            <TextField
+                type="number"
+                size="small"
+                value={minutes}
+                onChange={(e) => onChange(hours, Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                disabled={disabled}
+                slotProps={{htmlInput: {min: 0, max: 59, sx: {fontSize: "0.875rem"}}}}
+                sx={{width: 72}}
+            />
+        </Box>
+    </Box>
+);
+
 const DoNotDisturbSetting = () => {
     const {data: dndConfig} = useDoNotDisturbConfigurationQuery();
     const {mutate: updateDndConfiguration, isPending: isUpdating} = useDoNotDisturbConfigurationMutation();
@@ -647,38 +683,157 @@ const DoNotDisturbSetting = () => {
                         </Box>
                         {editConfig?.enabled && (
                             <>
-                                <Box sx={{display: "flex", gap: 1, alignItems: "center"}}>
-                                    <TextField
-                                        type="time"
+                                <Box sx={{display: "flex", gap: 1, alignItems: "flex-end"}}>
+                                    <TimeField
                                         label="Start Time"
-                                        value={`${startTimeValue.getHours().toString().padStart(2, "0")}:${startTimeValue.getMinutes().toString().padStart(2, "0")}`}
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                            const [hour, minute] = e.target.value.split(":").map(Number);
-                                            handleTimeChange("start", hour, minute);
-                                        }}
+                                        hours={startTimeValue.getHours()}
+                                        minutes={startTimeValue.getMinutes()}
                                         disabled={isUpdating}
-                                        size="small"
-                                        slotProps={{htmlInput: {sx: {fontSize: "0.875rem"}}}}
-                                        sx={{flex: 1}}
+                                        onChange={(h, m) => handleTimeChange("start", h, m)}
                                     />
-                                    <TextField
-                                        type="time"
+                                    <TimeField
                                         label="End Time"
-                                        value={`${endTimeValue.getHours().toString().padStart(2, "0")}:${endTimeValue.getMinutes().toString().padStart(2, "0")}`}
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                            const [hour, minute] = e.target.value.split(":").map(Number);
-                                            handleTimeChange("end", hour, minute);
-                                        }}
+                                        hours={endTimeValue.getHours()}
+                                        minutes={endTimeValue.getMinutes()}
                                         disabled={isUpdating}
-                                        size="small"
-                                        slotProps={{htmlInput: {sx: {fontSize: "0.875rem"}}}}
-                                        sx={{flex: 1}}
+                                        onChange={(h, m) => handleTimeChange("end", h, m)}
                                     />
                                     <Button
                                         variant="outlined"
                                         onClick={handleApply}
                                         disabled={isUpdating}
-                                        sx={{whiteSpace: "nowrap"}}
+                                        sx={{whiteSpace: "nowrap", mb: 0.5}}
+                                    >
+                                        Apply
+                                    </Button>
+                                </Box>
+                                <Typography variant="caption" color="textSecondary">
+                                    UTC: {String(editConfig.start.hour).padStart(2, "0")}:{String(editConfig.start.minute).padStart(2, "0")} — {String(editConfig.end.hour).padStart(2, "0")}:{String(editConfig.end.minute).padStart(2, "0")}
+                                </Typography>
+                            </>
+                        )}
+                    </Stack>
+                </Box>
+            )}
+        </>
+    );
+};
+
+const EnergySavingChargingSetting = () => {
+    const {data: config} = useEnergySavingChargingConfigurationQuery();
+    const {mutate: updateConfiguration, isPending: isUpdating} = useEnergySavingChargingConfigurationMutation();
+
+    const [expanded, setExpanded] = React.useState(false);
+    const [editConfig, setEditConfig] = React.useState<DoNotDisturbConfiguration | null>(null);
+
+    React.useEffect(() => {
+        if (config) {
+            setEditConfig(config);
+        }
+    }, [config]);
+
+    const startTimeValue = React.useMemo(() => {
+        const date = new Date();
+        date.setUTCHours(editConfig?.start.hour ?? 0, editConfig?.start.minute ?? 0, 0, 0);
+        return date;
+    }, [editConfig]);
+
+    const endTimeValue = React.useMemo(() => {
+        const date = new Date();
+        date.setUTCHours(editConfig?.end.hour ?? 0, editConfig?.end.minute ?? 0, 0, 0);
+        return date;
+    }, [editConfig]);
+
+    const handleTimeChange = (type: "start" | "end", hours: number, minutes: number) => {
+        if (editConfig) {
+            const date = new Date();
+            date.setHours(hours, minutes, 0, 0);
+            const newConfig: DoNotDisturbConfiguration = {
+                ...editConfig,
+                [type]: {hour: date.getUTCHours(), minute: date.getUTCMinutes()},
+            };
+            setEditConfig(newConfig);
+        }
+    };
+
+    const handleApply = () => {
+        if (editConfig) {
+            updateConfiguration(editConfig);
+        }
+    };
+
+    const formatTimeDisplay = () => {
+        if (!config?.enabled) {
+            return "Disabled";
+        }
+        const startDate = new Date();
+        startDate.setUTCHours(config.start.hour, config.start.minute, 0, 0);
+        const endDate = new Date();
+        endDate.setUTCHours(config.end.hour, config.end.minute, 0, 0);
+        const start = `${startDate.getHours().toString().padStart(2, "0")}:${startDate.getMinutes().toString().padStart(2, "0")}`;
+        const end = `${endDate.getHours().toString().padStart(2, "0")}:${endDate.getMinutes().toString().padStart(2, "0")}`;
+        return `${start} - ${end}`;
+    };
+
+    return (
+        <>
+            <ListItem
+                onClick={() => setExpanded(!expanded)}
+                sx={{cursor: "pointer"}}
+            >
+                <ListItemAvatar>
+                    <Avatar>
+                        <EnergySavingChargingIcon/>
+                    </Avatar>
+                </ListItemAvatar>
+                <ListItemText
+                    primary="Energy Saving Charging"
+                    secondary={formatTimeDisplay()}
+                />
+                <Icon component={expanded ? CollapseIcon : ExpandIcon}/>
+            </ListItem>
+            {expanded && (
+                <Box sx={{px: 2, py: 1}}>
+                    <Stack spacing={1}>
+                        <Box sx={{display: "flex", alignItems: "center", justifyContent: "space-between", px: 0.5}}>
+                            <Typography variant="body2">Enable</Typography>
+                            <Switch
+                                checked={config?.enabled ?? false}
+                                onChange={(e) => {
+                                    if (config) {
+                                        const newConfig: DoNotDisturbConfiguration = {
+                                            ...config,
+                                            enabled: e.target.checked,
+                                        };
+                                        updateConfiguration(newConfig);
+                                    }
+                                }}
+                                disabled={isUpdating}
+                                size="small"
+                            />
+                        </Box>
+                        {editConfig?.enabled && (
+                            <>
+                                <Box sx={{display: "flex", gap: 1, alignItems: "flex-end"}}>
+                                    <TimeField
+                                        label="Start Time"
+                                        hours={startTimeValue.getHours()}
+                                        minutes={startTimeValue.getMinutes()}
+                                        disabled={isUpdating}
+                                        onChange={(h, m) => handleTimeChange("start", h, m)}
+                                    />
+                                    <TimeField
+                                        label="End Time"
+                                        hours={endTimeValue.getHours()}
+                                        minutes={endTimeValue.getMinutes()}
+                                        disabled={isUpdating}
+                                        onChange={(h, m) => handleTimeChange("end", h, m)}
+                                    />
+                                    <Button
+                                        variant="outlined"
+                                        onClick={handleApply}
+                                        disabled={isUpdating}
+                                        sx={{whiteSpace: "nowrap", mb: 0.5}}
                                     >
                                         Apply
                                     </Button>
@@ -811,6 +966,7 @@ const RobotSettings: React.FC<{
         speakerPlayAudioSupported,
         doNotDisturbSupported,
         voicePackManagementSupported,
+        energySavingChargingSupported,
     ] = useCapabilitiesSupported(
         Capability.Locate,
         Capability.KeyLock,
@@ -831,6 +987,7 @@ const RobotSettings: React.FC<{
         Capability.SpeakerPlayAudio,
         Capability.DoNotDisturb,
         Capability.VoicePackManagement,
+        Capability.EnergySavingCharging,
     );
 
     const {data: quirks} = useQuirksQuery();
@@ -919,6 +1076,9 @@ const RobotSettings: React.FC<{
         if (doNotDisturbSupported) {
             systemItems.push(<DoNotDisturbSetting key="doNotDisturb"/>);
         }
+        if (energySavingChargingSupported) {
+            systemItems.push(<EnergySavingChargingSetting key="energySavingCharging"/>);
+        }
         if (voicePackManagementSupported) {
             systemItems.push(<VoicePackSetting key="voicePacks"/>);
         }
@@ -979,6 +1139,7 @@ const RobotSettings: React.FC<{
         speakerPlayAudioSupported,
         doNotDisturbSupported,
         voicePackManagementSupported,
+        energySavingChargingSupported,
         quirks,
         quirksExpanded,
         setQuirksExpanded,

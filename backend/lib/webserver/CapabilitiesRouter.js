@@ -75,6 +75,7 @@ const CAPABILITY_TYPE_TO_ROUTER_MAPPING = {
     [capabilities.SpeakerVolumeControlCapability.TYPE]: capabilityRouters.SpeakerVolumeControlCapabilityRouter,
     [capabilities.MapSegmentationCapability.TYPE]: capabilityRouters.MapSegmentationCapabilityRouter,
     [capabilities.DoNotDisturbCapability.TYPE]: capabilityRouters.DoNotDisturbCapabilityRouter,
+    [capabilities.EnergySavingChargingCapability.TYPE]: capabilityRouters.EnergySavingChargingCapabilityRouter,
     [capabilities.CarpetModeControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
     [capabilities.SpeakerPlayAudioCapability.TYPE]: capabilityRouters.SpeakerPlayAudioCapabilityRouter,
     [capabilities.SpeakerTestCapability.TYPE]: capabilityRouters.SpeakerTestCapabilityRouter,

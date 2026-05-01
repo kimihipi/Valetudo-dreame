@@ -20,6 +20,7 @@ import {
     fetchCurrentStatistics,
     fetchCurrentStatisticsProperties,
     fetchDoNotDisturbConfiguration,
+    fetchEnergySavingChargingConfiguration,
     fetchHTTPBasicAuthConfiguration,
     fetchKeyLockState,
     fetchMaintenanceProperties,
@@ -64,6 +65,7 @@ import {
     sendCurtainsUpdate,
     sendConsumableReset,
     sendDoNotDisturbConfiguration,
+    sendEnergySavingChargingConfiguration,
     sendGoToCommand,
     sendHTTPBasicAuthConfiguration,
     sendJoinSegmentsCommand,
@@ -264,6 +266,7 @@ enum QueryKey {
     AutoEmptyDockAutoEmptyInterval = "auto_empty_dock_auto_empty_interval",
     AutoEmptyDockAutoEmptyIntervalProperties = "auto_empty_dock_auto_empty_interval_properties",
     DoNotDisturb = "do_not_disturb",
+    EnergySavingCharging = "energy_saving_charging",
     WifiStatus = "wifi_status",
     WifiConfigurationProperties = "wifi_configuration_properties",
     WifiScan = "wifi_scan",
@@ -1478,6 +1481,24 @@ export const useDoNotDisturbConfigurationMutation = () => {
             return sendDoNotDisturbConfiguration(configuration).then(fetchDoNotDisturbConfiguration);
         },
         onError: useOnCommandError(Capability.DoNotDisturb)
+    });
+};
+
+export const useEnergySavingChargingConfigurationQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.EnergySavingCharging],
+        queryFn: fetchEnergySavingChargingConfiguration,
+        staleTime: Infinity
+    });
+};
+
+export const useEnergySavingChargingConfigurationMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.EnergySavingCharging],
+        mutationFn: (configuration: DoNotDisturbConfiguration) => {
+            return sendEnergySavingChargingConfiguration(configuration).then(fetchEnergySavingChargingConfiguration);
+        },
+        onError: useOnCommandError(Capability.EnergySavingCharging)
     });
 };
 

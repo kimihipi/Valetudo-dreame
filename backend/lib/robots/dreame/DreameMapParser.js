@@ -143,7 +143,9 @@ class DreameMapParser {
                 });
             }
 
-            layers.push(...DreameMapParser.PARSE_IMAGE(parsedHeader, activeSegmentIds, deletedSegmentIds, segmentNames, segmentCleanOrder, segmentMaterials, imageData, mapType));
+            const { layers: imageLayers, carpetPolygons } = DreameMapParser.PARSE_IMAGE(parsedHeader, activeSegmentIds, deletedSegmentIds, segmentNames, segmentCleanOrder, segmentMaterials, imageData, mapType);
+            layers.push(...imageLayers);
+            entities.push(...carpetPolygons);
 
             /**
              * Contains saved map data such as virtual restrictions as well as segments
@@ -538,6 +540,7 @@ class DreameMapParser {
     static PARSE_IMAGE(parsedHeader, activeSegmentIds, deletedSegmentIds, segmentNames, segmentCleanOrder, segmentMaterials, buf, mapType) {
         const floorPixels = [];
         const wallPixels = [];
+        const carpetPixels = [];
         const segments = {};
 
         const layers = [];
@@ -604,11 +607,7 @@ class DreameMapParser {
 
                     const segmentId = px & 0b00111111;
                     const wallFlag = px >> 7;
-
-                    /*
-                        TODO: figure out what to do with the carpet information
-                        px >> 6 & 0b00000001
-                    */
+                    const carpetFlag = (px >> 6) & 0b00000001;
 
                     if (wallFlag) {
                         wallPixels.push(coords);
@@ -618,6 +617,8 @@ class DreameMapParser {
                         }
 
                         segments[segmentId].push(coords);
+                    } else if (carpetFlag) {
+                        carpetPixels.push(coords);
                     }
                 }
             }
@@ -704,7 +705,63 @@ class DreameMapParser {
             );
         });
 
-        return layers;
+        const carpetPolygons = [];
+
+        if (carpetPixels.length > 0) {
+            const pixelSet = new Set(carpetPixels.map(([x, y]) => `${x},${y}`));
+            const visited = new Set();
+
+            for (const [sx, sy] of carpetPixels) {
+                const startKey = `${sx},${sy}`;
+                if (visited.has(startKey)) {
+                    continue;
+                }
+
+                const queue = [[sx, sy]];
+                visited.add(startKey);
+                let minX = sx, maxX = sx, minY = sy, maxY = sy;
+
+                while (queue.length > 0) {
+                    const [x, y] = /** @type {number[]} */ (queue.shift());
+                    if (x < minX) {
+                        minX = x;
+                    }
+                    if (x > maxX) {
+                        maxX = x;
+                    }
+                    if (y < minY) {
+                        minY = y;
+                    }
+                    if (y > maxY) {
+                        maxY = y;
+                    }
+
+                    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+                        const nk = `${x + dx},${y + dy}`;
+                        if (pixelSet.has(nk) && !visited.has(nk)) {
+                            visited.add(nk);
+                            queue.push([x + dx, y + dy]);
+                        }
+                    }
+                }
+
+                const ps = parsedHeader.pixelSize;
+                carpetPolygons.push(new mapEntities.PolygonMapEntity({
+                    points: [
+                        minX * ps, minY * ps,
+                        (maxX + 1) * ps, minY * ps,
+                        (maxX + 1) * ps, (maxY + 1) * ps,
+                        minX * ps, (maxY + 1) * ps,
+                    ],
+                    type: mapEntities.PolygonMapEntity.TYPE.CARPET,
+                    metaData: {
+                        id: `rism_carpet_${carpetPolygons.length}`
+                    }
+                }));
+            }
+        }
+
+        return { layers: layers, carpetPolygons: carpetPolygons };
     }
 
     static PARSE_PATH(parsedHeader, traceString, appendRobotPosition) {

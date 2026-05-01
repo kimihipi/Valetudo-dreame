@@ -438,6 +438,7 @@ class DreameX40MasterValetudoRobot extends DreameGen4ValetudoRobot {
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CLEAN_GENIUS_AUTO_REWASHING),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CLEAN_GENIUS_STAIN_AVOIDANCE),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.LARGE_PARTICLE_BOOST),
+                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.AUTO_RESUME_CLEANING),
             ]
         }));
 
