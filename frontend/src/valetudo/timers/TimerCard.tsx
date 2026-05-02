@@ -61,9 +61,8 @@ type TimerCardProps = {
 };
 
 export const timerActionLabels: Record<ValetudoTimerActionType, string> = {
-    [ValetudoTimerActionType.FULL_CLEANUP]: "All",
-    [ValetudoTimerActionType.SEGMENT_CLEANUP]: "Segment",
-    [ValetudoTimerActionType.AUTOMATIC_CLEANUP]: "Automatic",
+    [ValetudoTimerActionType.FULL_CLEANUP]: "Full cleanup",
+    [ValetudoTimerActionType.SEGMENT_CLEANUP]: "Segment cleanup",
 };
 
 const TimerCard: FunctionComponent<TimerCardProps> = ({

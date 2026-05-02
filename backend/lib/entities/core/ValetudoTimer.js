@@ -21,8 +21,6 @@ class ValetudoTimer extends SerializableEntity {
      * @param {Array<string>} [options.action.params.segment_ids]
      * @param {number} [options.action.params.iterations]
      * @param {boolean} [options.action.params.custom_order]
-     * @param {string} [options.action.params.preset]
-     * @param {string} [options.action.params.sub_mode]
      * 
      * @param {Array<ValetudoTimerPreActionDefinition>} [options.pre_actions]
      * 
@@ -58,8 +56,7 @@ class ValetudoTimer extends SerializableEntity {
  */
 ValetudoTimer.ACTION_TYPE = Object.freeze({
     FULL_CLEANUP: "full_cleanup",
-    SEGMENT_CLEANUP: "segment_cleanup",
-    AUTOMATIC_CLEANUP: "automatic_cleanup"
+    SEGMENT_CLEANUP: "segment_cleanup"
 });
 
 /**

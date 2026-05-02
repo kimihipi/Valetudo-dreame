@@ -1,4 +1,3 @@
-const AutomaticControlCapability = require("../core/capabilities/AutomaticControlCapability");
 const BasicControlCapability = require("../core/capabilities/BasicControlCapability");
 const express = require("express");
 const FanSpeedControlCapability = require("../core/capabilities/FanSpeedControlCapability");
@@ -46,10 +45,6 @@ class TimerRouter {
 
             if (this.robot.hasCapability(MapSegmentationCapability.TYPE)) {
                 response.supportedActions.push(ValetudoTimer.ACTION_TYPE.SEGMENT_CLEANUP);
-            }
-
-            if (this.robot.hasCapability(AutomaticControlCapability.TYPE)) {
-                response.supportedActions.push(ValetudoTimer.ACTION_TYPE.AUTOMATIC_CLEANUP);
             }
 
 
@@ -216,15 +211,6 @@ class TimerRouter {
                         segment_ids: body.action.params.segment_ids,
                         iterations: body.action.params.iterations,
                         custom_order: body.action.params.custom_order,
-                    }
-                };
-                break;
-            case ValetudoTimer.ACTION_TYPE.AUTOMATIC_CLEANUP:
-                action = {
-                    type: ValetudoTimer.ACTION_TYPE.AUTOMATIC_CLEANUP,
-                    params: {
-                        preset: body.action.params.preset,
-                        sub_mode: body.action.params.sub_mode
                     }
                 };
                 break;

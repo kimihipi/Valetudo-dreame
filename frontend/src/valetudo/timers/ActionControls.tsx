@@ -3,7 +3,6 @@ import { TimerActionControlProps } from "./types";
 import {
     Capability,
     useMapSegmentationPropertiesQuery,
-    usePresetSelectionsQuery,
     useSegmentsQuery,
     ValetudoTimerActionType,
 } from "../../api";
@@ -26,7 +25,6 @@ import {
 import { Add as AddIcon, Remove as RemoveIcon } from "@mui/icons-material";
 
 import { deepCopy } from "../../utils";
-import {presetFriendlyNames, sortPresets} from "../../presetUtils";
 
 export const validateParams: Record<
     ValetudoTimerActionType,
@@ -37,9 +35,6 @@ export const validateParams: Record<
     },
     [ValetudoTimerActionType.SEGMENT_CLEANUP]: (props) => {
         return props.segment_ids?.length > 0 && (props.iterations ?? 1 > 0);
-    },
-    [ValetudoTimerActionType.AUTOMATIC_CLEANUP]: (props) => {
-        return typeof props.preset === "string" && props.preset.length > 0;
     },
 };
 
@@ -265,89 +260,5 @@ export const SegmentCleanupActionControls: FunctionComponent<TimerActionControlP
                 {selectedSegmentList}
             </List>
         </>
-    );
-};
-
-export const AutomaticCleanupActionControls: FunctionComponent<TimerActionControlProps> = ({
-    params,
-    disabled,
-    setParams,
-}) => {
-    const {
-        isPending: presetsPending,
-        isError: presetsError,
-        data: presets,
-    } = usePresetSelectionsQuery(Capability.AutomaticControl);
-
-    const {
-        isPending: subModePending,
-        data: subModePresets,
-    } = usePresetSelectionsQuery(Capability.AutomaticSubModeControl);
-
-    const filteredPresets = React.useMemo(() => {
-        return sortPresets(
-            presets?.filter((x): x is Exclude<typeof x, "custom"> => x !== "custom") ?? []
-        );
-    }, [presets]);
-
-    const filteredSubModePresets = React.useMemo(() => {
-        return sortPresets(
-            subModePresets?.filter((x): x is Exclude<typeof x, "custom"> => x !== "custom") ?? []
-        );
-    }, [subModePresets]);
-
-    if (presetsPending || subModePending) {
-        return <CircularProgress size={20} />;
-    }
-
-    if (presetsError) {
-        return <Typography color="error">Error loading automatic mode presets</Typography>;
-    }
-
-    return (
-        <Box sx={{display: "flex", flexDirection: "column", gap: 2}}>
-            <FormControl fullWidth>
-                <InputLabel id="automatic-cleanup-preset-label">Mode</InputLabel>
-                <Select
-                    labelId="automatic-cleanup-preset-label"
-                    label="Mode"
-                    value={(params.preset as string) ?? ""}
-                    disabled={disabled}
-                    onChange={(e) => {
-                        const newParams = deepCopy(params);
-                        newParams.preset = e.target.value;
-                        setParams(newParams);
-                    }}
-                >
-                    {filteredPresets.map((preset) => (
-                        <MenuItem key={preset} value={preset}>
-                            {presetFriendlyNames[preset] ?? preset}
-                        </MenuItem>
-                    ))}
-                </Select>
-            </FormControl>
-            {filteredSubModePresets.length > 0 && (
-                <FormControl fullWidth>
-                    <InputLabel id="automatic-cleanup-submode-label">Sub-Mode</InputLabel>
-                    <Select
-                        labelId="automatic-cleanup-submode-label"
-                        label="Sub-Mode"
-                        value={(params.sub_mode as string) ?? ""}
-                        disabled={disabled}
-                        onChange={(e) => {
-                            const newParams = deepCopy(params);
-                            newParams.sub_mode = e.target.value;
-                            setParams(newParams);
-                        }}
-                    >
-                        {filteredSubModePresets.map((preset) => (
-                            <MenuItem key={preset} value={preset}>
-                                {presetFriendlyNames[preset] ?? preset}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-            )}
-        </Box>
     );
 };
