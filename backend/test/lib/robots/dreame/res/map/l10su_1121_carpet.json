@@ -18,8 +18,8 @@
         "segmentId": "1",
         "active": false,
         "source": "regular",
-        "area": 38475,
-        "hidden": false
+        "hidden": false,
+        "area": 38475
       },
       "type": "segment",
       "pixels": [],
@@ -215,8 +215,8 @@
         "segmentId": "2",
         "active": false,
         "source": "regular",
-        "area": 52375,
-        "hidden": false
+        "hidden": false,
+        "area": 52375
       },
       "type": "segment",
       "pixels": [],
@@ -409,8 +409,8 @@
         "segmentId": "3",
         "active": false,
         "source": "regular",
-        "area": 25775,
-        "hidden": false
+        "hidden": false,
+        "area": 25775
       },
       "type": "segment",
       "pixels": [],
@@ -570,8 +570,8 @@
         "segmentId": "4",
         "active": false,
         "source": "regular",
-        "area": 79300,
-        "hidden": false
+        "hidden": false,
+        "area": 79300
       },
       "type": "segment",
       "pixels": [],
@@ -965,8 +965,8 @@
         "segmentId": "5",
         "active": false,
         "source": "regular",
-        "area": 93225,
-        "hidden": false
+        "hidden": false,
+        "area": 93225
       },
       "type": "segment",
       "pixels": [],
@@ -1660,8 +1660,8 @@
         "segmentId": "6",
         "active": false,
         "source": "regular",
-        "area": 81625,
-        "hidden": false
+        "hidden": false,
+        "area": 81625
       },
       "type": "segment",
       "pixels": [],
@@ -4206,6 +4206,23 @@
         3323
       ],
       "type": "charger_location"
+    },
+    {
+      "__class": "PolygonMapEntity",
+      "metaData": {
+        "id": "carpet_0"
+      },
+      "points": [
+        3570,
+        3450,
+        3970,
+        3450,
+        3970,
+        3790,
+        3570,
+        3790
+      ],
+      "type": "carpet"
     }
   ]
 }

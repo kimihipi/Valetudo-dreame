@@ -18,9 +18,9 @@
         "segmentId": "1",
         "active": false,
         "source": "regular",
-        "area": 37050,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 37050
       },
       "type": "segment",
       "pixels": [],
@@ -315,9 +315,9 @@
         "segmentId": "2",
         "active": false,
         "source": "regular",
-        "area": 149350,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 149350
       },
       "type": "segment",
       "pixels": [],
@@ -1245,9 +1245,9 @@
         "segmentId": "3",
         "active": false,
         "source": "regular",
-        "area": 1475,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 1475
       },
       "type": "segment",
       "pixels": [],
@@ -1293,9 +1293,9 @@
         "segmentId": "4",
         "active": false,
         "source": "regular",
-        "area": 988050,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 988050
       },
       "type": "segment",
       "pixels": [],
@@ -4461,9 +4461,9 @@
         "segmentId": "5",
         "active": false,
         "source": "regular",
-        "area": 953225,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 953225
       },
       "type": "segment",
       "pixels": [],
@@ -8169,9 +8169,9 @@
         "segmentId": "6",
         "active": false,
         "source": "regular",
-        "area": 618800,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 618800
       },
       "type": "segment",
       "pixels": [],
@@ -10392,9 +10392,9 @@
         "segmentId": "7",
         "active": false,
         "source": "regular",
-        "area": 631550,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 631550
       },
       "type": "segment",
       "pixels": [],
@@ -12141,9 +12141,9 @@
         "segmentId": "8",
         "active": false,
         "source": "regular",
-        "area": 172450,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 172450
       },
       "type": "segment",
       "pixels": [],
@@ -12882,9 +12882,9 @@
         "segmentId": "9",
         "active": false,
         "source": "regular",
-        "area": 1570925,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 1570925
       },
       "type": "segment",
       "pixels": [],
@@ -18345,9 +18345,9 @@
         "segmentId": "10",
         "active": false,
         "source": "regular",
-        "area": 405375,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 405375
       },
       "type": "segment",
       "pixels": [],
@@ -19584,9 +19584,9 @@
         "segmentId": "11",
         "active": false,
         "source": "regular",
-        "area": 107625,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 107625
       },
       "type": "segment",
       "pixels": [],
@@ -20334,9 +20334,9 @@
         "segmentId": "15",
         "active": false,
         "source": "regular",
-        "area": 124750,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 124750
       },
       "type": "segment",
       "pixels": [],
@@ -20847,9 +20847,9 @@
         "segmentId": "16",
         "active": false,
         "source": "regular",
-        "area": 582425,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 582425
       },
       "type": "segment",
       "pixels": [],
@@ -21447,9 +21447,9 @@
         "segmentId": "18",
         "active": false,
         "source": "regular",
-        "area": 240850,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 240850
       },
       "type": "segment",
       "pixels": [],
@@ -21642,9 +21642,9 @@
         "segmentId": "19",
         "active": false,
         "source": "regular",
-        "area": 270100,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 270100
       },
       "type": "segment",
       "pixels": [],
@@ -22911,9 +22911,9 @@
         "segmentId": "21",
         "active": false,
         "source": "regular",
-        "area": 392250,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 392250
       },
       "type": "segment",
       "pixels": [],
@@ -24033,9 +24033,9 @@
         "segmentId": "22",
         "active": false,
         "source": "regular",
-        "area": 649275,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 649275
       },
       "type": "segment",
       "pixels": [],
@@ -25812,9 +25812,9 @@
         "segmentId": "23",
         "active": false,
         "source": "regular",
-        "area": 204900,
+        "hidden": false,
         "material": "tile",
-        "hidden": false
+        "area": 204900
       },
       "type": "segment",
       "pixels": [],
@@ -50793,6 +50793,23 @@
         3989
       ],
       "type": "active_zone"
+    },
+    {
+      "__class": "PolygonMapEntity",
+      "metaData": {
+        "id": "carpet_0"
+      },
+      "points": [
+        2895,
+        3675,
+        2900,
+        3675,
+        2900,
+        3680,
+        2895,
+        3680
+      ],
+      "type": "carpet"
     }
   ]
 }

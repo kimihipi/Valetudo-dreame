@@ -143,9 +143,10 @@ class DreameMapParser {
                 });
             }
 
-            const { layers: imageLayers, carpetPolygons } = DreameMapParser.PARSE_IMAGE(parsedHeader, activeSegmentIds, deletedSegmentIds, segmentNames, segmentCleanOrder, segmentMaterials, imageData, mapType);
+            const { layers: imageLayers, carpetPolygons: regularCarpetPolygons } = DreameMapParser.PARSE_IMAGE(parsedHeader, activeSegmentIds, deletedSegmentIds, segmentNames, segmentCleanOrder, segmentMaterials, imageData, mapType);
             layers.push(...imageLayers);
-            entities.push(...carpetPolygons);
+            const rismCarpetPolygons = [];
+            const jsonCarpetPolygons = [];
 
             /**
              * Contains saved map data such as virtual restrictions as well as segments
@@ -171,10 +172,11 @@ class DreameMapParser {
                                 entities.push(e);
                             }
                         } else if (e instanceof mapEntities.PolygonMapEntity) {
-                            if (
+                            if (e.type === mapEntities.PolygonMapEntity.TYPE.CARPET) {
+                                rismCarpetPolygons.push(e);
+                            } else if (
                                 e.type === mapEntities.PolygonMapEntity.TYPE.NO_GO_AREA ||
                                 e.type === mapEntities.PolygonMapEntity.TYPE.NO_MOP_AREA ||
-                                e.type === mapEntities.PolygonMapEntity.TYPE.CARPET ||
                                 e.type === mapEntities.PolygonMapEntity.TYPE.RAMP
                             ) {
                                 entities.push(e);
@@ -440,7 +442,7 @@ class DreameMapParser {
                         return a-b;
                     });
 
-                    entities.push(new mapEntities.PolygonMapEntity({
+                    jsonCarpetPolygons.push(new mapEntities.PolygonMapEntity({
                         points: [
                             xCoords[0], yCoords[0],
                             xCoords[1], yCoords[0],
@@ -467,7 +469,7 @@ class DreameMapParser {
                         points.push(p.x, p.y);
                     }
 
-                    entities.push(new mapEntities.PolygonMapEntity({
+                    jsonCarpetPolygons.push(new mapEntities.PolygonMapEntity({
                         points: points,
                         type: mapEntities.PolygonMapEntity.TYPE.CARPET,
                         metaData: {
@@ -476,6 +478,14 @@ class DreameMapParser {
                     }));
 
                 }
+            }
+
+            if (jsonCarpetPolygons.length > 0) {
+                entities.push(...jsonCarpetPolygons);
+            } else if (rismCarpetPolygons.length > 0) {
+                entities.push(...rismCarpetPolygons);
+            } else {
+                entities.push(...regularCarpetPolygons);
             }
 
         } else {
