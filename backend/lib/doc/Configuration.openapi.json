@@ -493,8 +493,7 @@
                 "type": "string",
                 "enum": [
                   "full_cleanup",
-                  "segment_cleanup",
-                  "automatic_cleanup"
+                  "segment_cleanup"
                 ]
               },
               "params": {
@@ -520,12 +519,6 @@
                   },
                   "custom_order": {
                     "type": "boolean"
-                  },
-                  "preset": {
-                    "type": "string"
-                  },
-                  "sub_mode": {
-                    "type": "string"
                   }
                 }
               }
