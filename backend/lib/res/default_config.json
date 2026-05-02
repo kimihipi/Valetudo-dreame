@@ -62,7 +62,8 @@
         },
         "customizations": {
             "topicPrefix": "",
-            "provideMapData": true
+            "provideMapData": true,
+            "provideRenderedMap": false
         },
         "optionalExposedCapabilities": []
     },

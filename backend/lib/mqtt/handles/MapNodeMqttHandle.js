@@ -9,6 +9,8 @@ const MqttCommonAttributes = require("../MqttCommonAttributes");
 const NodeMqttHandle = require("./NodeMqttHandle");
 const path = require("path");
 const PropertyMqttHandle = require("./PropertyMqttHandle");
+const StatusStateAttribute = require("../../entities/state/attributes/StatusStateAttribute");
+const ValetudoMapPngRenderer = require("../ValetudoMapPngRenderer");
 const zlib = require("zlib");
 
 class MapNodeMqttHandle extends NodeMqttHandle {
@@ -28,6 +30,13 @@ class MapNodeMqttHandle extends NodeMqttHandle {
         }));
 
         this.robot = options.robot;
+        this.pngDebounceTimer = null;
+        /** @type {Buffer | null} */
+        this.cachedPngBuffer = null;
+        this.pngHandle = null;
+        this.robotWasActive = false;
+        /** @type {number | null} */
+        this.lastMapRenderHash = null;
 
         this.registerChild(
             new PropertyMqttHandle({
@@ -128,6 +137,41 @@ class MapNodeMqttHandle extends NodeMqttHandle {
                 })
             );
         });
+
+        if ((/** @type {any} */ (this.controller.currentConfig?.customizations))?.provideRenderedMap ?? false) {
+            this.pngHandle = new PropertyMqttHandle({
+                parent: this,
+                controller: this.controller,
+                topicName: "map-data-png",
+                friendlyName: "Map",
+                datatype: DataType.STRING,
+                getter: async () => {
+                    return this.cachedPngBuffer;
+                },
+            }).also((prop) => {
+                this.controller.withHass((hass) => {
+                    prop.attachHomeAssistantComponent(
+                        new InLineHassComponent({
+                            hass: hass,
+                            robot: this.robot,
+                            name: "Map",
+                            friendlyName: "Map",
+                            componentType: ComponentType.CAMERA,
+                            autoconf: {
+                                topic: prop.getBaseTopic()
+                            }
+                        })
+                    );
+                });
+            });
+            this.registerChild(this.pngHandle);
+
+            // Publish an initial render shortly after MQTT settles so HA has a
+            // retained image immediately, without waiting for the first debounce.
+            if (this.robot.state.map !== null) {
+                setTimeout(() => this._renderAndPublishPng(), 2_000);
+            }
+        }
     }
 
     /**
@@ -150,6 +194,77 @@ class MapNodeMqttHandle extends NodeMqttHandle {
                 Logger.error("Error during MQTT handle refresh", err);
             });
         }
+
+        if (this.pngHandle === null || !this.controller.isInitialized || this.robot.state.map === null) {
+            return;
+        }
+
+        const isActive = this.robot.state
+            .getFirstMatchingAttributeByConstructor(StatusStateAttribute)
+            ?.isActiveState ?? false;
+
+        // 5s while cleaning; 5s on the first update after docking (captures
+        // final position); 60s for all subsequent idle updates.
+        const delay = (isActive || this.robotWasActive) ? 5_000 : 60_000;
+        this.robotWasActive = isActive;
+
+        clearTimeout(this.pngDebounceTimer);
+        this.pngDebounceTimer = setTimeout(() => {
+            this.pngDebounceTimer = null;
+            this._renderAndPublishPng();
+        }, delay);
+    }
+
+    /**
+     * Cheap fingerprint of the parts of the map that affect the rendered PNG.
+     * Covers robot position/angle and each visible layer's extent + pixel count.
+     * Deliberately excludes full pixel data — O(entities + layers), not O(pixels).
+     *
+     * @private
+     * @param {import("../../entities/map/ValetudoMap")} map
+     * @returns {number}
+     */
+    _computeMapRenderHash(map) {
+        const parts = map.entities
+            .map(e => `${e.type}:${e.points.join(",")}:${/** @type {any} */ (e.metaData)?.angle ?? ""}`)
+            .join("|");
+        const layers = map.layers
+            .filter(l => !l.metaData.hidden)
+            .map(l => {
+                const d = l.dimensions;
+                return `${l.type}:${d?.pixelCount ?? 0}:${d?.x.min ?? ""}:${d?.y.min ?? ""}:${d?.x.max ?? ""}:${d?.y.max ?? ""}`;
+            })
+            .join("|");
+        return crc.crc32(`${parts}||${layers}`);
+    }
+
+    /**
+     * @private
+     */
+    _renderAndPublishPng() {
+        const map = this.robot.state.map;
+        if (map === null || !this.controller.isInitialized || this.pngHandle === null) {
+            return;
+        }
+
+        const hash = this._computeMapRenderHash(map);
+        if (hash === this.lastMapRenderHash) {
+            return;
+        }
+
+        ValetudoMapPngRenderer.render({
+            ...map,
+            layers: map.layers.filter(l => !l.metaData.hidden),
+        }).then(buf => {
+            if (!this.controller.isInitialized || this.pngHandle === null) {
+                return;
+            }
+            this.lastMapRenderHash = hash;
+            this.cachedPngBuffer = buf;
+            return this.controller.refresh(this.pngHandle);
+        }).catch(err => {
+            Logger.error("Error rendering/publishing PNG map", err);
+        });
     }
 
     /**

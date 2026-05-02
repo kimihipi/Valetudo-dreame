@@ -331,6 +331,7 @@ export interface MQTTConfiguration {
     customizations: {
         topicPrefix: string;
         provideMapData: boolean;
+        provideRenderedMap: boolean;
     };
     interfaces: {
         homie: {

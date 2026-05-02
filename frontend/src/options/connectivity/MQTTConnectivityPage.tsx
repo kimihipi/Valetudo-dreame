@@ -770,6 +770,12 @@ const MQTTConnectivity = (): React.ReactElement => {
                     title="Provide map data"
                     configPath={["customizations", "provideMapData"]}
                 />
+                <MQTTSwitch
+                    mqttConfiguration={mqttConfiguration}
+                    modifyMQTTConfig={modifyMQTTConfig}
+                    title="Provide rendered map"
+                    configPath={["customizations", "provideRenderedMap"]}
+                />
             </GroupBox>
 
             {

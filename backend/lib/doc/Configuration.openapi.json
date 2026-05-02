@@ -233,6 +233,10 @@
               "provideMapData": {
                 "type": "boolean",
                 "description": "If for some reason you're not interested in receiving map data via MQTT, you can disable that here."
+              },
+              "provideRenderedMap": {
+                "type": "boolean",
+                "description": "If enabled, a rendered PNG of the map is published to MapData/map-data-png after each map update (debounced: 5s while cleaning, 60s while idle/docked)."
               }
             }
           },
