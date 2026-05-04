@@ -56,7 +56,7 @@ export const presetFriendlyNames: Record<string, string> = Object.freeze({
     "every_25_m2": "Every 25 m²",
 
     "on": "On",
-    "missing_cartridge": "Missing Cartridge"
+    "missing_cartridge": "Missing Cartridge",
 });
 
 export function getPresetIconOrLabel(capability: Capability, preset: string, style?: React.CSSProperties): ReactElement | string {

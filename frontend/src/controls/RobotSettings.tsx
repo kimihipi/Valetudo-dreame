@@ -67,6 +67,9 @@ import {
     DoNotDisturbConfiguration,
     useEnergySavingChargingConfigurationQuery,
     useEnergySavingChargingConfigurationMutation,
+    useBatteryChargeLevelPropertiesQuery,
+    useBatteryChargeLevelQuery,
+    useBatteryChargeLevelMutation,
     useVoicePackManagementStateQuery,
     useVoicePackManagementMutation,
     VoicePackManagementCommand,
@@ -98,6 +101,7 @@ import {
     VolumeDown as VolumeDownIcon,
     VolumeUp as VolumeUpIcon,
     BatteryChargingFull as EnergySavingChargingIcon,
+    Battery4Bar as BatteryChargeLevelIcon,
     Notifications as DoNotDisturbIcon,
     ExpandLess as CollapseIcon,
     ExpandMore as ExpandIcon,
@@ -841,6 +845,38 @@ const EnergySavingChargingSetting = () => {
     );
 };
 
+const BatteryChargeLevelSetting = () => {
+    const {
+        data: properties,
+        isPending: propertiesPending,
+        isError: propertiesError,
+    } = useBatteryChargeLevelPropertiesQuery();
+
+    const options: SelectListMenuItemOption[] = (properties?.supportedLevels ?? []).map((val: string) => ({
+        value: val,
+        label: val,
+    }));
+
+    const {data, isPending, isFetching, isError} = useBatteryChargeLevelQuery();
+    const {mutate, isPending: isChanging} = useBatteryChargeLevelMutation();
+    const disabled = isFetching || isChanging || isError;
+    const currentValue = options.find(o => o.value === data) ?? {value: "", label: ""};
+
+    return (
+        <SelectListMenuItem
+            primaryLabel="Charge Limit"
+            secondaryLabel="Maximum battery charge level the robot will charge to."
+            icon={<BatteryChargeLevelIcon/>}
+            options={options}
+            currentValue={currentValue}
+            setValue={(e) => mutate(e.value)}
+            disabled={disabled}
+            loadingOptions={propertiesPending || isPending}
+            loadError={propertiesError}
+        />
+    );
+};
+
 const VoicePackSetting = () => {
     const {data: voicePackStatus} = useVoicePackManagementStateQuery();
     const {mutate: updateVoicePack, isPending: isUpdating} = useVoicePackManagementMutation();
@@ -958,6 +994,7 @@ const RobotSettings: React.FC<{
         doNotDisturbSupported,
         voicePackManagementSupported,
         energySavingChargingSupported,
+        batteryChargeLevelSupported,
     ] = useCapabilitiesSupported(
         Capability.Locate,
         Capability.KeyLock,
@@ -979,6 +1016,7 @@ const RobotSettings: React.FC<{
         Capability.DoNotDisturb,
         Capability.VoicePackManagement,
         Capability.EnergySavingCharging,
+        Capability.BatteryChargeLevelControl,
     );
 
     const {data: quirks} = useQuirksQuery();
@@ -1070,6 +1108,9 @@ const RobotSettings: React.FC<{
         if (energySavingChargingSupported) {
             systemItems.push(<EnergySavingChargingSetting key="energySavingCharging"/>);
         }
+        if (batteryChargeLevelSupported) {
+            systemItems.push(<BatteryChargeLevelSetting key="batteryChargeLevel"/>);
+        }
         if (voicePackManagementSupported) {
             systemItems.push(<VoicePackSetting key="voicePacks"/>);
         }
@@ -1131,6 +1172,7 @@ const RobotSettings: React.FC<{
         doNotDisturbSupported,
         voicePackManagementSupported,
         energySavingChargingSupported,
+        batteryChargeLevelSupported,
         quirks,
         quirksExpanded,
         setQuirksExpanded,

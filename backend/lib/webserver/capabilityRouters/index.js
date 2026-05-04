@@ -3,6 +3,7 @@ module.exports = {
     AutoEmptyDockAutoEmptyIntervalControlCapabilityRouter: require("./AutoEmptyDockAutoEmptyIntervalControlCapabilityRouter"),
     AutoEmptyDockManualTriggerCapabilityRouter: require("./AutoEmptyDockManualTriggerCapabilityRouter"),
     BasicControlCapabilityRouter: require("./BasicControlCapabilityRouter"),
+    BatteryChargeLevelControlCapabilityRouter: require("./BatteryChargeLevelControlCapabilityRouter"),
     CarpetSensorModeControlCapabilityRouter: require("./CarpetSensorModeControlCapabilityRouter"),
     CarpetZonesCapabilityRouter: require("./CarpetZonesCapabilityRouter"),
     CleanRouteControlCapabilityRouter: require("./CleanRouteControlCapabilityRouter"),

@@ -5,6 +5,7 @@ module.exports = {
     AutomaticControlCapability: require("./AutomaticControlCapability"),
     AutomaticSubModeControlCapability: require("./AutomaticSubModeControlCapability"),
     BasicControlCapability: require("./BasicControlCapability"),
+    BatteryChargeLevelControlCapability: require("./BatteryChargeLevelControlCapability"),
     CameraLightControlCapability: require("./CameraLightControlCapability"),
     CarpetModeControlCapability: require("./CarpetModeControlCapability"),
     CarpetSensorModeControlCapability: require("./CarpetSensorModeControlCapability"),

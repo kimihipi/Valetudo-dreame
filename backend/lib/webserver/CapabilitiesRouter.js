@@ -123,6 +123,7 @@ const CAPABILITY_TYPE_TO_ROUTER_MAPPING = {
     [capabilities.AutoEmptyDockAutoEmptyDurationControlCapability.TYPE]: capabilityRouters.AutoEmptyDockAutoEmptyDurationControlCapabilityRouter,
     [capabilities.SuctionBoostControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
     [capabilities.MaintenanceCapability.TYPE]: capabilityRouters.MaintenanceCapabilityRouter,
+    [capabilities.BatteryChargeLevelControlCapability.TYPE]: capabilityRouters.BatteryChargeLevelControlCapabilityRouter,
 };
 
 module.exports = CapabilitiesRouter;

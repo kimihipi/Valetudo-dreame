@@ -270,6 +270,7 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
         ].forEach(capability => {
             this.registerCapability(new capability({robot: this}));
         });
+
     }
 
     onIncomingCloudMessage(msg) {

@@ -4,6 +4,7 @@ import {PresetSelectionState, PresetValue, RobotAttribute} from "./RawRobotState
 import {
     ActivityHistoryEntry,
     AutoEmptyDockAutoEmptyDuration,
+    BatteryChargeLevelProperties,
     AutoEmptyDockAutoEmptyDurationControlProperties,
     AutoEmptyDockAutoEmptyDurationPayload,
     AutoEmptyDockAutoEmptyInterval,
@@ -1411,6 +1412,22 @@ export const fetchCarpetSensorModeProperties = async (): Promise<CarpetSensorMod
         .then(({data}) => {
             return data;
         });
+};
+
+export const fetchBatteryChargeLevelProperties = async (): Promise<BatteryChargeLevelProperties> => {
+    return valetudoAPI
+        .get<BatteryChargeLevelProperties>(`/robot/capabilities/${Capability.BatteryChargeLevelControl}/properties`)
+        .then(({data}) => data);
+};
+
+export const fetchBatteryChargeLevel = async (): Promise<string> => {
+    return valetudoAPI
+        .get<{level: string}>(`/robot/capabilities/${Capability.BatteryChargeLevelControl}`)
+        .then(({data}) => data.level);
+};
+
+export const sendBatteryChargeLevel = async (level: string): Promise<void> => {
+    await valetudoAPI.put(`/robot/capabilities/${Capability.BatteryChargeLevelControl}`, {level: level});
 };
 
 export const sendAutoEmptyDockAutoEmptyInterval = async (payload: AutoEmptyDockAutoEmptyIntervalPayload): Promise<void> => {

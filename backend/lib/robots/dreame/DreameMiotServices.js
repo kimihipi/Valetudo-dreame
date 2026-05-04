@@ -659,6 +659,9 @@ module.exports = {
                 },
                 SIDE_BRUSH_ON_CARPET: {
                     PIID: 29
+                },
+                BATTERY_CHARGE_LEVEL: {
+                    PIID: 47
                 }
             }
         },

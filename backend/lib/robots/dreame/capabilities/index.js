@@ -13,6 +13,7 @@ module.exports = {
     DreameAutomaticControlCapability: require("./DreameAutomaticControlCapability"),
     DreameAutomaticSubModeControlCapability: require("./DreameAutomaticSubModeControlCapability"),
     DreameBasicControlCapability: require("./DreameBasicControlCapability"),
+    DreameBatteryChargeLevelControlCapability: require("./DreameBatteryChargeLevelControlCapability"),
     DreameCameraLightControlCapability: require("./DreameCameraLightControlCapability"),
     DreameCarpetModeControlCapability: require("./DreameCarpetModeControlCapability"),
     DreameCarpetSensorModeControlCapability: require("./DreameCarpetSensorModeControlCapability"),

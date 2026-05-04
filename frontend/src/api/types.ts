@@ -5,6 +5,7 @@ export enum Capability {
     AutomaticControl = "AutomaticControlCapability",
     AutomaticSubModeControl = "AutomaticSubModeControlCapability",
     AutoEmptyDockAutoEmptyDurationControl = "AutoEmptyDockAutoEmptyDurationControlCapability",
+    BatteryChargeLevelControl = "BatteryChargeLevelControlCapability",
     AutoEmptyDockManualTrigger = "AutoEmptyDockManualTriggerCapability",
     BasicControl = "BasicControlCapability",
     CarpetModeControl = "CarpetModeControlCapability",
@@ -758,6 +759,10 @@ export interface DockSubActivity {
     dockStatus: string | null;
     batteryLevel: number | null;
     batteryFlag: string | null;
+}
+
+export interface BatteryChargeLevelProperties {
+    supportedLevels: Array<string>;
 }
 
 export interface ActivityHistoryEntry {

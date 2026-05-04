@@ -178,6 +178,9 @@ import {
     fetchAutoEmptyDockAutoEmptyDuration,
     sendAutoEmptyDockAutoEmptyDuration,
     fetchAutoEmptyDockAutoEmptyDurationControlProperties,
+    fetchBatteryChargeLevelProperties,
+    fetchBatteryChargeLevel,
+    sendBatteryChargeLevel,
 } from "./client";
 import {
     PresetSelectionState,
@@ -316,6 +319,8 @@ enum QueryKey {
     IntelligentMapRecognitionControl = "intelligent_map_recognition_control",
     MaintenanceControl = "maintenance_control",
     MaintenanceControlProperties = "maintenance_control_properties",
+    BatteryChargeLevel = "battery_charge_level",
+    BatteryChargeLevelProperties = "battery_charge_level_properties",
 }
 
 const useOnCommandError = (capability: Capability | string): ((error: unknown) => void) => {
@@ -1930,6 +1935,33 @@ export const useCarpetSensorModePropertiesQuery = () => {
         queryFn: fetchCarpetSensorModeProperties,
 
         staleTime: Infinity
+    });
+};
+
+export const useBatteryChargeLevelPropertiesQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.BatteryChargeLevelProperties],
+        queryFn: fetchBatteryChargeLevelProperties,
+        staleTime: Infinity,
+    });
+};
+
+export const useBatteryChargeLevelQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.BatteryChargeLevel],
+        queryFn: fetchBatteryChargeLevel,
+    });
+};
+
+export const useBatteryChargeLevelMutation = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (level: string) => sendBatteryChargeLevel(level).then(fetchBatteryChargeLevel),
+        onSuccess: (data) => {
+            queryClient.setQueryData<string>([QueryKey.BatteryChargeLevel], data);
+        },
+        onError: useOnCommandError(Capability.BatteryChargeLevelControl),
     });
 };
 
