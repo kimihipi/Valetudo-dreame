@@ -428,6 +428,7 @@ export interface ValetudoEvent {
     type?: string;
     subType?: string;
     message?: string;
+    value?: string;
     reason?: string;
     description?: string;
     previousVersion?: string;

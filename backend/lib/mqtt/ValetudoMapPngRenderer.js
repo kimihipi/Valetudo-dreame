@@ -1,9 +1,9 @@
 "use strict";
 
-const LineMapEntity = require("../entities/map/LineMapEntity");
+const LineMapEntity = require("../entities/map/entities/LineMapEntity");
 const MapLayer = require("../entities/map/MapLayer");
-const PointMapEntity = require("../entities/map/PointMapEntity");
-const PolygonMapEntity = require("../entities/map/PolygonMapEntity");
+const PointMapEntity = require("../entities/map/entities/PointMapEntity");
+const PolygonMapEntity = require("../entities/map/entities/PolygonMapEntity");
 const zlib = require("zlib");
 
 // Palette indices
@@ -249,7 +249,7 @@ function scaleToMax(src, srcW, srcH) {
  * Renders a map to an indexed-color PNG buffer.
  * No external dependencies — uses only the built-in zlib module.
  *
- * @param {{size: {x: number, y: number}, pixelSize: number, layers: import("../entities/map/MapLayer")[], entities: import("../entities/map/MapEntity")[]}} map
+ * @param {{size: {x: number, y: number}, pixelSize: number, layers: import("../entities/map/MapLayer")[], entities: import("../entities/map/entities/MapEntity")[]}} map
  * @returns {Promise<Buffer>}
  */
 function render(map) {
