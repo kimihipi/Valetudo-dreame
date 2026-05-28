@@ -3,8 +3,8 @@ import React from "react";
 import { useGo2RtcStreamsQuery } from "../api/go2rtc";
 
 const CameraStream = (props: { iframeStyle?: React.CSSProperties; setVisible?: (value: boolean) => void }): React.ReactElement => {
-    const { data: streams } = useGo2RtcStreamsQuery();
-    const firstStreamKey = React.useMemo(() => Object.keys(streams ?? {}).at(0), [streams]);
+    const { data: streams, isError } = useGo2RtcStreamsQuery();
+    const firstStreamKey = React.useMemo(() => !isError ? Object.keys(streams ?? {}).at(0) : undefined, [streams, isError]);
 
     React.useEffect(() => {
         if (props.setVisible) {

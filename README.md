@@ -97,6 +97,13 @@ These steps adds camera streaming support to Valetudo. It is optional and the ca
 8. Run `touch mnt_private-copy/certificate.bin`
 9. Edit `go2rtc.yaml` to update the placeholder RTSP password
 10. Run `chmod +x video_monitor go2rtc`
+11. Edit `/data/valetudo/valetudo_config.json` updating the following option so that Valetudo launches the streamer processes:
+
+```
+webserver.streamerProxy.manageProcesses: true
+```
+
+> **Optional**: Additionally setting `webserver.streamerProxy.stopWhenIdle: true` will only run the streamer processes while the robot is in an active state (cleaning, returning, etc.) and stop them otherwise. This offers some privacy advantages and some robots may require this to operate correctly such as recent Dreame X40 firmwares.
 
 ### Part 4 (Custom audio playback) [Optional]
 
@@ -104,7 +111,7 @@ These steps allow for on demand playback of custom audio files should it be desi
 
 1. Run `mkdir /data/valetudo/audio` (or let Valetudo create it on startup)
 2. Optionally run `cp /audio/{LANG}/* /data/valetudo/audio` to make the default robot audio files available for manual playback
-3. Custom audio files can now be added to `/data/valetudo/audio` as desired. They must be mono 16kHz `.ogg` files.
+3. Custom audio files can now be added to `/data/valetudo/audio` as desired. They must be `.ogg` files.
 
 ### Part 5 (Final configuration)
 

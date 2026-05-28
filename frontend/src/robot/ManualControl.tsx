@@ -1,209 +1,214 @@
-import React, {useEffect, useRef, useCallback, useState} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     Box,
-    Button,
-    Stack,
-    Typography,
-    styled,
+    Card,
+    CardContent,
+    FormControlLabel,
+    Grid2,
     Skeleton,
-    CircularProgress,
+    Switch,
+    Typography,
 } from "@mui/material";
 import {
     Capability,
     ManualControlCommand,
+    sendManualControlInteraction,
+    sendHighResolutionManualControlInteraction,
     useManualControlInteraction,
     useManualControlPropertiesQuery,
     useManualControlStateQuery,
     useHighResolutionManualControlStateQuery,
     useHighResolutionManualControlInteraction,
     ValetudoManualMovementVector,
+    ManualControlInteraction,
+    HighResolutionManualControlInteraction,
 } from "../api";
 import { useCapabilitiesSupported } from "../CapabilitiesProvider";
-import { useTheme } from "@mui/material/styles";
-import {
-    ArrowDownward as ArrowDownwardIcon,
-    ArrowUpward as ArrowUpwardIcon,
-    RotateLeft as RotateLeftIcon,
-    RotateRight as RotateRightIcon,
-    VideogameAsset as VideogameAssetIcon,
-    VideogameAssetOff as VideogameAssetOffIcon,
-} from "@mui/icons-material";
+import { FullHeightGrid } from "../components/FullHeightGrid";
 import PaperContainer from "../components/PaperContainer";
-import { Joystick } from "react-joystick-component";
-import { IJoystickUpdateEvent } from "react-joystick-component/build/lib/Joystick";
 import CameraStream from "../controls/CameraStream";
-const SideButton = styled(Button)({
-    width: "30%",
-    height: "100%",
-});
+import { VirtualControllerProvider, InputMode, MovementCommandSender, useVirtualController } from "./manual_control/VirtualController";
+import { MovementSampler } from "./manual_control/MovementSampler";
+import { InputModeToggle } from "./manual_control/InputModeToggle";
+import { KeyboardInput } from "./manual_control/KeyboardInput";
+import { DPadInput } from "./manual_control/DPadInput";
+import { ControllerVisual } from "./manual_control/ControllerVisual";
 
-const CenterButton = styled(Button)({
-    width: "100%",
-});
+function ModeSwitchReset({ mode }: { mode: InputMode }) {
+    const { resetState } = useVirtualController();
+    const prevMode = useRef(mode);
+    useEffect(() => {
+        if (prevMode.current !== mode) {
+            prevMode.current = mode;
+            resetState();
+        }
+    }, [mode, resetState]);
+    return null;
+}
 
-const KEY_COMMAND_MAP: Record<string, ManualControlCommand> = {
-    "w": "forward", "W": "forward", "ArrowUp": "forward",
-    "s": "backward", "S": "backward", "ArrowDown": "backward",
-    "a": "rotate_counterclockwise", "A": "rotate_counterclockwise", "ArrowLeft": "rotate_counterclockwise",
-    "d": "rotate_clockwise", "D": "rotate_clockwise", "ArrowRight": "rotate_clockwise",
-};
-
-const ControlEnableButton = () => {
-    const {data: manualControlState, isPending} = useManualControlStateQuery();
-    const {mutate: sendInteraction, isPending: interacting} = useManualControlInteraction();
-    const enabled = manualControlState?.enabled || false;
+const HighResolutionControlToggle = () => {
+    const {
+        data: manualControlState,
+        isPending: manualControlStatePending,
+    } = useHighResolutionManualControlStateQuery();
+    const { mutate: sendInteraction, isPending: toggleInteracting } = useHighResolutionManualControlInteraction();
 
     return (
-        <Button
-            variant="outlined"
-            disabled={isPending || interacting}
-            onClick={() => sendInteraction({action: enabled ? "disable" : "enable"})}
-            startIcon={enabled ? <VideogameAssetOffIcon /> : <VideogameAssetIcon />}
-            endIcon={interacting ? <CircularProgress color="inherit" size={18} /> : undefined}
-        >
-            {enabled ? "Disable Manual Control" : "Enable Manual Control"}
-        </Button>
+        <FormControlLabel
+            control={
+                <Switch
+                    checked={manualControlState?.enabled || false}
+                    disabled={manualControlStatePending || toggleInteracting}
+                    onChange={(e) => {
+                        sendInteraction({
+                            action: e.target.checked ? "enable" : "disable",
+                        });
+                    }}
+                />
+            }
+            label="Enable manual control"
+            style={{ marginLeft: 0 }}
+        />
     );
 };
 
-const HighResolutionEnableButton = () => {
-    const {data: manualControlState, isPending} = useHighResolutionManualControlStateQuery();
-    const {mutate: sendInteraction, isPending: interacting} = useHighResolutionManualControlInteraction();
-    const enabled = manualControlState?.enabled || false;
-
-    return (
-        <Button
-            variant="outlined"
-            disabled={isPending || interacting}
-            onClick={() => sendInteraction({action: enabled ? "disable" : "enable"})}
-            startIcon={enabled ? <VideogameAssetOffIcon /> : <VideogameAssetIcon />}
-            endIcon={interacting ? <CircularProgress color="inherit" size={18} /> : undefined}
-        >
-            {enabled ? "Disable Manual Control" : "Enable Manual Control"}
-        </Button>
-    );
-};
-
-const MovementControls = () => {
+const StandardControlToggle = () => {
     const {
         data: manualControlState,
         isPending: manualControlStatePending,
     } = useManualControlStateQuery();
+    const { mutate: sendInteraction, isPending: toggleInteracting } = useManualControlInteraction();
 
+    return (
+        <FormControlLabel
+            control={
+                <Switch
+                    checked={manualControlState?.enabled || false}
+                    disabled={manualControlStatePending || toggleInteracting}
+                    onChange={(e) => {
+                        sendInteraction({
+                            action: e.target.checked ? "enable" : "disable",
+                        });
+                    }}
+                />
+            }
+            label="Enable manual control"
+            style={{ marginLeft: 0 }}
+        />
+    );
+};
+
+const HighResolutionMovementControls = () => {
+    const {
+        data: manualControlState,
+        isPending: manualControlStatePending,
+    } = useHighResolutionManualControlStateQuery();
+
+    const controlsEnabled = !manualControlStatePending && !!manualControlState?.enabled;
+    const [inputMode, setInputMode] = useState<InputMode>("joystick");
+
+    const controllerSender: MovementCommandSender = useCallback(async (vector) => {
+        await sendHighResolutionManualControlInteraction({
+            action: "move",
+            vector: vector,
+        } as HighResolutionManualControlInteraction);
+    }, []);
+
+    return (
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <InputModeToggle mode={inputMode} onChange={setInputMode} />
+
+            <VirtualControllerProvider>
+                <Box sx={{ minHeight: 240, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <MovementSampler enabled={controlsEnabled} sendMoveCommand={controllerSender} />
+                    <ModeSwitchReset mode={inputMode} />
+                    <ControllerVisual mode={inputMode} enabled={controlsEnabled} />
+
+                    {inputMode === "keyboard" && (
+                        <KeyboardInput enabled={controlsEnabled} highResSupported={true} />
+                    )}
+                    {inputMode === "dpad" && <DPadInput enabled={controlsEnabled} />}
+                </Box>
+            </VirtualControllerProvider>
+        </Box>
+    );
+};
+
+const StandardMovementControls = () => {
+    const {
+        data: manualControlState,
+        isPending: manualControlStatePending,
+    } = useManualControlStateQuery();
     const {
         data: manualControlProperties,
         isPending: manualControlPropertiesPending,
     } = useManualControlPropertiesQuery();
 
-    const {mutate: sendInteraction, isPending: moveInteracting} = useManualControlInteraction();
-
     const loading = manualControlStatePending || manualControlPropertiesPending;
-    const controlsEnabled = !loading && manualControlState?.enabled && !moveInteracting;
+    const controlsEnabled = !loading && !!manualControlState?.enabled;
+    const [inputMode, setInputMode] = useState<InputMode>("dpad");
 
-    const forwardEnabled = controlsEnabled && manualControlProperties?.supportedMovementCommands.includes("forward");
-    const backwardEnabled = controlsEnabled && manualControlProperties?.supportedMovementCommands.includes("backward");
-    const rotateCwEnabled = controlsEnabled && manualControlProperties?.supportedMovementCommands.includes("rotate_clockwise");
-    const rotateCcwEnabled = controlsEnabled && manualControlProperties?.supportedMovementCommands.includes("rotate_counterclockwise");
+    const forwardSupported = manualControlProperties?.supportedMovementCommands.includes("forward") ?? false;
+    const backwardSupported = manualControlProperties?.supportedMovementCommands.includes("backward") ?? false;
+    const rotateCwSupported = manualControlProperties?.supportedMovementCommands.includes("rotate_clockwise") ?? false;
+    const rotateCcwSupported = manualControlProperties?.supportedMovementCommands.includes("rotate_counterclockwise") ?? false;
 
-    const sendMoveCommand = (command: ManualControlCommand) => {
-        if (!controlsEnabled) {
-            return;
+    const sendMoveCommand = useCallback(async (vector: ValetudoManualMovementVector) => {
+        if (vector.velocity > 0.3 && forwardSupported) {
+            await sendManualControlInteraction({ action: "move", movementCommand: "forward" as ManualControlCommand } as ManualControlInteraction);
+        } else if (vector.velocity < -0.3 && backwardSupported) {
+            await sendManualControlInteraction({ action: "move", movementCommand: "backward" as ManualControlCommand } as ManualControlInteraction);
+        } else if (vector.angle > 30 && rotateCwSupported) {
+            await sendManualControlInteraction({ action: "move", movementCommand: "rotate_clockwise" as ManualControlCommand } as ManualControlInteraction);
+        } else if (vector.angle < -30 && rotateCcwSupported) {
+            await sendManualControlInteraction({ action: "move", movementCommand: "rotate_counterclockwise" as ManualControlCommand } as ManualControlInteraction);
         }
-        sendInteraction({ action: "move", movementCommand: command });
-    };
-
-    const heldKeysRef = useRef<Set<string>>(new Set());
-    const [activeCommands, setActiveCommands] = useState<Set<ManualControlCommand>>(new Set());
-
-    useEffect(() => {
-        if (!controlsEnabled) {
-            heldKeysRef.current.clear();
-            setActiveCommands(new Set());
-        }
-    }, [controlsEnabled]);
-
-    useEffect(() => {
-        const updateActive = () => {
-            const active = new Set<ManualControlCommand>();
-            for (const key of heldKeysRef.current) {
-                const cmd = KEY_COMMAND_MAP[key];
-                if (cmd) {
-                    active.add(cmd);
-                }
-            }
-            setActiveCommands(active);
-        };
-
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (!controlsEnabled || e.repeat) {
-                return;
-            }
-            const command = KEY_COMMAND_MAP[e.key];
-            if (!command) {
-                return;
-            }
-            if (!manualControlProperties?.supportedMovementCommands.includes(command)) {
-                return;
-            }
-            if (heldKeysRef.current.has(e.key)) {
-                return;
-            }
-            heldKeysRef.current.add(e.key);
-            updateActive();
-            sendInteraction({ action: "move", movementCommand: command });
-        };
-
-        const handleKeyUp = (e: KeyboardEvent) => {
-            if (!controlsEnabled || !KEY_COMMAND_MAP[e.key]) {
-                return;
-            }
-            heldKeysRef.current.delete(e.key);
-            updateActive();
-        };
-
-        window.addEventListener("keydown", handleKeyDown);
-        window.addEventListener("keyup", handleKeyUp);
-        return () => {
-            window.removeEventListener("keydown", handleKeyDown);
-            window.removeEventListener("keyup", handleKeyUp);
-        };
-    }, [controlsEnabled, sendInteraction, manualControlProperties]);
+    }, [forwardSupported, backwardSupported, rotateCwSupported, rotateCcwSupported]);
 
     return (
-        <Stack direction="row" sx={{width: "100%", height: "clamp(140px, 25vh, 220px)"}} justifyContent="center" alignItems="center">
-            <SideButton
-                variant={activeCommands.has("rotate_counterclockwise") ? "contained" : "outlined"}
-                disabled={!rotateCcwEnabled}
-                onClick={() => sendMoveCommand("rotate_counterclockwise")}
-            >
-                <RotateLeftIcon/>
-            </SideButton>
-            <Stack sx={{width: "40%", height: "100%", ml: 1, mr: 1}} justifyContent="space-between">
-                <CenterButton
-                    sx={{height: "65%"}}
-                    variant={activeCommands.has("forward") ? "contained" : "outlined"}
-                    disabled={!forwardEnabled}
-                    onClick={() => sendMoveCommand("forward")}
-                >
-                    <ArrowUpwardIcon/>
-                </CenterButton>
-                <CenterButton
-                    sx={{height: "30%"}}
-                    variant={activeCommands.has("backward") ? "contained" : "outlined"}
-                    disabled={!backwardEnabled}
-                    onClick={() => sendMoveCommand("backward")}
-                >
-                    <ArrowDownwardIcon/>
-                </CenterButton>
-            </Stack>
-            <SideButton
-                variant={activeCommands.has("rotate_clockwise") ? "contained" : "outlined"}
-                disabled={!rotateCwEnabled}
-                onClick={() => sendMoveCommand("rotate_clockwise")}
-            >
-                <RotateRightIcon/>
-            </SideButton>
-        </Stack>
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <InputModeToggle
+                mode={inputMode}
+                onChange={setInputMode}
+            />
+
+            <VirtualControllerProvider>
+                <Box sx={{ minHeight: 240, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <MovementSampler enabled={controlsEnabled} sendMoveCommand={sendMoveCommand} />
+                    <ModeSwitchReset mode={inputMode} />
+                    <ControllerVisual mode={inputMode} enabled={controlsEnabled} />
+
+                    {inputMode === "keyboard" && (
+                        <KeyboardInput enabled={controlsEnabled} highResSupported={false} />
+                    )}
+                    {inputMode === "dpad" && <DPadInput enabled={controlsEnabled} />}
+                </Box>
+            </VirtualControllerProvider>
+        </Box>
+    );
+};
+
+const HighResolutionManualControlInternal: React.FunctionComponent = (): React.ReactElement => {
+    const { isPending: stateLoading, isError: stateError } = useHighResolutionManualControlStateQuery();
+
+    return (
+        <FullHeightGrid container direction="column">
+            <Grid2 flexGrow={1}>
+                <Box>
+                    {stateLoading ? (
+                        <Skeleton height={"12rem"} />
+                    ) : (
+                        <>
+                            {stateError && <Typography color="error">Error loading manual controls</Typography>}
+                            <Box sx={{ display: "flex", justifyContent: "center", mb: 3 }}>
+                                <HighResolutionControlToggle />
+                            </Box>
+                            <HighResolutionMovementControls />
+                        </>
+                    )}
+                </Box>
+            </Grid2>
+        </FullHeightGrid>
     );
 };
 
@@ -214,200 +219,25 @@ const ManualControlInternal: React.FunctionComponent = (): React.ReactElement =>
     const loading = stateLoading || propertiesLoading;
     const hasError = stateError || propertiesError;
 
-    if (loading) {
-        return <Skeleton height={"12rem"}/>;
-    }
-
     return (
-        <>
-            { hasError && <Typography color="error">Error loading manual controls</Typography> }
-            <MovementControls />
-        </>
+        <FullHeightGrid container direction="column">
+            <Grid2 flexGrow={1}>
+                <Box>
+                    {loading ? (
+                        <Skeleton height={"12rem"} />
+                    ) : (
+                        <>
+                            {hasError && <Typography color="error">Error loading manual controls</Typography>}
+                            <Box sx={{ display: "flex", justifyContent: "center", mb: 3 }}>
+                                <StandardControlToggle />
+                            </Box>
+                            <StandardMovementControls />
+                        </>
+                    )}
+                </Box>
+            </Grid2>
+        </FullHeightGrid>
     );
-};
-
-const HighResolutionMovementControls = () => {
-    const {
-        data: manualControlState,
-        isPending: manualControlStatePending,
-    } = useHighResolutionManualControlStateQuery();
-    const { mutate: sendInteraction } = useHighResolutionManualControlInteraction();
-
-    const controlsEnabled = (!manualControlStatePending && manualControlState?.enabled);
-    const theme = useTheme();
-
-    const velocityRef = useRef(0);
-    const angleRef = useRef(0);
-    const intervalRef = useRef<NodeJS.Timeout | null>(null);
-    const joystickActiveRef = useRef(false);
-
-    const sendMoveCommand = useCallback((vector: ValetudoManualMovementVector) => {
-        sendInteraction({ action: "move", vector: vector });
-    }, [sendInteraction]);
-
-    const handleInputStateUpdate = useCallback((type: "move" | "stop" | "start") => {
-        if (type === "stop") {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
-            }
-            sendMoveCommand({ velocity: 0, angle: 0 });
-        } else if (type === "move") {
-            if (!intervalRef.current) {
-                sendMoveCommand({ velocity: velocityRef.current, angle: angleRef.current });
-                intervalRef.current = setInterval(() => {
-                    sendMoveCommand({ velocity: velocityRef.current, angle: angleRef.current });
-                }, 250);
-            }
-        }
-    }, [sendMoveCommand]);
-
-    const handleJoystickInput = useCallback((e: IJoystickUpdateEvent) => {
-        if (!controlsEnabled) {
-            return;
-        }
-
-        let eventVelocity = 0;
-        let eventAngle = 0;
-
-        if (e.type === "move") {
-            eventVelocity = (e.y ?? 0);
-            eventAngle = (e.x ?? 0) * 120; // 180 would be the limit, but 120 is far saner
-        }
-
-        joystickActiveRef.current = (e.type === "move");
-        velocityRef.current = eventVelocity;
-        angleRef.current = eventAngle;
-
-        handleInputStateUpdate(e.type);
-    }, [controlsEnabled, handleInputStateUpdate]);
-
-    const heldKeysRef = useRef<Set<string>>(new Set());
-
-    const updateVectorFromKeys = useCallback(() => {
-        const keys = heldKeysRef.current;
-        const fwd = keys.has("w") || keys.has("W") || keys.has("ArrowUp");
-        const bck = keys.has("s") || keys.has("S") || keys.has("ArrowDown");
-        const lft = keys.has("a") || keys.has("A") || keys.has("ArrowLeft");
-        const rgt = keys.has("d") || keys.has("D") || keys.has("ArrowRight");
-        velocityRef.current = (fwd ? 1 : 0) + (bck ? -1 : 0);
-        angleRef.current = (rgt ? 120 : 0) + (lft ? -120 : 0);
-    }, []);
-
-    useEffect(() => {
-        if (!controlsEnabled) {
-            heldKeysRef.current.clear();
-            joystickActiveRef.current = false;
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
-            }
-        }
-    }, [controlsEnabled]);
-
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (!controlsEnabled || e.repeat) {
-                return;
-            }
-            if (!KEY_COMMAND_MAP[e.key]) {
-                return;
-            }
-            heldKeysRef.current.add(e.key);
-            updateVectorFromKeys();
-            handleInputStateUpdate("move");
-        };
-
-        const handleKeyUp = (e: KeyboardEvent) => {
-            if (!controlsEnabled || !KEY_COMMAND_MAP[e.key]) {
-                return;
-            }
-            heldKeysRef.current.delete(e.key);
-            updateVectorFromKeys();
-            if (heldKeysRef.current.size === 0 && !joystickActiveRef.current) {
-                handleInputStateUpdate("stop");
-            }
-        };
-
-        window.addEventListener("keydown", handleKeyDown);
-        window.addEventListener("keyup", handleKeyUp);
-        return () => {
-            window.removeEventListener("keydown", handleKeyDown);
-            window.removeEventListener("keyup", handleKeyUp);
-        };
-    }, [controlsEnabled, handleInputStateUpdate, updateVectorFromKeys]);
-
-    useEffect(() => {
-        return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
-            }
-        };
-    }, []);
-
-    const baseColor = controlsEnabled ? theme.palette.grey[600] : theme.palette.grey[800];
-    const stickColor = controlsEnabled ? theme.palette.primary.main : theme.palette.grey[600];
-
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [joystickSize, setJoystickSize] = useState(200);
-
-    useEffect(() => {
-        const el = containerRef.current;
-        if (!el) {
-            return;
-        }
-        const observer = new ResizeObserver(([entry]) => {
-            const width = entry.contentRect.width;
-            setJoystickSize(Math.max(120, Math.min(200, Math.floor(width * 0.45))));
-        });
-        observer.observe(el);
-        return () => observer.disconnect();
-    }, []);
-
-    return (
-        <Box ref={containerRef} sx={{ my: 2, display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <Joystick
-                size={joystickSize}
-                move={handleJoystickInput}
-                stop={handleJoystickInput}
-                disabled={!controlsEnabled}
-                throttle={100}
-                baseColor={baseColor}
-                stickColor={stickColor}
-            />
-        </Box>
-    );
-};
-
-const HighResolutionManualControlInternal: React.FunctionComponent = (): React.ReactElement => {
-    const { isPending: stateLoading, isError: stateError } = useHighResolutionManualControlStateQuery();
-
-    if (stateLoading) {
-        return <Skeleton height={"12rem"}/>;
-    }
-
-    return (
-        <>
-            { stateError && <Typography color="error">Error loading manual controls</Typography> }
-            <HighResolutionMovementControls />
-        </>
-    );
-};
-
-
-export const ManualControlEnableButton = (): React.ReactElement | null => {
-    const [highResSupported, standardSupported] = useCapabilitiesSupported(
-        Capability.HighResolutionManualControl,
-        Capability.ManualControl
-    );
-    if (highResSupported) {
-        return <HighResolutionEnableButton />;
-    }
-    if (standardSupported) {
-        return <ControlEnableButton />;
-    }
-    return null;
 };
 
 const ManualControl = (): React.ReactElement => {
@@ -416,26 +246,42 @@ const ManualControl = (): React.ReactElement => {
         Capability.ManualControl
     );
 
-    const controls = highResSupported ? <HighResolutionManualControlInternal /> :
-        standardSupported ? <ManualControlInternal /> :
-            <Typography color="error">This robot does not support manual control.</Typography>;
+    const [cameraVisible, setCameraVisible] = React.useState(false);
+
+    let controlComponent;
+    if (highResSupported) {
+        controlComponent = <HighResolutionManualControlInternal />;
+    } else if (standardSupported) {
+        controlComponent = <ManualControlInternal />;
+    } else {
+        controlComponent = <Typography color="error">This robot does not support manual control.</Typography>;
+    }
 
     return (
-        <PaperContainer
-            containerStyle={{ height: "100%", display: "flex", flexDirection: "column" }}
-            paperStyle={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}
-        >
-            <Box sx={{ userSelect: "none", display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-                <CameraStream
-                    iframeStyle={{ width: "100%" }}
-                />
-                <Box sx={{ px: 1, pb: 1, flexShrink: 0 }}>
-                    {controls}
-                    <Box sx={{ mt: 1, display: "flex", justifyContent: "center" }}>
-                        <ManualControlEnableButton />
-                    </Box>
-                </Box>
-            </Box>
+        <PaperContainer paperStyle={{ userSelect: "none" } as React.CSSProperties}>
+            <Grid2 container spacing={2} direction="column">
+                <Card
+                    style={{display: !cameraVisible ? "none" : undefined}}
+                    sx={{boxShadow: 3}}
+                >
+                    <CardContent style={{paddingBottom: "16px"}}>
+                        <CameraStream iframeStyle={{minHeight: "25vh"}} setVisible={setCameraVisible} />
+                    </CardContent>
+                </Card>
+
+                {cameraVisible && (
+                    <Card
+                        sx={{boxShadow: 3}}
+                    >
+                        <CardContent style={{paddingBottom: "16px"}}>
+                            {controlComponent}
+                        </CardContent>
+                    </Card>
+                )}
+                {!cameraVisible && (
+                    controlComponent
+                )}
+            </Grid2>
         </PaperContainer>
     );
 };

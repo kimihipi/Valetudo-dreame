@@ -89,8 +89,12 @@ class DreameSpeakerPlayAudioCapability extends SpeakerPlayAudioCapability {
                 throw new Error("Failed to play audio as the file doesn't exist");
             }
 
-            await execPromise(`oggdec ${audioPath} -s 0 -b 8 -o - | aplay -r 16000`);
-            Logger.debug(`Completed playback of audio ${id}`);
+            // Run audio playback async
+            execPromise(`oggdec ${audioPath} -Q -o - | aplay -D hw`).then(() => {
+                Logger.debug(`Completed playback of audio ${id}`);
+            }).catch((err) => {
+                Logger.warn(`Failed to complete playback of audio ${id}: `, err);
+            });
         } catch (err) {
             Logger.error("Failed to play audio: ", err);
             throw new Error("Failed to play audio");

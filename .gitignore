@@ -19,6 +19,7 @@ build/
 
 /docs/vendor
 /docs/_site
+/docs/dist
 
 .claude/
 .codesight

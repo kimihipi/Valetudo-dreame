@@ -198,34 +198,17 @@ const MissingResourceEventControl: FunctionComponent<ValetudoEventRenderProps> =
         );
     };
 
-const DockStatusErrorEventControl = CreateDismissableEventControl("The dock has encountered an error.");
-
-const DOCK_COMPONENT_LABELS: Record<string, string> = {
-    "water_tank_clean": "clean water tank",
-    "water_tank_dirty": "dirty water tank",
-    "dustbag": "dust bag",
-    "detergent": "detergent tank",
-};
-
-const DOCK_COMPONENT_VALUE_LABELS: Record<string, string> = {
-    "missing": "is missing",
-    "full": "is full",
-    "empty": "is empty",
-};
-
-const DockComponentErrorEventControl: FunctionComponent<ValetudoEventRenderProps> =
+const ValetudoUpdatedEventControl: FunctionComponent<ValetudoEventRenderProps> =
     ({event, interact}) => {
-        const color = event.processed ? "textSecondary" : "warning";
+        const color = event.processed ? "textSecondary" : "textPrimary";
         const textStyle = event.processed ? {textDecoration: "line-through"} : {};
-        const componentLabel = event.type ? (DOCK_COMPONENT_LABELS[event.type] ?? event.type) : "Unknown component";
-        const valueLabel = event.value ? (DOCK_COMPONENT_VALUE_LABELS[event.value] ?? event.value) : "";
 
         return (
             <EventRow>
                 <Stack>
                     <EventTimestamp timestamp={event.timestamp}/>
                     <Typography color={color} style={textStyle} sx={{mr: 1}}>
-                        Dock <em>{componentLabel}</em> {valueLabel}
+                        Valetudo was successfully updated from &apos;{event.previousVersion ?? "unknown"}&apos; to &apos;{event.newVersion ?? "unknown"}&apos;.
                     </Typography>
                 </Stack>
                 <Button
@@ -233,9 +216,42 @@ const DockComponentErrorEventControl: FunctionComponent<ValetudoEventRenderProps
                     variant={"contained"}
                     disabled={event.processed}
                     onClick={() => {
-                        interact({interaction: "ok"});
+                        interact({
+                            interaction: "ok"
+                        });
                     }}
-                    color="warning"
+                    color="info"
+                >
+                    Dismiss
+                </Button>
+            </EventRow>
+        );
+    };
+
+const ValetudoRuntimeErrorEventControl: FunctionComponent<ValetudoEventRenderProps> =
+    ({event, interact}) => {
+        const color = event.processed ? "textSecondary" : "error";
+        const textStyle = event.processed ? {textDecoration: "line-through"} : {};
+
+        return (
+            <EventRow>
+                <Stack>
+                    <EventTimestamp timestamp={event.timestamp}/>
+                    <Typography color={color} style={textStyle} sx={{mr: 1}}>
+                        Valetudo ran into a problem and reincarnated itself. This should never happen.<br/><br/>
+                        {event.description ? event.description: `Reason: ${event.reason}`}
+                    </Typography>
+                </Stack>
+                <Button
+                    size="small"
+                    variant={"contained"}
+                    disabled={event.processed}
+                    onClick={() => {
+                        interact({
+                            interaction: "ok"
+                        });
+                    }}
+                    color="error"
                 >
                     Dismiss
                 </Button>
@@ -260,6 +276,8 @@ export const eventControls: Record<string, React.ComponentType<ValetudoEventRend
     ErrorStateValetudoEvent: ErrorEventControl,
     MissingResourceValetudoEvent: MissingResourceEventControl,
     MopAttachmentReminderValetudoEvent: CreateDismissableEventControl("The mop is still attached to the robot."),
-    PendingMapChangeValetudoEvent: PendingMapChangeEventControl,
+    MissingResourceValetudoEvent: MissingResourceEventControl,
+    ValetudoUpdatedValetudoEvent: ValetudoUpdatedEventControl,
+    ValetudoRuntimeErrorValetudoEvent: ValetudoRuntimeErrorEventControl,
     Default: UnknownEventControl,
 };

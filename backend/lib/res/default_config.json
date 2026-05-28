@@ -21,7 +21,9 @@
         "streamerProxy": {
             "enabled": false,
             "url": "http://127.0.0.1:1984",
-            "timeoutMs": 15000
+            "timeoutMs": 15000,
+            "manageProcesses": false,
+            "stopWhenIdle": false
         }
     },
     "mqtt": {

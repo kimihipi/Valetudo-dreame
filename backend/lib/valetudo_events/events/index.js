@@ -8,4 +8,6 @@ module.exports = {
     MissingResourceValetudoEvent: require("./MissingResourceValetudoEvent"),
     MopAttachmentReminderValetudoEvent: require("./MopAttachmentReminderValetudoEvent"),
     PendingMapChangeValetudoEvent: require("./PendingMapChangeValetudoEvent"),
+    ValetudoRuntimeErrorValetudoEvent: require("./ValetudoRuntimeErrorValetudoEvent"),
+    ValetudoUpdatedValetudoEvent: require("./ValetudoUpdatedValetudoEvent"),
 };
