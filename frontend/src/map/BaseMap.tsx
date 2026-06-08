@@ -274,6 +274,9 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
 
         const mapData = this.getMapDataForRendering();
 
+        this.structureManager.updateMapStructuresFromMapData(mapData);
+        this.updateState();
+
         await this.mapLayerManager.draw(mapData, this.props.paletteMode);
         this.drawableComponents.push(this.mapLayerManager.getCanvas());
 
@@ -288,10 +291,6 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
         });
 
         this.drawableComponents.push(pathsImage);
-
-        this.structureManager.updateMapStructuresFromMapData(mapData);
-
-        this.updateState();
 
         this.drawableComponentsMutex.leave();
     }

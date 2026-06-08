@@ -238,7 +238,7 @@ export function PROCESS_LAYERS(layers: Array<RawMapLayer>, pixelSize: number, pa
             case "segment": {
                 const colorId = colorFinder.getColor((layer.metaData.segmentId ?? ""));
 
-                if (!layer.metaData.hidden && (hasSelectedSegments || selectedSegmentIds.includes(layer.metaData.segmentId ?? ""))) {
+                if (!layer.metaData.hidden && (hasSelectedSegments || selectedSegmentIds.includes(layer.metaData.segmentId ?? "") || (alwaysDimUnselectedSegments && layer.metaData.active))) {
                     color = colors.segments[colorId];
                     accentColor = accentColors.segments[colorId];
                 } else {

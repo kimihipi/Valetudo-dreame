@@ -118,7 +118,8 @@ class Valetudo {
             updater: this.updater,
             scheduler: this.scheduler,
             valetudoEventStore: this.valetudoEventStore,
-            valetudoHelper: this.valetudoHelper
+            valetudoHelper: this.valetudoHelper,
+            videoMonitorManager: this.videoMonitorManager
         });
 
 

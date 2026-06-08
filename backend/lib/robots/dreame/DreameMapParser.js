@@ -89,8 +89,6 @@ class DreameMapParser {
                 Logger.warn("Error while parsing additional map data", e);
             }
 
-            Logger.debug("DreameMapParser additionalData", JSON.stringify(additionalData, null, 2));
-
             if (additionalData.sa && Array.isArray(additionalData.sa)) {
                 additionalData.sa.forEach(sa => {
                     activeSegmentIds.push(sa[0].toString());
@@ -197,29 +195,21 @@ class DreameMapParser {
                                 l.metaData.active = true;
                             }
 
-                            if (layers.findIndex(eL => {
+                            const existingLayer = layers.find(eL => {
                                 return eL.metaData.segmentId === l.metaData.segmentId;
-                            }) === -1) {
+                            });
+
+                            if (!existingLayer) {
                                 layers.push(l);
                             } else {
                                 if (l.metaData.name) {
-                                    layers.find(eL => {
-                                        return eL.metaData.segmentId === l.metaData.segmentId;
-                                    }).metaData.name = l.metaData.name;
+                                    existingLayer.metaData.name = l.metaData.name;
                                 }
                                 if (l.metaData.cleanOrder) {
-                                    layers.find(eL => {
-                                        return eL.metaData.segmentId === l.metaData.segmentId;
-                                    }).metaData.cleanOrder = l.metaData.cleanOrder;
+                                    existingLayer.metaData.cleanOrder = l.metaData.cleanOrder;
                                 }
-                                if (l.metaData.material) {
-                                    const layer = layers.find(eL => {
-                                        return eL.metaData.segmentId === l.metaData.segmentId;
-                                    });
-
-                                    if (layer.metaData.material === undefined) {
-                                        layer.metaData.material = l.metaData.material;
-                                    }
+                                if (l.metaData.material && existingLayer.metaData.material === undefined) {
+                                    existingLayer.metaData.material = l.metaData.material;
                                 }
                             }
                         } else {
@@ -556,24 +546,23 @@ class DreameMapParser {
 
         const layers = [];
 
+        /**
+         * The valetudo map origin is in the top left corner
+         * The dreame map origin is in the bottom left corner
+         *
+         * Therefore, we need to flip this and every Y coordinate
+         */
+        const colOffset = parsedHeader.left / parsedHeader.pixelSize;
+        const rowOffset = parsedHeader.top / parsedHeader.pixelSize;
+        const flippedMaxY = MAX_Y / parsedHeader.pixelSize;
+
         for (let i = 0; i < parsedHeader.height; i++) {
             for (let j = 0; j < parsedHeader.width; j++) {
 
                 const coords = [
-                    j + ((parsedHeader.left)/parsedHeader.pixelSize),
-                    i + ((parsedHeader.top)/parsedHeader.pixelSize)
+                    Math.round(j + colOffset),
+                    Math.round(flippedMaxY - (i + rowOffset))
                 ];
-
-                /**
-                 * The valetudo map origin is in the top left corner
-                 * The dreame map origin is in the bottom left corner
-                 *
-                 * Therefore, we need to flip this and every Y coordinate
-                 */
-                coords[1] = (MAX_Y / parsedHeader.pixelSize) - coords[1];
-
-                coords[0] = Math.round(coords[0]);
-                coords[1] = Math.round(coords[1]);
 
 
 
@@ -663,22 +652,22 @@ class DreameMapParser {
             Object.keys(segments).forEach(segmentId => {
                 if (!deletedSegmentIds.includes(segmentId)) {
                     segments[segmentId].forEach(([x, y]) => {
-                        visiblePixelSet.add(`${x},${y}`);
+                        visiblePixelSet.add(x * 65536 + y);
                     });
                 }
             });
-            floorPixels.forEach(([x, y]) => visiblePixelSet.add(`${x},${y}`));
+            floorPixels.forEach(([x, y]) => visiblePixelSet.add(x * 65536 + y));
 
             const filteredWallPixels = wallPixels.filter(([x, y]) => {
                 return (
-                    visiblePixelSet.has(`${x-1},${y}`) ||
-                    visiblePixelSet.has(`${x+1},${y}`) ||
-                    visiblePixelSet.has(`${x},${y-1}`) ||
-                    visiblePixelSet.has(`${x},${y+1}`) ||
-                    visiblePixelSet.has(`${x-1},${y-1}`) ||
-                    visiblePixelSet.has(`${x+1},${y-1}`) ||
-                    visiblePixelSet.has(`${x-1},${y+1}`) ||
-                    visiblePixelSet.has(`${x+1},${y+1}`)
+                    visiblePixelSet.has((x-1) * 65536 + y) ||
+                    visiblePixelSet.has((x+1) * 65536 + y) ||
+                    visiblePixelSet.has(x * 65536 + (y-1)) ||
+                    visiblePixelSet.has(x * 65536 + (y+1)) ||
+                    visiblePixelSet.has((x-1) * 65536 + (y-1)) ||
+                    visiblePixelSet.has((x+1) * 65536 + (y-1)) ||
+                    visiblePixelSet.has((x-1) * 65536 + (y+1)) ||
+                    visiblePixelSet.has((x+1) * 65536 + (y+1))
                 );
             });
 
@@ -745,7 +734,7 @@ class DreameMapParser {
                 let minX = sx, maxX = sx, minY = sy, maxY = sy;
 
                 while (queue.length > 0) {
-                    const [x, y] = /** @type {number[]} */ (queue.shift());
+                    const [x, y] = /** @type {number[]} */ (queue.pop());
                     if (x < minX) {
                         minX = x;
                     }

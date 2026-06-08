@@ -17,6 +17,7 @@ class ValetudoUpdatedValetudoEvent extends DismissibleValetudoEvent {
     constructor(options) {
         super(options);
 
+        this.generation = options.generation;
         this.previousVersion = options.previousVersion;
         this.newVersion = options.newVersion;
     }

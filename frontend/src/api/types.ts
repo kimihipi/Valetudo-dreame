@@ -169,7 +169,9 @@ export interface SystemHostInfo {
         15: number;
     };
     cpus: Array<{
-        usage: Record<CPUUsageType, number>
+        usage: Record<CPUUsageType, number>;
+        speed: number;
+        scaling_governor?: string;
     }>
 }
 

@@ -631,6 +631,21 @@ export const subscribeToLogMessages = (
     );
 };
 
+export interface StreamerState {
+    running: boolean;
+    managed: boolean;
+}
+
+export const subscribeToStreamerState = (
+    listener: (data: StreamerState) => void
+): (() => void) => {
+    return subscribeToSSE<StreamerState>(
+        "/streamer/state/sse",
+        "StreamerState",
+        listener
+    );
+};
+
 export const fetchValetudoLogLevel = async (): Promise<LogLevelResponse> => {
     return valetudoAPI
         .get<LogLevelResponse>("/valetudo/log/level")

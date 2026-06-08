@@ -44,6 +44,7 @@ class WebServer {
      * @param {import("../Configuration")} options.config
      * @param {import("../PhoenixManager")} options.phoenixManager
      * @param {import("../utils/ValetudoHelper")} options.valetudoHelper
+     * @param {import("../VideoMonitorManager")} options.videoMonitorManager
      */
     constructor(options) {
         const self = this;
@@ -184,7 +185,11 @@ class WebServer {
         this.app.use("/_ssdp/", new SSDPRouter({config: this.config, robot: this.robot, valetudoHelper: this.valetudoHelper}).getRouter());
 
         if (this.config.get("webserver").streamerProxy.enabled) {
-            this.app.use("/streamer/", new StreamerRouter({config: this.config}).getRouter());
+            this.streamerRouter = new StreamerRouter({
+                config: this.config,
+                videoMonitorManager: options.videoMonitorManager
+            });
+            this.app.use("/streamer/", this.streamerRouter.getRouter());
         }
 
         this.app.use(express.static(path.join(__dirname, "../../..", "frontend/build")));
@@ -263,6 +268,7 @@ class WebServer {
             Logger.debug("Webserver shutdown in progress...");
             this.robotRouter.shutdown();
             this.valetudoRouter.shutdown();
+            this.streamerRouter?.shutdown();
 
             //closing the server
             this.webserver.close(() => {

@@ -342,6 +342,12 @@ const SystemInformation = (): React.ReactElement => {
             [CPUUsageType.IDLE]: "#000000", //not used
         };
 
+        const cpu0Speed = systemHostInfo.cpus[0]?.speed ?? null;
+        const speedLabel = cpu0Speed !== null ? (
+            cpu0Speed >= 1000 ?
+                `${(cpu0Speed / 1000).toFixed(2)} GHz` :
+                `${cpu0Speed} MHz`
+        ) : null;
 
         return (
             <Grid2 container spacing={2}>
@@ -412,7 +418,7 @@ const SystemInformation = (): React.ReactElement => {
                                     total={100}
                                     partitions={
                                         Object.entries(cpu.usage).filter(
-                                            ([type, value]) => type !== CPUUsageType.IDLE
+                                            ([type]) => type !== CPUUsageType.IDLE
                                         ).map(([type, value]) => {
                                             return {
                                                 label: type,
@@ -428,6 +434,18 @@ const SystemInformation = (): React.ReactElement => {
                             );
                         })
                     }
+                    <Stack direction="row" alignItems="center" spacing={2} style={{marginTop: "4px"}}>
+                        {speedLabel !== null && (
+                            <Typography variant="caption" color="textSecondary">
+                                {speedLabel}
+                            </Typography>
+                        )}
+                        {systemHostInfo.cpus[0]?.scaling_governor && (
+                            <Typography variant="caption" color="textSecondary">
+                                Governor: {systemHostInfo.cpus[0].scaling_governor}
+                            </Typography>
+                        )}
+                    </Stack>
                 </Grid2>
             </Grid2>
 

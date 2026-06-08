@@ -104,8 +104,25 @@ class Tools {
                 cpuUsage[type] = parseFloat(((cpuTime[type] / totalTime) * 100).toFixed(2));
             });
 
+            let scaling_governor = null;
+            try {
+                scaling_governor = fs.readFileSync(`/sys/devices/system/cpu/cpu${i}/cpufreq/scaling_governor`, "utf8").trim();
+            } catch (e) {
+                // not available on all platforms
+            }
+
+            let scaling_cur_freq = null;
+            try {
+                const raw = fs.readFileSync(`/sys/devices/system/cpu/cpu${i}/cpufreq/cpuinfo_cur_freq`, "utf8").trim();
+                scaling_cur_freq = Math.round(parseInt(raw, 10) / 1000); // kHz → MHz
+            } catch (e) {
+                // not available on all platforms
+            }
+
             cpus.push({
-                usage: cpuUsage
+                usage: cpuUsage,
+                speed: scaling_cur_freq ?? endCPU.speed,
+                ...(scaling_governor !== null ? {scaling_governor} : {})
             });
         }
 

@@ -1,17 +1,22 @@
 const env = require("./res/env");
+const EventEmitter = require("events");
 const path = require("path");
 const ProcessWatcher = require("./utils/ProcessWatcher");
 const StatusStateAttribute = require("./entities/state/attributes/StatusStateAttribute");
 
-class VideoMonitorManager {
+class VideoMonitorManager extends EventEmitter {
     /**
      * @param {object} options
      * @param {import("./Configuration")} options.config
      * @param {import("./core/ValetudoRobot")} options.robot
      */
     constructor(options) {
+        super();
+
         this.config = options.config;
         this.robot = options.robot;
+        this.isManaged = false;
+        this.streamerRunning = false;
 
         const streamerProxyConfig = this.config.get("webserver")?.streamerProxy ?? {};
 
@@ -41,6 +46,8 @@ class VideoMonitorManager {
             return;
         }
 
+        this.isManaged = true;
+
         if (streamerProxyConfig.stopWhenIdle === true) {
             this.robot.onStateAttributesUpdated(() => {
                 this.handleStateUpdate();
@@ -67,11 +74,15 @@ class VideoMonitorManager {
     startWatchers() {
         this.videoMonitorWatcher.start();
         this.go2rtcWatcher.start();
+        this.streamerRunning = true;
+        this.emit(VideoMonitorManager.EVENTS.StreamerStarted);
     }
 
     stopWatchers() {
         this.videoMonitorWatcher.stop();
         this.go2rtcWatcher.stop();
+        this.streamerRunning = false;
+        this.emit(VideoMonitorManager.EVENTS.StreamerStopped);
     }
 
     async shutdown() {
@@ -80,5 +91,10 @@ class VideoMonitorManager {
         }
     }
 }
+
+VideoMonitorManager.EVENTS = {
+    StreamerStarted: "StreamerStarted",
+    StreamerStopped: "StreamerStopped",
+};
 
 module.exports = VideoMonitorManager;
