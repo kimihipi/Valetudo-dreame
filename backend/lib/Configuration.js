@@ -20,7 +20,18 @@ class Configuration {
 
         this.location = path.join(process.env[env.DataPath] ?? os.tmpdir(), "valetudo_config.json");
 
+        /** @private @type {NodeJS.Timeout|null} */
+        this.pendingPersistTimeout = null;
+        /** @private @type {string|null} */
+        this.lastPersistedSerializedConfig = null;
+
         this.loadConfig();
+
+        // Flush any pending debounced write before the event loop drains. Won't cover a
+        // SIGKILL, but does cover graceful shutdown and normal restarts.
+        process.on("beforeExit", () => {
+            this.persistNow();
+        });
     }
 
     /**
@@ -42,13 +53,47 @@ class Configuration {
     set(key, val) {
         this.settings[key] = val;
 
-        this.persist();
+        this.schedulePersist();
         this.eventEmitter.emit(CONFIG_UPDATE_EVENT, key);
+    }
+
+    /**
+     * Coalesces bursts of set() calls (attribute-driven updates during a cleanup,
+     * scheduler tick storms) into a single fs.writeFileSync — saves event-loop stalls
+     * and flash write cycles on the robot.
+     * @private
+     */
+    schedulePersist() {
+        if (this.pendingPersistTimeout !== null) {
+            return;
+        }
+        this.pendingPersistTimeout = setTimeout(() => {
+            this.pendingPersistTimeout = null;
+            this.persist();
+        }, PERSIST_DEBOUNCE_MS);
+    }
+
+    /**
+     * Cancels any pending debounced write and persists synchronously. Used on
+     * shutdown and on explicit reset.
+     * @public
+     */
+    persistNow() {
+        if (this.pendingPersistTimeout !== null) {
+            clearTimeout(this.pendingPersistTimeout);
+            this.pendingPersistTimeout = null;
+        }
+        this.persist();
     }
 
     persist() {
         try {
-            fs.writeFileSync(this.location, this.getSerializedConfig());
+            const serialized = this.getSerializedConfig();
+            if (serialized === this.lastPersistedSerializedConfig) {
+                return;
+            }
+            fs.writeFileSync(this.location, serialized);
+            this.lastPersistedSerializedConfig = serialized;
         } catch (e) {
             Logger.error("Error while persisting configuration", e);
         }
@@ -107,6 +152,10 @@ class Configuration {
                     Logger.info(`Schema changes were applied to the configuration file at: ${this.location}`);
 
                     this.persist();
+                } else {
+                    // Seed the identity check so the first debounced persist after boot
+                    // can no-op if nothing actually changed.
+                    this.lastPersistedSerializedConfig = config;
                 }
             } catch (e) {
                 Logger.error("Invalid configuration file: ", e.message);
@@ -142,7 +191,8 @@ class Configuration {
         this.settings = structuredClone(DEFAULT_SETTINGS);
         this.settings.robot = robotSettings;
 
-        this.persist();
+        // Reset is user-initiated; flush any pending debounced write and persist now.
+        this.persistNow();
 
         Object.keys(this.settings).forEach(key => {
             this.eventEmitter.emit(CONFIG_UPDATE_EVENT, key);
@@ -158,5 +208,6 @@ class Configuration {
 }
 
 const CONFIG_UPDATE_EVENT = "ConfigUpdated";
+const PERSIST_DEBOUNCE_MS = 500;
 
 module.exports = Configuration;

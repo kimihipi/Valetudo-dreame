@@ -445,6 +445,16 @@ const SystemInformation = (): React.ReactElement => {
                                 Governor: {systemHostInfo.cpus[0].scaling_governor}
                             </Typography>
                         )}
+                        {systemHostInfo.erp_mode && (
+                            <Typography variant="caption" color="textSecondary">
+                                ERP: {systemHostInfo.erp_mode}
+                            </Typography>
+                        )}
+                        {systemHostInfo.charge_state && (
+                            <Typography variant="caption" color="textSecondary">
+                                Charge: {systemHostInfo.charge_state}
+                            </Typography>
+                        )}
                     </Stack>
                 </Grid2>
             </Grid2>

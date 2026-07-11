@@ -36,7 +36,7 @@ export const SegmentCleanOrderContent = (): React.ReactElement => {
 
     const [configurationModified, setConfigurationModified] = React.useState<boolean>(false);
 
-    React.useMemo(() => {
+    React.useEffect(() => {
         const newSegments = (mapData?.layers ?? [])
             .filter(entry => entry.type === RawMapLayerType.Segment && !entry.metaData.hidden)
             .sort((a, b) => (a.metaData.cleanOrder ?? 0) - (b.metaData.cleanOrder ?? 0));
@@ -179,4 +179,3 @@ export const SegmentCleanOrderContent = (): React.ReactElement => {
         </>
     );
 };
-

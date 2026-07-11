@@ -2,6 +2,7 @@ const AttributeSubscriber = require("../../../entities/AttributeSubscriber");
 const CallbackAttributeSubscriber = require("../../../entities/CallbackAttributeSubscriber");
 const DreameMiotServices = require("../DreameMiotServices");
 const HighResolutionManualControlCapability = require("../../../core/capabilities/HighResolutionManualControlCapability");
+const Logger = require("../../../Logger");
 const StatusStateAttribute = require("../../../entities/state/attributes/StatusStateAttribute");
 
 /**
@@ -54,8 +55,16 @@ class DreameHighResolutionManualControlCapability extends HighResolutionManualCo
      */
     async enableManualControl() {
         if (this.active === false) {
-            await this.sendRemoteControlCommand(0, 0, true);
+            // Claim active before the first await so a concurrent enable can't duplicate the command.
             this.active = true;
+
+            try {
+                await this.sendRemoteControlCommand(0, 0, true);
+            } catch (err) {
+                this.active = false;
+                throw err;
+            }
+
             await this.sendAndScheduleKeepAlive();
         }
     }
@@ -78,12 +87,18 @@ class DreameHighResolutionManualControlCapability extends HighResolutionManualCo
     async sendAndScheduleKeepAlive() {
         clearTimeout(this.keepAliveTimeout);
 
+        if (this.active === false) {
+            return;
+        }
+
         if (new Date().getTime() - this.lastCommand >= 700) {
             await this.sendRemoteControlCommand(0, 0, false);
         }
 
-        this.keepAliveTimeout = setTimeout(async () => {
-            await this.sendAndScheduleKeepAlive();
+        this.keepAliveTimeout = setTimeout(() => {
+            this.sendAndScheduleKeepAlive().catch((err) => {
+                Logger.warn("Manual control keep-alive failed", err);
+            });
         }, 700);
     }
 

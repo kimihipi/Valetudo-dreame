@@ -693,7 +693,7 @@ export const useJoinSegmentsMutation = (
 
     return useMutation({
         mutationFn: (parameters: MapSegmentEditJoinRequestParameters) => {
-            return sendJoinSegmentsCommand(parameters).then(fetchStateAttributes); //TODO: this should actually refetch the map
+            return sendJoinSegmentsCommand(parameters).then(fetchStateAttributes);
         },
         ...options,
 
@@ -703,6 +703,7 @@ export const useJoinSegmentsMutation = (
                 updatedAt: Date.now(),
             });
             await options?.onSuccess?.(data, ...args);
+            await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
         },
     });
 };
@@ -714,7 +715,7 @@ export const useSplitSegmentMutation = (
 
     return useMutation({
         mutationFn: (parameters: MapSegmentEditSplitRequestParameters) => {
-            return sendSplitSegmentCommand(parameters).then(fetchStateAttributes); //TODO: this should actually refetch the map
+            return sendSplitSegmentCommand(parameters).then(fetchStateAttributes);
         },
         ...options,
 
@@ -724,6 +725,7 @@ export const useSplitSegmentMutation = (
                 updatedAt: Date.now(),
             });
             await options?.onSuccess?.(data, ...args);
+            await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
         },
     });
 };
@@ -735,7 +737,7 @@ export const useRenameSegmentMutation = (
 
     return useMutation({
         mutationFn: (parameters: MapSegmentRenameRequestParameters) => {
-            return sendRenameSegmentCommand(parameters).then(fetchStateAttributes); //TODO: this should actually refetch the map
+            return sendRenameSegmentCommand(parameters).then(fetchStateAttributes);
         },
         ...options,
 
@@ -745,6 +747,7 @@ export const useRenameSegmentMutation = (
                 updatedAt: Date.now(),
             });
             await options?.onSuccess?.(data, ...args);
+            await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
         },
     });
 };
@@ -775,7 +778,7 @@ export const useSetSegmentMaterialMutation = (
 
     return useMutation({
         mutationFn: (parameters: MapSegmentMaterialControlRequestParameters) => {
-            return sendSetSegmentMaterialCommand(parameters).then(fetchStateAttributes); //TODO: this should actually refetch the map
+            return sendSetSegmentMaterialCommand(parameters).then(fetchStateAttributes);
         },
         ...options,
 
@@ -785,6 +788,7 @@ export const useSetSegmentMaterialMutation = (
                 updatedAt: Date.now(),
             });
             await options?.onSuccess?.(data, ...args);
+            await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
         },
     });
 };
@@ -794,7 +798,7 @@ export const useSegmentCleanOrderMutation = () => {
 
     return useMutation({
         mutationFn: (segmentIds: string[]) => {
-            return sendSegmentCleanOrderCommand(segmentIds).then(fetchStateAttributes); // TODO Algid: This should refetch map. Check above mutation.
+            return sendSegmentCleanOrderCommand(segmentIds).then(fetchStateAttributes);
         },
 
         onError: useOnCommandError(Capability.MapSegmentCleanOrder),
@@ -802,6 +806,7 @@ export const useSegmentCleanOrderMutation = () => {
             queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
                 updatedAt: Date.now(),
             });
+            await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
         },
     });
 };
@@ -869,13 +874,14 @@ export const useMultipleMapRotateMutation = () => {
 
     return useMutation({
         mutationFn: (parameters: MultipleMapRotateRequestParameters) => {
-            return sendMultipleMapRotateCommand(parameters).then(fetchStateAttributes); // TODO Algid: This should refetch map. Check useSegmentCleanOrderMutation mutation.
+            return sendMultipleMapRotateCommand(parameters).then(fetchStateAttributes);
         },
         onError: useOnCommandError(Capability.MultipleMapRotate),
         onSuccess: async (data, ...args) => {
             queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
                 updatedAt: Date.now(),
             });
+            await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
         },
     });
 };
@@ -2293,4 +2299,3 @@ export const useMaintenanceMutation = () => {
         onError: useOnCommandError(Capability.Maintenance)
     });
 };
-

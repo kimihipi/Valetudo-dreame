@@ -8,9 +8,8 @@ import {
     SelectAll as AllModeIcon,
     AutoMode as AutomaticModeIcon,
 } from "@mui/icons-material";
-import {LiveMapMode, useLiveMapMode} from "../map/LiveMap";
-import {Capability, StatusState, useAutomaticControlAttributeQuery, useRobotStatusQuery, useSetAutomaticControlMutation} from "../api";
-import {useCapabilitiesSupported} from "../CapabilitiesProvider";
+import {LiveMapMode, useHandleLiveMapModeChange, useLiveMapMode} from "../map/LiveMap";
+import {StatusState, useRobotStatusQuery} from "../api";
 
 const ActiveStates: StatusState["value"][] = ["cleaning", "returning", "moving", "paused"];
 
@@ -35,9 +34,7 @@ const modeToLabel: Record<LiveMapMode, string> = {
 const MapModeControls = (): React.ReactElement | null => {
     const {mode, supportedModes, setMode} = useLiveMapMode();
     const {data: status} = useRobotStatusQuery();
-    const [automaticControlSupported] = useCapabilitiesSupported(Capability.AutomaticControl);
-    const {data: automaticAttribute} = useAutomaticControlAttributeQuery();
-    const {mutate: setAutomaticControl} = useSetAutomaticControlMutation();
+    const handleModeChange = useHandleLiveMapModeChange();
 
     if (supportedModes.length === 0) {
         return null;
@@ -45,24 +42,6 @@ const MapModeControls = (): React.ReactElement | null => {
 
     const robotActive = status !== undefined && ActiveStates.includes(status.value);
     const disabled = !setMode || robotActive;
-
-    const handleModeChange = (newMode: LiveMapMode) => {
-        if (!setMode) {
-            return;
-        }
-        setMode(newMode);
-        if (!automaticControlSupported) {
-            return;
-        }
-        if (newMode === "automatic") {
-            const level = automaticAttribute?.value && automaticAttribute.value !== "off" ?
-                automaticAttribute.value :
-                "routine";
-            setAutomaticControl(level);
-        } else if (mode === "automatic") {
-            setAutomaticControl("off");
-        }
-    };
 
     return (
         <Grid2 pt={0.5} pb={0.5}>

@@ -18,6 +18,7 @@ import {
     Icon,
     Paper,
     styled,
+    Tooltip,
     Typography,
     IconButton
 } from "@mui/material";
@@ -342,12 +343,13 @@ const DockCard = (): React.ReactElement => {
                         triggerEmptySupported &&
                         <Grid2 sx={{flex: 1, minWidth: "min-content"}}>
                             <Button
-                                disabled={commandIsExecuting || !["idle", "pause"].includes(dockState) || robotState !== "docked"}
+                                disabled={feedbackPending || commandIsExecuting || !["idle", "pause"].includes(dockState) || robotState !== "docked"}
                                 variant="outlined"
                                 size="medium"
                                 color="inherit"
                                 onClick={() => {
                                     triggerDockEmpty();
+                                    setFeedbackPending(true);
                                 }}
                                 sx={{width: "100%"}}
                             >
@@ -397,13 +399,16 @@ const DockCard = (): React.ReactElement => {
                 icon={DockIcon}
                 isLoading={isPending}
                 headerExtra={
-                    <IconButton
-                        size="small"
-                        onClick={() => setSettingsDialogOpen(true)}
-                        sx={{ color: "inherit" }}
-                    >
-                        <SettingsIcon fontSize="small" />
-                    </IconButton>
+                    <Tooltip title="Dock settings" arrow>
+                        <IconButton
+                            size="small"
+                            aria-label="Dock settings"
+                            onClick={() => setSettingsDialogOpen(true)}
+                            sx={{ color: "inherit" }}
+                        >
+                            <SettingsIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
                 }
             >
                 {body}

@@ -58,37 +58,37 @@ export const useLiveMapMode = create<{
     mode: LiveMapMode;
     supportedModes: Array<LiveMapMode>;
     setMode: ((newMode: LiveMapMode) => void) | null;
+    // Flipped to true the first time the user changes the mode. Consumers of the initial
+    // automatic-control sync check this to avoid overriding an in-flight user choice
+    // when the automaticAttribute query resolves after the click.
+    userInteracted: boolean;
 }>()(() => ({
     mode: "none",
     supportedModes: [],
     setMode: null,
+    userInteracted: false,
 }));
 
-const LiveMapModeSwitcherWithAutomatic: React.FunctionComponent<{
-    supportedModes: Array<LiveMapMode>;
-    currentMode: LiveMapMode;
-    setMode: (newMode: LiveMapMode) => void;
-}> = ({supportedModes, currentMode, setMode}) => {
+/**
+ * Shared handler for changing the LiveMap mode. Sole owner of the automatic-control
+ * side effect — both MapModeControls and LiveMapModeSwitcherWithAutomatic call through
+ * here so the mutation fires exactly once per user click, regardless of which switcher
+ * is on screen.
+ */
+export const useHandleLiveMapModeChange = (): ((newMode: LiveMapMode) => void) => {
     const {data: automaticAttribute} = useAutomaticControlAttributeQuery();
     const {mutate: setAutomaticControl} = useSetAutomaticControlMutation();
-    const automaticControlSupported = supportedModes.includes("automatic");
-    const hasSyncedRef = React.useRef(false);
 
-    React.useEffect(() => {
-        if (hasSyncedRef.current || !automaticControlSupported || automaticAttribute === undefined) {
+    return React.useCallback((newMode: LiveMapMode) => {
+        const {mode: currentMode, supportedModes, setMode} = useLiveMapMode.getState();
+        if (!setMode) {
             return;
         }
-        hasSyncedRef.current = true;
-        if (automaticAttribute.value !== "off" && currentMode !== "automatic") {
-            setMode("automatic");
-        } else if (automaticAttribute.value === "off" && currentMode === "automatic") {
-            setMode(supportedModes.find(m => m !== "automatic") ?? "none");
-        }
-    }, [automaticAttribute, automaticControlSupported, currentMode, setMode, supportedModes]);
 
-    const handleModeChange = (newMode: LiveMapMode) => {
+        useLiveMapMode.setState({userInteracted: true});
         setMode(newMode);
-        if (!automaticControlSupported) {
+
+        if (!supportedModes.includes("automatic")) {
             return;
         }
         if (newMode === "automatic") {
@@ -99,7 +99,35 @@ const LiveMapModeSwitcherWithAutomatic: React.FunctionComponent<{
         } else if (currentMode === "automatic") {
             setAutomaticControl("off");
         }
-    };
+    }, [automaticAttribute, setAutomaticControl]);
+};
+
+const LiveMapModeSwitcherWithAutomatic: React.FunctionComponent<{
+    supportedModes: Array<LiveMapMode>;
+    currentMode: LiveMapMode;
+    setMode: (newMode: LiveMapMode) => void;
+}> = ({supportedModes, currentMode, setMode}) => {
+    const {data: automaticAttribute} = useAutomaticControlAttributeQuery();
+    const handleModeChange = useHandleLiveMapModeChange();
+    const automaticControlSupported = supportedModes.includes("automatic");
+    const hasSyncedRef = React.useRef(false);
+
+    React.useEffect(() => {
+        if (hasSyncedRef.current || !automaticControlSupported || automaticAttribute === undefined) {
+            return;
+        }
+        hasSyncedRef.current = true;
+        // If the user already interacted before the attribute query resolved, their
+        // choice is authoritative — don't second-guess it with stale server state.
+        if (useLiveMapMode.getState().userInteracted) {
+            return;
+        }
+        if (automaticAttribute.value !== "off" && currentMode !== "automatic") {
+            setMode("automatic");
+        } else if (automaticAttribute.value === "off" && currentMode === "automatic") {
+            setMode(supportedModes.find(m => m !== "automatic") ?? "none");
+        }
+    }, [automaticAttribute, automaticControlSupported, currentMode, setMode, supportedModes]);
 
     return (
         <LiveMapModeSwitcher

@@ -122,8 +122,32 @@ class Tools {
             cpus.push({
                 usage: cpuUsage,
                 speed: scaling_cur_freq ?? endCPU.speed,
-                ...(scaling_governor !== null ? {scaling_governor} : {})
+                ...(scaling_governor !== null ? {scaling_governor: scaling_governor} : {})
             });
+        }
+
+        let erp_mode = null;
+        try {
+            erp_mode = fs.existsSync("/tmp/erp_file") ? "active" : "inactive";
+        } catch (e) {
+            // not available on all platforms
+        }
+
+        let charge_state = null;
+        try {
+            const fd = fs.openSync("/tmp/log/log_0", "r");
+            const stat = fs.fstatSync(fd);
+            const readLen = Math.min(stat.size, 16 * 1024);
+            const buf = Buffer.alloc(readLen);
+            fs.readSync(fd, buf, 0, readLen, stat.size - readLen);
+            fs.closeSync(fd);
+            const matches = buf.toString("utf8").match(/send erp charge_state (\d+)/g);
+            if (matches && matches.length > 0) {
+                const lastValue = matches[matches.length - 1].match(/(\d+)$/)?.[1];
+                charge_state = lastValue === "0" ? "normal" : "reduced";
+            }
+        } catch (e) {
+            // not available on all platforms
         }
 
         return {
@@ -138,7 +162,9 @@ class Tools {
                 "5": normalizedLoad[1],
                 "15": normalizedLoad[2]
             },
-            cpus: cpus
+            cpus: cpus,
+            ...(erp_mode !== null ? {erp_mode: erp_mode} : {}),
+            ...(charge_state !== null ? {charge_state: charge_state} : {})
         };
     }
 

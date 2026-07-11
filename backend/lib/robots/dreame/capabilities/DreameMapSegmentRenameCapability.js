@@ -58,18 +58,20 @@ class DreameMapSegmentRenameCapability extends MapSegmentRenameCapability {
         );
 
         if (
-            res && res.siid === this.miot_actions.map_edit.siid &&
-            res.aiid === this.miot_actions.map_edit.aiid &&
-            Array.isArray(res.out) && res.out.length === 1 &&
-            res.out[0].piid === this.miot_properties.actionResult.piid
+            !res || res.siid !== this.miot_actions.map_edit.siid ||
+            res.aiid !== this.miot_actions.map_edit.aiid ||
+            !Array.isArray(res.out) || res.out.length !== 1 ||
+            res.out[0].piid !== this.miot_properties.actionResult.piid
         ) {
-            switch (res.out[0].value) {
-                case 0:
-                    this.robot.pollMap();
-                    return;
-                default:
-                    throw new RobotFirmwareError("Got error " + res.out[0].value + " while naming segment.");
-            }
+            throw new RobotFirmwareError("Unexpected response while naming segment: " + JSON.stringify(res));
+        }
+
+        switch (res.out[0].value) {
+            case 0:
+                this.robot.pollMap();
+                return;
+            default:
+                throw new RobotFirmwareError("Got error " + res.out[0].value + " while naming segment.");
         }
     }
 }

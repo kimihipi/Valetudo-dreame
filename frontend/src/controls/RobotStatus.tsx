@@ -68,6 +68,7 @@ import {
 } from "@mui/icons-material";
 import ConfirmationDialog from "../components/ConfirmationDialog";
 import LoadingFade from "../components/LoadingFade";
+import {useFeedbackPending} from "../hooks/useFeedbackPending";
 import {usePendingMapAction, useMapEditorOpen} from "../map/BaseMap";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import {useLiveMapMode} from "../map/LiveMap";
@@ -111,6 +112,16 @@ const getBatteryIcon = (level: number): SvgIconComponent => {
         return Battery6Bar;
     }
     return BatteryFull;
+};
+
+const getBatteryColor = (level: number, palette: ReturnType<typeof useValetudoColorsInverse>): string => {
+    if (level > 75) {
+        return palette.green;
+    }
+    if (level > 25) {
+        return palette.yellow;
+    }
+    return palette.red;
 };
 
 const ICON_STYLE = {height: "14px", width: "auto", verticalAlign: "middle"};
@@ -675,66 +686,52 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
     const {isMapEditorOpen} = useMapEditorOpen();
     const {mode, setMode} = useLiveMapMode();
 
-    const getBatteryColor = (level: number) => {
-        if (level > 75) {
-            return palette.green;
-        }
-        if (level > 25) {
-            return palette.yellow;
-        }
-        return palette.red;
-    };
+    // Disable buttons until we observe status.value change from the SSE stream (or 5s pass).
+    // Prevents a double-tap racing the ~200-500ms window between the mutation resolving and
+    // status catching up.
+    const [feedbackPending, setFeedbackPending] = useFeedbackPending(status?.value, 5_000);
 
     const sendCommand = (command: BasicControlCommand) => {
         if (command === "start" && hasPendingMapAction) {
             setStartConfirmationDialogOpen(true);
-        } else if (command === "start") {
-            if (setMode && mode !== "automatic") {
-                setMode("all");
-            }
-            executeBasicControlCommand(command);
-        } else {
-            executeBasicControlCommand(command);
+            return;
         }
+        if (command === "start" && setMode && mode !== "automatic") {
+            setMode("all");
+        }
+        setFeedbackPending(true);
+        executeBasicControlCommand(command);
     };
 
-    const headerExtra = React.useMemo(() => {
-        const hasBattery = !isBatteryError && batteries && batteries.length > 0;
+    const hasBattery = !isBatteryError && batteries && batteries.length > 0;
+    const headerExtra = hasBattery ? (
+        <Box sx={{display: "flex", alignItems: "center", gap: "8px"}}>
+            {batteries!.map((battery, index) => {
+                const color = getBatteryColor(battery.level, palette);
+                const BatteryIcon = battery.flag === "charging" ? BatteryChargingFull : getBatteryIcon(battery.level);
+                return (
+                    <Box key={index} sx={{display: "inline-flex", alignItems: "center", gap: "2px", lineHeight: 1}}>
+                        <Typography component="span" variant="caption" sx={{color: color, fontWeight: 600, lineHeight: 1}}>
+                            {batteries!.length > 1 ? `${index + 1}: ` : ""}{Math.round(battery.level)}%
+                        </Typography>
+                        <BatteryIcon sx={{color: color, fontSize: "1.25rem"}} />
+                    </Box>
+                );
+            })}
+            {trailing}
+        </Box>
+    ) : null;
 
-        if (!hasBattery) {
-            return null;
-        }
-
-        return (
-            <Box sx={{display: "flex", alignItems: "center", gap: "8px"}}>
-                {batteries!.map((battery, index) => {
-                    const color = getBatteryColor(battery.level);
-                    const BatteryIcon = battery.flag === "charging" ? BatteryChargingFull : getBatteryIcon(battery.level);
-                    return (
-                        <Box key={index} sx={{display: "inline-flex", alignItems: "center", gap: "2px", lineHeight: 1}}>
-                            <Typography component="span" variant="caption" sx={{color: color, fontWeight: 600, lineHeight: 1}}>
-                                {batteries!.length > 1 ? `${index + 1}: ` : ""}{Math.round(battery.level)}%
-                            </Typography>
-                            <BatteryIcon sx={{color: color, fontSize: "1.25rem"}} />
-                        </Box>
-                    );
-                })}
-                {trailing}
-            </Box>
-        );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [batteries, isBatteryError, palette, trailing]);
-
-    const subtitle = React.useMemo(() => {
+    const subtitle = (() => {
         if (isStatusError || !status) {
             return undefined;
         }
         const showFlag = status.flag !== "none" && status.value !== "docked";
         const flagLabel = showFlag ? (STATUS_FLAG_LABELS[status.flag] ?? status.flag) : null;
         return flagLabel ? `${status.value} \u2013 ${flagLabel}` : status.value;
-    }, [isStatusError, status]);
+    })();
 
-    const buttons: CommandButton[] = React.useMemo(() => {
+    const buttons: CommandButton[] = (() => {
         if (!status) {
             return [];
         }
@@ -755,13 +752,27 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
             ];
         }
 
-        // idle, docked, error, or any other state: Start + Dock
+        if (status.value === "error") {
+            // Errors require stopping/acknowledging first. Only offer Start when the firmware
+            // reports the error as resumable.
+            if (status.flag === "resumable") {
+                return [
+                    {command: "start", enabled: !hasPendingMapAction, label: "Resume", Icon: StartIcon, color: palette.green},
+                    {command: "stop", enabled: true, Icon: StopIcon, label: "Stop", color: palette.crimson},
+                ];
+            }
+            return [
+                {command: "stop", enabled: true, Icon: StopIcon, label: "Stop", color: palette.crimson},
+                {command: "home", enabled: true, Icon: HomeIcon, label: "Dock", color: palette.teal},
+            ];
+        }
+
+        // idle, docked, or any other state: Start + Dock
         return [
             {command: "start", enabled: !hasPendingMapAction, label: "Start", Icon: StartIcon, color: palette.green},
             {command: "home", enabled: status.value !== "docked", Icon: HomeIcon, label: "Dock", color: palette.teal},
         ];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [status, palette, hasPendingMapAction]);
+    })();
 
     return (
         <>
@@ -770,7 +781,7 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
                 title="Robot"
                 subtitle={subtitle}
                 isLoading={isPending}
-                pending={basicControlIsExecuting}
+                pending={basicControlIsExecuting || feedbackPending}
                 headerExtra={headerExtra}
             >
                 <Grid2 size="grow" container direction="column">
@@ -781,7 +792,7 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
                                     <Button
                                         variant="outlined"
                                         size="medium"
-                                        disabled={!enabled || basicControlIsExecuting || isMapEditorOpen}
+                                        disabled={!enabled || basicControlIsExecuting || feedbackPending || isMapEditorOpen}
                                         onClick={() => sendCommand(command)}
                                         sx={{
                                             width: "100%",
@@ -813,6 +824,7 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
                     if (setMode) {
                         setMode("all");
                     }
+                    setFeedbackPending(true);
                     executeBasicControlCommand("start");
                 }}>
                 <DialogContentText>
@@ -859,13 +871,16 @@ const RobotStatus = (): React.ReactElement => {
     return (
         <>
             <RobotStatusCard trailing={
-                <IconButton
-                    size="small"
-                    onClick={() => setSettingsDialogOpen(true)}
-                    sx={{color: "inherit"}}
-                >
-                    <SettingsIcon fontSize="small"/>
-                </IconButton>
+                <Tooltip title="Robot settings" arrow>
+                    <IconButton
+                        size="small"
+                        aria-label="Robot settings"
+                        onClick={() => setSettingsDialogOpen(true)}
+                        sx={{color: "inherit"}}
+                    >
+                        <SettingsIcon fontSize="small"/>
+                    </IconButton>
+                </Tooltip>
             }>
                 <MapModeControls />
                 {hasPresets && (

@@ -27,7 +27,7 @@ class DreameVoicePackManagementCapability extends VoicePackManagementCapability 
     async getCurrentVoiceLanguage() {
         const res = await this.robot.miotHelper.readProperty(this.siid, this.active_voicepack_piid);
 
-        return typeof res.toLowerCase === "function" ? res.toLowerCase() : res;
+        return typeof res === "string" ? res.toLowerCase() : res;
     }
 
     /**
@@ -69,10 +69,14 @@ class DreameVoicePackManagementCapability extends VoicePackManagementCapability 
         const res = await this.robot.miotHelper.readProperty(this.siid, this.voicepack_install_status_piid);
 
         let response;
-        try {
-            response = JSON.parse(res.replace(/\\/g, ""));
-        } catch (e) {
-            Logger.warn("DreameVoicePackManagementCapability: Error while parsing status response", e);
+        if (typeof res === "string") {
+            try {
+                response = JSON.parse(res.replace(/\\/g, ""));
+            } catch (e) {
+                Logger.warn("DreameVoicePackManagementCapability: Error while parsing status response", e);
+            }
+        } else {
+            Logger.warn("DreameVoicePackManagementCapability: Invalid status response", res);
         }
 
         if (response) {

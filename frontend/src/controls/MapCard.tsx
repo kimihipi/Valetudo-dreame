@@ -1,5 +1,5 @@
 import { Map, Settings as SettingsIcon } from "@mui/icons-material";
-import { IconButton } from "@mui/material";
+import { IconButton, Tooltip } from "@mui/material";
 import React from "react";
 import { Capability, useMultipleMapMapsQuery, useMultipleMapSwitchMutation } from "../api";
 import { useCapabilitiesSupported } from "../CapabilitiesProvider";
@@ -52,13 +52,16 @@ const MapCard = (): React.ReactElement => {
                 title="Map"
                 inline
                 headerExtra={
-                    <IconButton
-                        size="small"
-                        onClick={() => setSettingsDialogOpen(true)}
-                        sx={{color: "inherit"}}
-                    >
-                        <SettingsIcon fontSize="small"/>
-                    </IconButton>
+                    <Tooltip title="Map settings" arrow>
+                        <IconButton
+                            size="small"
+                            aria-label="Map settings"
+                            onClick={() => setSettingsDialogOpen(true)}
+                            sx={{color: "inherit"}}
+                        >
+                            <SettingsIcon fontSize="small"/>
+                        </IconButton>
+                    </Tooltip>
                 }
             >
                 {multipleMapSupported && (

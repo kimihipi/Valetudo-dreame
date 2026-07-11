@@ -1,4 +1,4 @@
-import {Box, Button, Grid2, Icon, Paper, Typography, styled} from "@mui/material";
+import {Box, Button, Grid2, Icon, Paper, Tooltip, Typography, styled} from "@mui/material";
 import ControlsBody from "./ControlsBody";
 import {
     ExpandLess as OpenIcon,
@@ -29,6 +29,7 @@ interface CompactButton {
     enabled: boolean;
     Icon: SvgIconComponent;
     color: string;
+    label: string;
 }
 
 const CollapsedHeader = (): React.ReactElement => {
@@ -52,21 +53,21 @@ const CollapsedHeader = (): React.ReactElement => {
 
         if (ActiveStates.includes(status.value)) {
             return [
-                {command: "pause", enabled: !hasPendingMapAction && !isMapEditorOpen, Icon: PauseIcon, color: palette.yellow},
-                {command: "stop", enabled: !isMapEditorOpen, Icon: StopIcon, color: palette.crimson},
+                {command: "pause", label: "Pause", enabled: !hasPendingMapAction && !isMapEditorOpen, Icon: PauseIcon, color: palette.yellow},
+                {command: "stop", label: "Stop", enabled: !isMapEditorOpen, Icon: StopIcon, color: palette.crimson},
             ];
         }
 
         if (status.value === "paused") {
             return [
-                {command: "start", enabled: !hasPendingMapAction && !isMapEditorOpen, Icon: StartIcon, color: palette.green},
-                {command: "stop", enabled: !isMapEditorOpen, Icon: StopIcon, color: palette.crimson},
+                {command: "start", label: status.flag === "resumable" ? "Resume" : "Start", enabled: !hasPendingMapAction && !isMapEditorOpen, Icon: StartIcon, color: palette.green},
+                {command: "stop", label: "Stop", enabled: !isMapEditorOpen, Icon: StopIcon, color: palette.crimson},
             ];
         }
 
         return [
-            {command: "start", enabled: !hasPendingMapAction && !isMapEditorOpen, Icon: StartIcon, color: palette.green},
-            {command: "home", enabled: status.value !== "docked" && !isMapEditorOpen, Icon: HomeIcon, color: palette.teal},
+            {command: "start", label: "Start", enabled: !hasPendingMapAction && !isMapEditorOpen, Icon: StartIcon, color: palette.green},
+            {command: "home", label: "Dock", enabled: status.value !== "docked" && !isMapEditorOpen, Icon: HomeIcon, color: palette.teal},
         ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [status, palette, hasPendingMapAction, isMapEditorOpen]);
@@ -85,29 +86,34 @@ const CollapsedHeader = (): React.ReactElement => {
             </Grid2>
             {basicControlSupported && status && (
                 <Grid2 sx={{display: "flex", alignItems: "center", gap: 0.5}}>
-                    {buttons.map(({command, enabled, Icon, color}) => (
-                        <Button
-                            key={command}
-                            variant="outlined"
-                            disabled={!enabled || isPending}
-                            onClick={(e) => {
-                                e.stopPropagation(); sendCommand(command);
-                            }}
-                            sx={{
-                                minWidth: 0,
-                                width: "36px",
-                                height: "36px",
-                                p: 0,
-                                color: enabled ? color : undefined,
-                                borderColor: enabled ? color : undefined,
-                                "&:hover": {
-                                    borderColor: enabled ? color : undefined,
-                                    backgroundColor: enabled ? `${color}18` : undefined,
-                                },
-                            }}
-                        >
-                            <Icon sx={{fontSize: "1.25rem"}}/>
-                        </Button>
+                    {buttons.map(({command, enabled, Icon, color, label}) => (
+                        <Tooltip key={command} title={label} arrow>
+                            {/* span so the tooltip still fires when the button is disabled */}
+                            <span>
+                                <Button
+                                    variant="outlined"
+                                    aria-label={label}
+                                    disabled={!enabled || isPending}
+                                    onClick={(e) => {
+                                        e.stopPropagation(); sendCommand(command);
+                                    }}
+                                    sx={{
+                                        minWidth: 0,
+                                        width: "44px",
+                                        height: "44px",
+                                        p: 0,
+                                        color: enabled ? color : undefined,
+                                        borderColor: enabled ? color : undefined,
+                                        "&:hover": {
+                                            borderColor: enabled ? color : undefined,
+                                            backgroundColor: enabled ? `${color}18` : undefined,
+                                        },
+                                    }}
+                                >
+                                    <Icon sx={{fontSize: "1.25rem"}}/>
+                                </Button>
+                            </span>
+                        </Tooltip>
                     ))}
                 </Grid2>
             )}

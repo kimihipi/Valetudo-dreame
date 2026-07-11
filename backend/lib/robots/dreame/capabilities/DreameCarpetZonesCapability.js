@@ -70,22 +70,24 @@ class DreameCarpetZonesCapability extends CarpetZonesCapability {
         );
 
         if (
-            res && res.siid === this.miot_actions.map_edit.siid &&
-            res.aiid === this.miot_actions.map_edit.aiid &&
-            Array.isArray(res.out) && res.out.length === 1 &&
-            res.out[0].piid === this.miot_properties.actionResult.piid
+            !res || res.siid !== this.miot_actions.map_edit.siid ||
+            res.aiid !== this.miot_actions.map_edit.aiid ||
+            !Array.isArray(res.out) || res.out.length !== 1 ||
+            res.out[0].piid !== this.miot_properties.actionResult.piid
         ) {
-            switch (res.out[0].value) {
-                case 0:
-                    this.robot.pollMap();
-                    return;
-                case 10:
-                    throw new RobotFirmwareError("Cannot save temporary carpet zones. A persistent map exists.");
-                case 11:
-                    throw new RobotFirmwareError("Cannot save carpet zones. No persistent map exists. Let the robot do a full clean before saving carpet zones.");
-                default:
-                    throw new RobotFirmwareError("Got error " + res.out[0].value + " while saving carpet zones.");
-            }
+            throw new RobotFirmwareError("Unexpected response while saving carpet zones: " + JSON.stringify(res));
+        }
+
+        switch (res.out[0].value) {
+            case 0:
+                this.robot.pollMap();
+                return;
+            case 10:
+                throw new RobotFirmwareError("Cannot save temporary carpet zones. A persistent map exists.");
+            case 11:
+                throw new RobotFirmwareError("Cannot save carpet zones. No persistent map exists. Let the robot do a full clean before saving carpet zones.");
+            default:
+                throw new RobotFirmwareError("Got error " + res.out[0].value + " while saving carpet zones.");
         }
     }
 }

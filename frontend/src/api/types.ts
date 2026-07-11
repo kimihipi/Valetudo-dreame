@@ -173,6 +173,8 @@ export interface SystemHostInfo {
         speed: number;
         scaling_governor?: string;
     }>
+    erp_mode?: string;
+    charge_state?: string;
 }
 
 export interface SystemRuntimeInfo {

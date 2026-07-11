@@ -160,7 +160,7 @@ class Valetudo {
 
                 if (rss > overHeapLimit) {
                     const now = new Date();
-                    //It doesn't make sense to GC every 250ms repeatedly. Therefore, we rate-limit this
+                    // Avoid forcing GC repeatedly while memory remains above the threshold.
                     if (now.getTime() - 2500 > lastForcedGc.getTime()) {
                         lastForcedGc = now;
 
@@ -200,7 +200,7 @@ class Valetudo {
                         });
                     }
                 }
-            }, 250);
+            }, 2000);
         }
     }
 

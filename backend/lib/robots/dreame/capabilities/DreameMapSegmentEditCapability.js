@@ -54,20 +54,22 @@ class DreameMapSegmentEditCapability extends MapSegmentEditCapability {
         );
 
         if (
-            res && res.siid === this.miot_actions.map_edit.siid &&
-            res.aiid === this.miot_actions.map_edit.aiid &&
-            Array.isArray(res.out) && res.out.length === 1 &&
-            res.out[0].piid === this.miot_properties.actionResult.piid
+            !res || res.siid !== this.miot_actions.map_edit.siid ||
+            res.aiid !== this.miot_actions.map_edit.aiid ||
+            !Array.isArray(res.out) || res.out.length !== 1 ||
+            res.out[0].piid !== this.miot_properties.actionResult.piid
         ) {
-            switch (res.out[0].value) {
-                case 0:
-                    this.robot.pollMap();
-                    return;
-                case 1:
-                    throw new RobotFirmwareError("Segment join failed. Can't join segments that aren't adjacent to each other.");
-                default:
-                    throw new RobotFirmwareError("Got error " + res.out[0].value + " while merging segments.");
-            }
+            throw new RobotFirmwareError("Unexpected response while merging segments: " + JSON.stringify(res));
+        }
+
+        switch (res.out[0].value) {
+            case 0:
+                this.robot.pollMap();
+                return;
+            case 1:
+                throw new RobotFirmwareError("Segment join failed. Can't join segments that aren't adjacent to each other.");
+            default:
+                throw new RobotFirmwareError("Got error " + res.out[0].value + " while merging segments.");
         }
     }
 
@@ -104,22 +106,24 @@ class DreameMapSegmentEditCapability extends MapSegmentEditCapability {
         );
 
         if (
-            res && res.siid === this.miot_actions.map_edit.siid &&
-            res.aiid === this.miot_actions.map_edit.aiid &&
-            Array.isArray(res.out) && res.out.length === 1 &&
-            res.out[0].piid === this.miot_properties.actionResult.piid
+            !res || res.siid !== this.miot_actions.map_edit.siid ||
+            res.aiid !== this.miot_actions.map_edit.aiid ||
+            !Array.isArray(res.out) || res.out.length !== 1 ||
+            res.out[0].piid !== this.miot_properties.actionResult.piid
         ) {
-            switch (res.out[0].value) {
-                case 0:
-                    this.robot.pollMap();
-                    return;
-                case 5:
-                    throw new RobotFirmwareError("Failed to split segment. Both ends of the cutting line need to be connected with a wall surrounding the chosen segment.");
-                case 6:
-                    throw new RobotFirmwareError("Failed to split segment. At least one of the resulting segments is too small.");
-                default:
-                    throw new RobotFirmwareError("Got error " + res.out[0].value + " while splitting segments.");
-            }
+            throw new RobotFirmwareError("Unexpected response while splitting segments: " + JSON.stringify(res));
+        }
+
+        switch (res.out[0].value) {
+            case 0:
+                this.robot.pollMap();
+                return;
+            case 5:
+                throw new RobotFirmwareError("Failed to split segment. Both ends of the cutting line need to be connected with a wall surrounding the chosen segment.");
+            case 6:
+                throw new RobotFirmwareError("Failed to split segment. At least one of the resulting segments is too small.");
+            default:
+                throw new RobotFirmwareError("Got error " + res.out[0].value + " while splitting segments.");
         }
     }
 }

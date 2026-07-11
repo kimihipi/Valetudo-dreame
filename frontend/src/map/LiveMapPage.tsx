@@ -5,7 +5,7 @@ import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import React from "react";
 import {useQueryClient} from "@tanstack/react-query";
 import ManualControl from "../robot/ManualControl";
-import {TotalStatisticsInternal} from "../robot/TotalStatistics";
+import TotalStatistics from "../robot/TotalStatistics";
 import CurrentStatistics from "../controls/CurrentStatistics";
 import ControlsCard from "../controls/ControlsCard";
 import {ActionButton} from "./Styled";
@@ -80,15 +80,25 @@ const LiveMapPage = (): React.ReactElement => {
         useMapEditorOpen.setState({isMapEditorOpen: mapEditorOpen});
     }, [mapEditorOpen]);
 
+    React.useEffect(() => {
+        return () => {
+            useMapEditorOpen.setState({isMapEditorOpen: false});
+        };
+    }, []);
+
     // If the capability is supported, we prefetch the properties now, so that the image size
     // is already available once the user opens a dialog
     // => This prevents the content from jumping around
-    if (obstacleImagesSupported) {
+    React.useEffect(() => {
+        if (!obstacleImagesSupported) {
+            return;
+        }
+
         prefetchObstacleImagesProperties(queryClient).catch(err => {
             // eslint-disable-next-line no-console
             console.error("Prefetching obstacle image properties failed", err);
         });
-    }
+    }, [obstacleImagesSupported, queryClient]);
 
     const {
         data: mapSegmentationProperties,
@@ -143,7 +153,7 @@ const LiveMapPage = (): React.ReactElement => {
                     <ActivityHistory />
                     <Box mt={2} />
                     <ControlsCard icon={StatisticsIcon} title="Total Statistics">
-                        <TotalStatisticsInternal />
+                        <TotalStatistics />
                     </ControlsCard>
                 </Box>
                 <ActionButton
@@ -188,7 +198,7 @@ const LiveMapPage = (): React.ReactElement => {
     if (!mapData) {
         return (
             <Container>
-                <Typography align="center">No map data</Typography>;
+                <Typography align="center">No map data</Typography>
             </Container>
         );
     }

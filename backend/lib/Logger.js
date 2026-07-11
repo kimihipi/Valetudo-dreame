@@ -102,7 +102,7 @@ class Logger {
                 return util.inspect(
                     arg,
                     {
-                        depth: Infinity
+                        depth: 4
                     }
                 );
             }).join(" ");

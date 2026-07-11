@@ -10,7 +10,63 @@ const ValetudoAudioEntry = require("../../../entities/core/ValetudoAudioEntry");
 
 const statPromise = util.promisify(fs.stat);
 const readdirPromise = util.promisify(fs.readdir);
-const execPromise = util.promisify(child_process.exec);
+
+/**
+ * Decode an ogg file with oggdec and pipe raw PCM into aplay.
+ * Uses spawn with argv arrays so the audio path is never interpreted by a shell.
+ *
+ * @param {string} audioPath
+ * @returns {Promise<void>}
+ */
+function playOggFile(audioPath) {
+    return new Promise((resolve, reject) => {
+        const oggdec = child_process.spawn("oggdec", [audioPath, "-Q", "-o", "-"]);
+        const aplay = child_process.spawn("aplay", ["-D", "hw"]);
+
+        /** @type {number|null} */
+        let oggdecCode = null;
+        /** @type {number|null} */
+        let aplayCode = null;
+        let oggdecStderr = "";
+        let aplayStderr = "";
+
+        oggdec.stderr.on("data", (chunk) => {
+            oggdecStderr += chunk.toString();
+        });
+        aplay.stderr.on("data", (chunk) => {
+            aplayStderr += chunk.toString();
+        });
+
+        oggdec.on("error", reject);
+        aplay.on("error", reject);
+
+        // If aplay dies first, stop feeding it to avoid EPIPE crashing oggdec.
+        oggdec.stdout.on("error", () => { /* ignore EPIPE */ });
+        oggdec.stdout.pipe(aplay.stdin);
+
+        const finish = () => {
+            if (oggdecCode === null || aplayCode === null) {
+                return;
+            }
+            if (oggdecCode !== 0) {
+                reject(new Error(`oggdec exited with code ${oggdecCode}: ${oggdecStderr.trim()}`));
+            } else if (aplayCode !== 0) {
+                reject(new Error(`aplay exited with code ${aplayCode}: ${aplayStderr.trim()}`));
+            } else {
+                resolve();
+            }
+        };
+
+        oggdec.on("close", (code) => {
+            oggdecCode = code ?? 0;
+            finish();
+        });
+        aplay.on("close", (code) => {
+            aplayCode = code ?? 0;
+            finish();
+        });
+    });
+}
 
 /**
  * @extends SpeakerPlayAudioCapability<import("../DreameValetudoRobot")>
@@ -89,7 +145,7 @@ class DreameSpeakerPlayAudioCapability extends SpeakerPlayAudioCapability {
                 throw new Error("Failed to play audio as the file doesn't exist");
             }
 
-            await execPromise(`oggdec ${audioPath} -Q -o - | aplay -D hw`);
+            await playOggFile(audioPath);
             Logger.debug(`Completed playback of audio ${id}`);
         } catch (err) {
             Logger.error("Failed to play audio: ", err);

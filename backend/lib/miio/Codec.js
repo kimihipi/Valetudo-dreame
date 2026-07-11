@@ -45,8 +45,9 @@ class Codec {
              4 byte Stamp
             16 byte md5 checksum or token
          */
-        const header = Buffer.alloc(2 + 2 + 4 + 4 + 4 + 16);
-        rawPacket.copy(header, 0,0,32);
+        // View, not copy — every incoming UDP packet went through Buffer.alloc(32)+copy
+        // before. The token clone at line ~93 already snapshots the bytes we retain.
+        const header = rawPacket.subarray(0, 32);
 
         const encryptedPayload = rawPacket.subarray(32);
         const stamp = header.readUInt32BE(12);

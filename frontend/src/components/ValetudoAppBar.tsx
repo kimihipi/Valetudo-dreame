@@ -45,25 +45,22 @@ const ValetudoAppBar: React.FunctionComponent<{paletteMode: PaletteMode; setPale
 
     const currentRoute = routeMap[currentLocation];
 
-    const pageTitle = React.useMemo(() => {
-        const breadcrumb = Object.entries(routeMap)
+    const breadcrumb = React.useMemo(() => {
+        return Object.entries(routeMap)
             .filter(([route]) => currentLocation.includes(route))
             .sort((a, b) => a[0].length - b[0].length)
             .map(([, info]) => info.title)
             .join(" - ");
+    }, [currentLocation]);
 
-        if (breadcrumb !== "") {
-            document.title = `Valetudo+ - ${breadcrumb}`;
-        } else {
-            document.title = customizations?.friendlyName || "Valetudo";
-        }
+    const pageTitle = currentRoute?.title ?? customizations?.friendlyName ?? "Home";
+    const documentTitle = breadcrumb !== "" ?
+        `Valetudo+ - ${breadcrumb}` :
+        customizations?.friendlyName || "Valetudo";
 
-        if (!currentRoute) {
-            return customizations?.friendlyName || "Home";
-        }
-
-        return currentRoute.title;
-    }, [currentLocation, currentRoute, customizations]);
+    React.useEffect(() => {
+        document.title = documentTitle;
+    }, [documentTitle]);
 
     return (
         <Box sx={{userSelect: "none"}}>

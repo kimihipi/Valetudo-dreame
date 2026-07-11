@@ -82,11 +82,22 @@ class DreameMapParser {
             const segmentCleanOrder = {};
             const segmentMaterials = {};
             let additionalData = {};
+            const additionalDataBuf = buf.subarray(parsedHeader.width * parsedHeader.height + HEADER_SIZE);
 
-            try {
-                additionalData = JSON.parse(buf.subarray(parsedHeader.width * parsedHeader.height + HEADER_SIZE).toString());
-            } catch (e) {
-                Logger.warn("Error while parsing additional map data", e);
+            if (additionalDataBuf.length > 0) {
+                try {
+                    additionalData = JSON.parse(additionalDataBuf.toString());
+                } catch (e) {
+                    // A non-empty payload that fails to parse means the frame is truncated or
+                    // corrupted. Silently continuing would drop path, virtual walls, no-go
+                    // zones, RISM and pending-map flags while presenting the map as valid.
+                    // Reject the frame so callers keep the last-known-good map instead.
+                    Logger.error(
+                        `Failed to parse additional map data (${additionalDataBuf.length} bytes). Rejecting map frame.`,
+                        e
+                    );
+                    return null;
+                }
             }
 
             if (additionalData.sa && Array.isArray(additionalData.sa)) {
@@ -104,7 +115,14 @@ class DreameMapParser {
             if (additionalData.seg_inf) {
                 Object.keys(additionalData.seg_inf).forEach(segmentId => {
                     if (additionalData.seg_inf[segmentId].name) {
-                        segmentNames[segmentId] = Buffer.from(additionalData.seg_inf[segmentId].name, "base64").toString("utf8");
+                        try {
+                            segmentNames[segmentId] = Buffer.from(
+                                String(additionalData.seg_inf[segmentId].name),
+                                "base64"
+                            ).toString("utf8");
+                        } catch (e) {
+                            Logger.warn(`Failed to decode name for segment ${segmentId}`, e);
+                        }
                     }
 
                     if (additionalData.cleanareaorder !== undefined && Array.isArray(additionalData.cleanareaorder)) {
@@ -506,16 +524,18 @@ class DreameMapParser {
             charger_position: {}
         };
 
-        parsedHeader.id = buf.readInt16LE();
-        parsedHeader.frame_id = buf.readInt16LE(2);
+        // ids and angles are unsigned 0..65535 / 0..360. Positions stay signed because they
+        // use the HALF_INT16 offset trick.
+        parsedHeader.id = buf.readUInt16LE();
+        parsedHeader.frame_id = buf.readUInt16LE(2);
         parsedHeader.frame_type = buf.readInt8(4);
 
         parsedHeader.robot_position = DreameMapParser.CONVERT_TO_VALETUDO_COORDINATES(buf.readInt16LE(5), buf.readInt16LE(7));
-        parsedHeader.robot_position.angle = buf.readInt16LE(9);
+        parsedHeader.robot_position.angle = buf.readUInt16LE(9);
         parsedHeader.robot_position.valid = true;
 
         parsedHeader.charger_position = DreameMapParser.CONVERT_TO_VALETUDO_COORDINATES(buf.readInt16LE(11), buf.readInt16LE(13));
-        parsedHeader.charger_position.angle = buf.readInt16LE(15);
+        parsedHeader.charger_position.angle = buf.readUInt16LE(15);
         parsedHeader.charger_position.valid = true;
 
         parsedHeader.pixelSize = Math.round(buf.readInt16LE(17) / 10);
@@ -556,6 +576,17 @@ class DreameMapParser {
         const rowOffset = parsedHeader.top / parsedHeader.pixelSize;
         const flippedMaxY = MAX_Y / parsedHeader.pixelSize;
 
+        // Valid pixel coord range within the Valetudo canvas. Aggressive RISM headers can
+        // produce coords outside these bounds, which would collide under the (x<<13)|y
+        // key scheme and leak off-canvas pixels into the layer arrays.
+        const maxPixelX = MAX_X / parsedHeader.pixelSize;
+        const maxPixelY = MAX_Y / parsedHeader.pixelSize;
+
+        // Bounded-int pixel key for the wall-filter and carpet flood-fill sets below.
+        // Valid over 0 <= x,y < 8192 (comfortably covers MAX_X/MAX_Y at any pixelSize).
+        /** @type {(x: number, y: number) => number} */
+        const pixelKey = (x, y) => (x << 13) | y;
+
         for (let i = 0; i < parsedHeader.height; i++) {
             for (let j = 0; j < parsedHeader.width; j++) {
 
@@ -564,7 +595,12 @@ class DreameMapParser {
                     Math.round(flippedMaxY - (i + rowOffset))
                 ];
 
-
+                if (
+                    coords[0] < 0 || coords[1] < 0 ||
+                    coords[0] >= maxPixelX || coords[1] >= maxPixelY
+                ) {
+                    continue;
+                }
 
                 if (mapType === MAP_DATA_TYPES.REGULAR) {
                     /**
@@ -652,22 +688,22 @@ class DreameMapParser {
             Object.keys(segments).forEach(segmentId => {
                 if (!deletedSegmentIds.includes(segmentId)) {
                     segments[segmentId].forEach(([x, y]) => {
-                        visiblePixelSet.add(x * 65536 + y);
+                        visiblePixelSet.add(pixelKey(x, y));
                     });
                 }
             });
-            floorPixels.forEach(([x, y]) => visiblePixelSet.add(x * 65536 + y));
+            floorPixels.forEach(([x, y]) => visiblePixelSet.add(pixelKey(x, y)));
 
             const filteredWallPixels = wallPixels.filter(([x, y]) => {
                 return (
-                    visiblePixelSet.has((x-1) * 65536 + y) ||
-                    visiblePixelSet.has((x+1) * 65536 + y) ||
-                    visiblePixelSet.has(x * 65536 + (y-1)) ||
-                    visiblePixelSet.has(x * 65536 + (y+1)) ||
-                    visiblePixelSet.has((x-1) * 65536 + (y-1)) ||
-                    visiblePixelSet.has((x+1) * 65536 + (y-1)) ||
-                    visiblePixelSet.has((x-1) * 65536 + (y+1)) ||
-                    visiblePixelSet.has((x+1) * 65536 + (y+1))
+                    visiblePixelSet.has(pixelKey(x-1, y)) ||
+                    visiblePixelSet.has(pixelKey(x+1, y)) ||
+                    visiblePixelSet.has(pixelKey(x, y-1)) ||
+                    visiblePixelSet.has(pixelKey(x, y+1)) ||
+                    visiblePixelSet.has(pixelKey(x-1, y-1)) ||
+                    visiblePixelSet.has(pixelKey(x+1, y-1)) ||
+                    visiblePixelSet.has(pixelKey(x-1, y+1)) ||
+                    visiblePixelSet.has(pixelKey(x+1, y+1))
                 );
             });
 
@@ -720,11 +756,11 @@ class DreameMapParser {
         const carpetPolygons = [];
 
         if (carpetPixels.length > 0) {
-            const pixelSet = new Set(carpetPixels.map(([x, y]) => `${x},${y}`));
+            const pixelSet = new Set(carpetPixels.map(([x, y]) => pixelKey(x, y)));
             const visited = new Set();
 
             for (const [sx, sy] of carpetPixels) {
-                const startKey = `${sx},${sy}`;
+                const startKey = pixelKey(sx, sy);
                 if (visited.has(startKey)) {
                     continue;
                 }
@@ -749,7 +785,7 @@ class DreameMapParser {
                     }
 
                     for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-                        const nk = `${x + dx},${y + dy}`;
+                        const nk = pixelKey(x + dx, y + dy);
                         if (pixelSet.has(nk) && !visited.has(nk)) {
                             visited.add(nk);
                             queue.push([x + dx, y + dy]);
@@ -888,13 +924,13 @@ class DreameMapParser {
      * @returns {Promise<Buffer|null>}
      */
     static async PREPROCESS(data) {
+        // Node handles the base64url alphabet natively — no need to string-replace
+        // _→/ and -→+ before decoding. Called twice per I-frame (main + RISM).
         // As string.toString() is a no-op, we don't need to check the type beforehand
-        const base64String = data.toString().replace(/_/g, "/").replace(/-/g, "+");
-
         try {
             // intentional return await
             return await new Promise((resolve, reject) => {
-                zlib.inflate(Buffer.from(base64String, "base64"), (err, result) => {
+                zlib.inflate(Buffer.from(data.toString(), "base64url"), (err, result) => {
                     if (!err) {
                         resolve(result);
                     } else {

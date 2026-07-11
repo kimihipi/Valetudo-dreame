@@ -12,9 +12,7 @@ import {
     Typography,
     useTheme,
 } from "@mui/material";
-import {Capability, useTotalStatisticsQuery, ValetudoDataPoint} from "../api";
-import {useCapabilitiesSupported} from "../CapabilitiesProvider";
-import PaperContainer from "../components/PaperContainer";
+import {useTotalStatisticsQuery, ValetudoDataPoint} from "../api";
 import {adjustHexColorBrightness, getFriendlyStatName, getHumanReadableStatValue} from "../utils";
 import {History as HistoryIcon} from "@mui/icons-material";
 import {StatisticsAchievement, statisticsAchievements} from "./res/StatisticsAchievements";
@@ -271,7 +269,7 @@ const StatisticsAward: React.FunctionComponent<{ achievement?: StatisticsAchieve
     );
 };
 
-export const TotalStatisticsInternal: React.FunctionComponent = (): React.ReactElement => {
+const TotalStatistics: React.FunctionComponent = (): React.ReactElement => {
     const {
         data: totalStatisticsState,
         isPending: totalStatisticsPending,
@@ -289,7 +287,7 @@ export const TotalStatisticsInternal: React.FunctionComponent = (): React.ReactE
             return <Typography color="error">Error loading statistics</Typography>;
         }
 
-        const statistics = totalStatisticsState.sort((a, b) => {
+        const statistics = totalStatisticsState.slice().sort((a, b) => {
             const aMapped = SORT_ORDER[a.type] ?? 10;
             const bMapped = SORT_ORDER[b.type] ?? 10;
 
@@ -310,18 +308,6 @@ export const TotalStatisticsInternal: React.FunctionComponent = (): React.ReactE
             </Grid2>
         );
     }, [totalStatisticsError, totalStatisticsPending, totalStatisticsState]);
-};
-
-const TotalStatistics = (): React.ReactElement => {
-    const [supported] = useCapabilitiesSupported(Capability.TotalStatistics);
-
-    return (
-        <PaperContainer>
-            {supported ? <TotalStatisticsInternal/> : (
-                <Typography color="error">This robot does not support total statistics.</Typography>
-            )}
-        </PaperContainer>
-    );
 };
 
 const SORT_ORDER = {
