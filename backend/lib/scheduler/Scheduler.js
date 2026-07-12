@@ -98,6 +98,12 @@ class Scheduler {
      * @param {import("../entities/core/ValetudoTimer")} timerDefinition
      */
     async executeTimer(timerDefinition) {
+        this.robot.setCleaningTarget({
+            value: timerDefinition.action?.type === ValetudoTimer.ACTION_TYPE.SEGMENT_CLEANUP ? "segments" : "all",
+            segmentIds: timerDefinition.action?.params?.segment_ids ?? [],
+            source: "timer",
+            active: true
+        });
         let action;
 
         switch (timerDefinition.action?.type) {

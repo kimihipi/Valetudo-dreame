@@ -1,5 +1,5 @@
 import BaseMap, {MapContainer, MapProps, MapState, usePendingMapAction} from "./BaseMap";
-import {Capability, RawMapLayerType, useAutomaticControlAttributeQuery, useSetAutomaticControlMutation} from "../api";
+import {Capability, CleaningTargetState, RawMapLayerType, useAutomaticControlAttributeQuery, useSetAutomaticControlMutation} from "../api";
 import GoToTargetClientStructure from "./structures/client_structures/GoToTargetClientStructure";
 import {ActionsContainer, ActionButton, MapOverlayTopLeft, MapToolbarContainer, MapOverlayBottomLeft, StatsOverlayButton} from "./Styled";
 import {LiveMapModeSwitcher} from "./LiveMapModeSwitcher";
@@ -139,6 +139,8 @@ const LiveMapModeSwitcherWithAutomatic: React.FunctionComponent<{
 };
 
 interface LiveMapProps extends MapProps {
+    cleaningTarget?: CleaningTargetState,
+    onMatterAreaSelectionChange?: (segmentIds: string[]) => Promise<void>,
     supportedCapabilities: {
         [Capability.MapSegmentation]: boolean,
         [Capability.ZoneCleaning]: boolean,
@@ -159,6 +161,10 @@ interface LiveMapState extends MapState {
 class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
     private readonly supportedModes: Array<LiveMapMode>;
     private _cleanOrderActive: boolean;
+    private appliedCleaningTargetRevision = -1;
+    private matterSelectionSyncTimer: ReturnType<typeof setTimeout> | null = null;
+    private lastMatterSelectionSignature: string | null = null;
+    private localEmptySegmentDraft = false;
 
     constructor(props: LiveMapProps) {
         super(props);
@@ -316,9 +322,20 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
         super.componentDidUpdate(prevProps, prevState);
 
         if (
-            this.state.selectedSegmentIds.length > 0 ||
-            this.state.zones.length > 0 ||
-            this.state.goToTarget !== undefined
+            this.props.cleaningTarget?.revision !== this.appliedCleaningTargetRevision &&
+            ["matter", "webui"].includes(this.props.cleaningTarget?.source ?? "")
+        ) {
+            if (!(this.localEmptySegmentDraft && this.props.cleaningTarget?.source === "webui")) {
+                this.applyCleaningTarget(this.props.cleaningTarget!);
+            }
+        }
+
+        const cleaningInProgress = this.props.cleaningTarget?.active === true;
+        if (
+            !cleaningInProgress &&
+            (this.state.selectedSegmentIds.length > 0 ||
+             this.state.zones.length > 0 ||
+             this.state.goToTarget !== undefined)
         ) {
             usePendingMapAction.setState({hasPendingMapAction: true});
         } else {
@@ -333,9 +350,92 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
             supportedModes: this.supportedModes,
             setMode: this.handleModeChange,
         });
+        if (["matter", "webui"].includes(this.props.cleaningTarget?.source ?? "")) {
+            this.applyCleaningTarget(this.props.cleaningTarget!);
+        }
+    }
+
+    protected onSegmentSelectionChanged(segmentIds: string[]): void {
+        if (this.state.mode === "segments") {
+            this.localEmptySegmentDraft = segmentIds.length === 0;
+            this.queueMatterSelectionSync(segmentIds);
+        }
+    }
+
+    private queueMatterSelectionSync(segmentIds: string[], allowEmpty = false): void {
+        if (segmentIds.length === 0 && !allowEmpty) {
+            if (this.matterSelectionSyncTimer !== null) {
+                clearTimeout(this.matterSelectionSyncTimer);
+                this.matterSelectionSyncTimer = null;
+            }
+            return;
+        }
+        const signature = JSON.stringify(segmentIds);
+        if (!this.props.onMatterAreaSelectionChange || signature === this.lastMatterSelectionSignature) {
+            return;
+        }
+        if (this.matterSelectionSyncTimer !== null) {
+            clearTimeout(this.matterSelectionSyncTimer);
+        }
+        this.matterSelectionSyncTimer = setTimeout(() => {
+            this.matterSelectionSyncTimer = null;
+            this.lastMatterSelectionSignature = signature;
+            // Matter may be disabled. Keep the signature even on failure so a
+            // map refresh does not retry the same user selection indefinitely.
+            this.props.onMatterAreaSelectionChange?.(segmentIds).catch(() => {});
+        }, 100);
+    }
+
+    /**
+     * Apply an integration-owned target without persisting it as the user's preferred map mode.
+     * @param {CleaningTargetState} target ordered target published by the backend
+     */
+    private applyCleaningTarget(target: CleaningTargetState): void {
+        if (!this.supportedModes.includes("segments") || !["none", "all", "segments"].includes(target.value)) {
+            return;
+        }
+
+        const mode: LiveMapMode = target.value === "segments" ? "segments" : "all";
+        this.localEmptySegmentDraft = false;
+        const segmentIds = mode === "segments" ? target.segmentIds : [];
+        const segmentLabels = this.structureManager.getMapStructures().filter(s =>
+            s.type === SegmentLabelMapStructure.TYPE
+        ) as Array<SegmentLabelMapStructure>;
+        if (mode === "segments" && segmentIds.some(id => !segmentLabels.some(label => label.id === id))) {
+            // Map structures are built asynchronously. Leave the revision
+            // unapplied so the state update produced by redrawMap retries it.
+            return;
+        }
+
+        segmentLabels.forEach(label => {
+            const index = segmentIds.indexOf(label.id);
+            label.selected = index !== -1;
+            label.topLabel = this.props.trackSegmentSelectionOrder && index !== -1 ? String(index + 1) : undefined;
+            if (mode === "segments") {
+                label.cleanOrderBadge = undefined;
+            }
+        });
+
+        this.appliedCleaningTargetRevision = target.revision;
+        this.lastMatterSelectionSignature = JSON.stringify(segmentIds);
+        this._cleanOrderActive = mode === "all";
+        if (mode === "all") {
+            // Segment mode hides the firmware clean-order badges. Rebuild them
+            // when Matter switches the map back to whole-home cleaning.
+            this.updateCleanOrderLabels();
+        }
+        this.mapLayerManager.setAlwaysDimUnselectedSegments(mode === "segments");
+        this.mapLayerManager.setSelectedSegmentIds(segmentIds);
+        this.setState({mode: mode, selectedSegmentIds: segmentIds});
+        useLiveMapMode.setState({mode: mode});
+        this.redrawLayers();
     }
 
     componentWillUnmount(): void {
+        if (this.matterSelectionSyncTimer !== null) {
+            clearTimeout(this.matterSelectionSyncTimer);
+            this.matterSelectionSyncTimer = null;
+        }
         useLiveMapMode.setState({setMode: null});
         super.componentWillUnmount();
     }
@@ -369,6 +469,10 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
             window.localStorage.setItem(LIVE_MAP_MODE_LOCAL_STORAGE_KEY, newMode);
         } catch (e) {
             /* intentional */
+        }
+        if (newMode === "all") {
+            this.localEmptySegmentDraft = false;
+            this.queueMatterSelectionSync([], true);
         }
     };
 

@@ -98,6 +98,28 @@ class ValetudoRobot {
     }
 
     /**
+     * Publishes a cleaning target for consumers such as the Web UI. This is
+     * intentionally part of the shared robot state so commands originating in
+     * Matter, MQTT or REST can be represented without another polling loop.
+     *
+     * @param {object} target
+     * @param {string} target.value
+     * @param {Array<string|number>} [target.segmentIds]
+     * @param {string} [target.source]
+     * @param {boolean} [target.active]
+     */
+    setCleaningTarget(target) {
+        const Attribute = entities.state.attributes.CleaningTargetStateAttribute;
+        const previous = this.state.getFirstMatchingAttributeByConstructor(Attribute);
+
+        this.state.upsertFirstMatchingAttribute(new Attribute({
+            ...target,
+            revision: (previous?.revision ?? 0) + 1
+        }));
+        this.emitStateAttributesUpdated();
+    }
+
+    /**
      * Parses a state update and updates the internal state.
      * Updates might be partial
      *
@@ -267,6 +289,16 @@ class ValetudoRobot {
     }
 
     /**
+     * Return the physical robot serial number when the implementation can
+     * retrieve it from the firmware.
+     *
+     * @returns {Promise<string|null>}
+     */
+    async getSerialNumber() {
+        return null;
+    }
+
+    /**
      * @typedef {object} ModelDetails
      * @property {Array<import("../entities/state/attributes/AttachmentStateAttribute").AttachmentStateAttributeType>} supportedAttachments
      * @property {Array<import("../entities/state/attributes/DockComponentStateAttribute").DockComponentStateAttributeType>} supportedDockComponents
@@ -376,6 +408,27 @@ class ValetudoRobot {
     }
 
     /**
+     * Reports a vendor-confirmed cleaning outcome to integrations that need a
+     * stronger signal than an inferred state transition.
+     *
+     * @protected
+     * @param {"completed"|"cancelled"|"failed"} outcome
+     */
+    emitOperationOutcome(outcome) {
+        this.eventEmitter.emit(ValetudoRobot.EVENTS.OperationOutcome, outcome);
+    }
+
+    /** @param {(outcome: "completed"|"cancelled"|"failed") => void} listener */
+    onOperationOutcome(listener) {
+        this.eventEmitter.on(ValetudoRobot.EVENTS.OperationOutcome, listener);
+    }
+
+    /** @param {(outcome: "completed"|"cancelled"|"failed") => void} listener */
+    offOperationOutcome(listener) {
+        this.eventEmitter.off(ValetudoRobot.EVENTS.OperationOutcome, listener);
+    }
+
+    /**
      *
      * This very badly named function is used for the implementation autodetection feature
      *
@@ -389,7 +442,8 @@ class ValetudoRobot {
 ValetudoRobot.EVENTS = {
     StateUpdated: "StateUpdated",
     StateAttributesUpdated: "StateAttributesUpdated",
-    MapUpdated: "MapUpdated"
+    MapUpdated: "MapUpdated",
+    OperationOutcome: "OperationOutcome"
 };
 
 ValetudoRobot.DEFAULT_MAP = require("../res/default_map");

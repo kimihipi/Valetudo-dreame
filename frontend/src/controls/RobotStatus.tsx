@@ -1,7 +1,6 @@
 import {
     Box,
     Button,
-    DialogContentText,
     Divider,
     Grid2,
     Icon,
@@ -66,7 +65,6 @@ import {
     Stop as StopIcon,
     SvgIconComponent,
 } from "@mui/icons-material";
-import ConfirmationDialog from "../components/ConfirmationDialog";
 import LoadingFade from "../components/LoadingFade";
 import {useFeedbackPending} from "../hooks/useFeedbackPending";
 import {usePendingMapAction, useMapEditorOpen} from "../map/BaseMap";
@@ -89,7 +87,7 @@ interface CommandButton {
     color: string;
 }
 
-const getBatteryIcon = (level: number): SvgIconComponent => {
+export const getBatteryIcon = (level: number): SvgIconComponent => {
     if (level < 10) {
         return Battery0Bar;
     }
@@ -114,7 +112,7 @@ const getBatteryIcon = (level: number): SvgIconComponent => {
     return BatteryFull;
 };
 
-const getBatteryColor = (level: number, palette: ReturnType<typeof useValetudoColorsInverse>): string => {
+export const getBatteryColor = (level: number, palette: ReturnType<typeof useValetudoColorsInverse>): string => {
     if (level > 75) {
         return palette.green;
     }
@@ -677,7 +675,6 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
     const isPending = isStatusPending || isBatteryPending;
 
     const [basicControlSupported] = useCapabilitiesSupported(Capability.BasicControl);
-    const [startConfirmationDialogOpen, setStartConfirmationDialogOpen] = React.useState(false);
     const {
         mutate: executeBasicControlCommand,
         isPending: basicControlIsExecuting,
@@ -692,10 +689,6 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
     const [feedbackPending, setFeedbackPending] = useFeedbackPending(status?.value, 5_000);
 
     const sendCommand = (command: BasicControlCommand) => {
-        if (command === "start" && hasPendingMapAction) {
-            setStartConfirmationDialogOpen(true);
-            return;
-        }
         if (command === "start" && setMode && mode !== "automatic") {
             setMode("all");
         }
@@ -813,29 +806,6 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
                     {children}
                 </Grid2>
             </ControlsCard>
-
-            <ConfirmationDialog
-                title="Are you sure you want to start a full cleanup?"
-                open={startConfirmationDialogOpen}
-                onClose={() => {
-                    setStartConfirmationDialogOpen(false);
-                }}
-                onAccept={() => {
-                    if (setMode) {
-                        setMode("all");
-                    }
-                    setFeedbackPending(true);
-                    executeBasicControlCommand("start");
-                }}>
-                <DialogContentText>
-                    You currently have a pending MapAction.
-                    <br/>
-                    <br/>
-                    <strong>Hint:</strong>
-                    <br/>
-                    You might instead be looking for the button on the bottom right of the map.
-                </DialogContentText>
-            </ConfirmationDialog>
         </>
     );
 };

@@ -190,18 +190,33 @@ class RoborockValetudoRobot extends MiioValetudoRobot {
                 });
 
                 return true;
+            case "event.clean_complete":
+            case "event.segment_clean_succ":
+            case "event.zoned_clean_succ":
+                this.emitOperationOutcome("completed");
+                this.sendCloud({id: msg.id, "result":"ok"}).catch((err) => {
+                    Logger.warn("Error while sending cloud ack", err);
+                });
+                return true;
+            case "event.segment_clean_part_done":
+            case "event.zoned_clean_partial_done":
+                this.emitOperationOutcome("cancelled");
+                this.sendCloud({id: msg.id, "result":"ok"}).catch((err) => {
+                    Logger.warn("Error while sending cloud ack", err);
+                });
+                return true;
+            case "event.zoned_clean_failed":
+                this.emitOperationOutcome("failed");
+                this.sendCloud({id: msg.id, "result":"ok"}).catch((err) => {
+                    Logger.warn("Error while sending cloud ack", err);
+                });
+                return true;
             case "event.back_to_dock":
             case "event.error_code":
             case "event.relocate_failed_back":
             case "event.goto_target_succ":
             case "event.target_not_reachable":
             case "event.consume_material_notify":
-            case "event.clean_complete":
-            case "event.segment_clean_succ":
-            case "event.segment_clean_part_done":
-            case "event.zoned_clean_succ":
-            case "event.zoned_clean_partial_done":
-            case "event.zoned_clean_failed":
             case "event.relocate_fail":
             case "event.fan_power_reduced":
             case "event.low_power_back": //If the robot is currently cleaning and the battery drops below 20% it drives home to charge

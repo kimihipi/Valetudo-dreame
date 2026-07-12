@@ -14,6 +14,7 @@ class CleanRouteControlCapability extends Capability {
      */
     constructor(options) {
         super(options);
+        this.routeChangedListeners = new Set();
     }
 
     /**
@@ -30,6 +31,24 @@ class CleanRouteControlCapability extends Capability {
      */
     async setRoute(newRoute) {
         throw new NotImplementedError();
+    }
+
+    /**
+     * Subscribe to route changes made outside of the HTTP capability route.
+     *
+     * @param {(route: CleanRouteControlCapabilityRoute) => void} listener
+     * @returns {() => void}
+     */
+    onRouteChanged(listener) {
+        this.routeChangedListeners.add(listener);
+        return () => this.routeChangedListeners.delete(listener);
+    }
+
+    /**
+     * @param {CleanRouteControlCapabilityRoute} route
+     */
+    notifyRouteChanged(route) {
+        this.routeChangedListeners.forEach(listener => listener(route));
     }
 
     /**
@@ -64,4 +83,3 @@ CleanRouteControlCapability.ROUTE = Object.freeze({
 
 
 module.exports = CleanRouteControlCapability;
-

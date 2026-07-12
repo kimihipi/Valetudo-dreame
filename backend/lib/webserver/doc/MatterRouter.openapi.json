@@ -1,0 +1,162 @@
+{
+  "/api/v2/matter/status": {
+    "get": {
+      "tags": [
+        "Matter"
+      ],
+      "summary": "Get Matter controller status",
+      "responses": {
+        "200": {
+          "description": "Ok",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "disabled",
+                      "starting",
+                      "ready",
+                      "error"
+                    ]
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "lastError": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "commissioned": {
+                    "type": "boolean"
+                  },
+                  "fabrics": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "fabricIndex": {
+                          "type": "number"
+                        },
+                        "fabricId": {
+                          "type": "string"
+                        },
+                        "nodeId": {
+                          "type": "string"
+                        },
+                        "vendorId": {
+                          "type": "number"
+                        },
+                        "label": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  "cleanModeMappingOptions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "vacuum_and_mop",
+                        "vacuum_then_mop"
+                      ]
+                    }
+                  },
+                  "cleanModeStrengthOptions": {
+                    "type": "object",
+                    "properties": {
+                      "fan": {"type": "array", "items": {"type": "string"}},
+                      "water": {"type": "array", "items": {"type": "string"}},
+                      "route": {"type": "array", "items": {"type": "string"}}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/v2/matter/pairing": {
+    "get": {
+      "tags": [
+        "Matter"
+      ],
+      "summary": "Get Matter pairing codes",
+      "description": "Only available while the Matter server is running and not yet commissioned. Returns 404 otherwise.",
+      "responses": {
+        "200": {
+          "description": "Ok",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "qrPairingCode": {
+                    "type": "string"
+                  },
+                  "manualPairingCode": {
+                    "type": "string"
+                  },
+                  "discriminator": {
+                    "type": "number"
+                  },
+                  "passcode": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "404": {
+          "$ref": "#/components/responses/404"
+        }
+      }
+    }
+  },
+  "/api/v2/matter/reset": {
+    "put": {
+      "tags": [
+        "Matter"
+      ],
+      "summary": "Reset Matter commissioning",
+      "description": "Wipes all paired fabrics and local Matter storage and regenerates the commissioning credentials. Fire-and-forget; poll /api/v2/matter/status for the outcome.",
+      "responses": {
+        "202": {
+          "$ref": "#/components/responses/202"
+        }
+      }
+    }
+  },
+  "/api/v2/matter/areas": {
+    "put": {
+      "tags": ["Matter"],
+      "summary": "Synchronize the Web UI cleaning-area selection to Matter",
+      "description": "An empty segment_ids list selects whole-home cleaning.",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["segment_ids"],
+              "properties": {
+                "segment_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {"$ref": "#/components/responses/200"},
+        "400": {"$ref": "#/components/responses/400"}
+      }
+    }
+  }
+}

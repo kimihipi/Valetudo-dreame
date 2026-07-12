@@ -33,6 +33,8 @@ export const sortPresets = (presets: PresetSelectionState["value"][]) => {
 export const presetFriendlyNames: Record<string, string> = Object.freeze({
     "off": "Off",
     "routine": "Routine",
+    "quick": "Quick",
+    "intensive": "Intensive",
     "deep": "Deep",
     "min": "Min",
     "low": "Low",

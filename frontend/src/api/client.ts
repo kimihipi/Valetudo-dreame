@@ -19,6 +19,7 @@ import {
     CleanRoute,
     CleanRouteControlProperties,
     CleanRoutePayload,
+    CleaningHistoryRecord,
     CombinedVirtualRestrictionsProperties,
     CombinedVirtualRestrictionsUpdateRequestParameters,
     CombinedVirtualThresholdsUpdateRequestParameters,
@@ -47,6 +48,9 @@ import {
     MopDockMopWashTemperature,
     MopDockMopWashTemperaturePayload,
     MopDockMopWashTemperatureProperties,
+    MatterConfiguration,
+    MatterPairingInfo,
+    MatterStatus,
     MQTTConfiguration,
     MQTTProperties,
     MQTTStatus,
@@ -133,8 +137,14 @@ valetudoAPI.interceptors.response.use(response => {
     return response;
 });
 
-const SSESubscribers = new Map<string, () => () => void>();
+type SSESubscription = {
+    source: ReconnectingEventSource;
+    listeners: Map<symbol, (data: unknown) => void>;
+};
+
+const SSESubscriptions = new Map<string, SSESubscription>();
 const SSECleanupTimeouts = new Map<string, any>();
+const SSE_CLEANUP_GRACE_MS = 50;
 
 const subscribeToSSE = <T>(
     endpoint: string,
@@ -150,9 +160,9 @@ const subscribeToSSE = <T>(
         clearTimeout(existingCleanupTimeout);
     }
 
-    const existingSubscriber = SSESubscribers.get(key);
-    if (existingSubscriber !== undefined) {
-        return existingSubscriber();
+    const existingSubscription = SSESubscriptions.get(key);
+    if (existingSubscription !== undefined) {
+        return addSSEListener(existingSubscription, listener as (data: unknown) => void);
     }
 
     const source = new ReconnectingEventSource(valetudoAPI.defaults.baseURL + endpoint, {
@@ -160,43 +170,48 @@ const subscribeToSSE = <T>(
         max_retry_time: 30000
     });
 
-    source.addEventListener(event, (event: any) => {
-        listener(raw ? event.data : JSON.parse(event.data));
+    const subscription: SSESubscription = {
+        source: source,
+        listeners: new Map()
+    };
+    source.addEventListener(event, (message: any) => {
+        const data = raw ? message.data : JSON.parse(message.data);
+        subscription.listeners.forEach(activeListener => activeListener(data));
     });
     // eslint-disable-next-line no-console
     console.info(`[SSE] Subscribed to ${endpoint} ${event}`);
 
-    let subscribers = 0;
-    const subscriber = () => {
-        subscribers += 1;
+    SSESubscriptions.set(key, subscription);
 
+    return addSSEListener(subscription, listener as (data: unknown) => void);
+
+    function addSSEListener(activeSubscription: SSESubscription, activeListener: (data: unknown) => void) {
+        const listenerId = Symbol(key);
+        activeSubscription.listeners.set(listenerId, activeListener);
         return () => {
-            subscribers -= 1;
-
-            if (subscribers <= 0) {
-                const existingCleanupTimeout = SSECleanupTimeouts.get(key);
-                if (existingCleanupTimeout !== undefined) {
-                    SSECleanupTimeouts.delete(key);
-                    clearTimeout(existingCleanupTimeout);
-                }
-
-                SSECleanupTimeouts.set(
-                    key,
-                    setTimeout(() => {
-                        // eslint-disable-next-line no-console
-                        console.info(`[SSE] Unsubscribed from ${endpoint} ${event}`);
-
-                        source.close();
-                        SSESubscribers.delete(key);
-                    }, 500)
-                );
+            activeSubscription.listeners.delete(listenerId);
+            if (activeSubscription.listeners.size === 0) {
+                scheduleCleanup(activeSubscription);
             }
         };
-    };
+    }
 
-    SSESubscribers.set(key, subscriber);
-
-    return subscriber();
+    function scheduleCleanup(activeSubscription: SSESubscription) {
+        const existingTimeout = SSECleanupTimeouts.get(key);
+        if (existingTimeout !== undefined) {
+            clearTimeout(existingTimeout);
+        }
+        SSECleanupTimeouts.set(key, setTimeout(() => {
+            SSECleanupTimeouts.delete(key);
+            if (activeSubscription.listeners.size !== 0 || SSESubscriptions.get(key) !== activeSubscription) {
+                return;
+            }
+            // eslint-disable-next-line no-console
+            console.info(`[SSE] Unsubscribed from ${endpoint} ${event}`);
+            activeSubscription.source.close();
+            SSESubscriptions.delete(key);
+        }, SSE_CLEANUP_GRACE_MS));
+    }
 };
 
 export const fetchCapabilities = (): Promise<Capability[]> => {
@@ -207,20 +222,74 @@ export const fetchCapabilities = (): Promise<Capability[]> => {
         });
 };
 
+let latestSSEMap: {data: RawMapData, timestamp: number} | null = null;
+const mapSeedWaiters = new Set<(data: RawMapData) => void>();
+
 export const fetchMap = (): Promise<RawMapData> => {
-    return valetudoAPI.get<RawMapData>("/robot/state/map").then(({data}) => {
-        return preprocessMap(data);
+    if (latestSSEMap !== null && Date.now() - latestSSEMap.timestamp < 2_000) {
+        return Promise.resolve(latestSSEMap.data);
+    }
+    return new Promise((resolve, reject) => {
+        let completed = false;
+        const receiveSeed = (data: RawMapData) => {
+            if (!completed) {
+                completed = true;
+                clearTimeout(fallbackTimer);
+                mapSeedWaiters.delete(receiveSeed);
+                resolve(data);
+            }
+        };
+        mapSeedWaiters.add(receiveSeed);
+        const fallbackTimer = setTimeout(() => {
+            valetudoAPI.get<RawMapData>("/robot/state/map").then(({data}) => {
+                receiveSeed(preprocessMap(data));
+            }).catch(error => {
+                completed = true;
+                mapSeedWaiters.delete(receiveSeed);
+                reject(error);
+            });
+        }, 750);
     });
 };
 
 export const subscribeToMap = (
     listener: (data: RawMapData) => void
 ): (() => void) => {
+    let staticMap: Pick<RawMapData, "size" | "pixelSize" | "layers"> | null = null;
     return subscribeToSSE(
-        "/robot/state/map/sse",
-        "MapUpdated",
-        (data: RawMapData) => {
-            listener(preprocessMap(data));
+        "/robot/state/map/sse/v2",
+        "MapUpdatedV2",
+        (frame: {
+            static: Pick<RawMapData, "size" | "pixelSize" | "layers"> | null,
+            dynamic: Pick<RawMapData, "metaData" | "entities"> & {layerMetaData: RawMapData["layers"][number]["metaData"][]}
+        }) => {
+            if (frame.static !== null) {
+                const prepared = preprocessMap({
+                    ...frame.static,
+                    metaData: frame.dynamic.metaData,
+                    entities: []
+                });
+                staticMap = {
+                    size: prepared.size,
+                    pixelSize: prepared.pixelSize,
+                    layers: prepared.layers
+                };
+            }
+            if (staticMap === null) {
+                return;
+            }
+            const map = {
+                ...staticMap,
+                metaData: frame.dynamic.metaData,
+                entities: frame.dynamic.entities,
+                layers: staticMap.layers.map((layer, index) => ({
+                    ...layer,
+                    metaData: {...layer.metaData, ...frame.dynamic.layerMetaData[index]}
+                }))
+            };
+            latestSSEMap = {data: map, timestamp: Date.now()};
+            mapSeedWaiters.forEach(waiter => waiter(map));
+            listener(map);
         });
 };
 
@@ -238,42 +307,6 @@ export const subscribeToStateAttributes = (
     return subscribeToSSE<RobotAttribute[]>(
         "/robot/state/attributes/sse",
         "StateAttributesUpdated",
-        (data) => {
-            return listener(data);
-        }
-    );
-};
-
-export const subscribeToQuirks = (
-    listener: (data: Quirk[]) => void
-): (() => void) => {
-    return subscribeToSSE<Quirk[]>(
-        `/robot/capabilities/${Capability.Quirks}/sse`,
-        "QuirksUpdated",
-        (data) => {
-            return listener(data);
-        }
-    );
-};
-
-export const subscribeToSuctionBoostControl = (
-    listener: (data: SimpleToggleState) => void
-): (() => void) => {
-    return subscribeToSSE<SimpleToggleState>(
-        `/robot/capabilities/${Capability.SuctionBoostControl}/sse`,
-        "SimpleToggleUpdated",
-        (data) => {
-            return listener(data);
-        }
-    );
-};
-
-export const subscribeToCleanRouteControl = (
-    listener: (data: {route: CleanRoute}) => void
-): (() => void) => {
-    return subscribeToSSE<{route: CleanRoute}>(
-        `/robot/capabilities/${Capability.CleanRouteControl}/sse`,
-        "CleanRouteUpdated",
         (data) => {
             return listener(data);
         }
@@ -631,21 +664,6 @@ export const subscribeToLogMessages = (
     );
 };
 
-export interface StreamerState {
-    running: boolean;
-    managed: boolean;
-}
-
-export const subscribeToStreamerState = (
-    listener: (data: StreamerState) => void
-): (() => void) => {
-    return subscribeToSSE<StreamerState>(
-        "/streamer/state/sse",
-        "StreamerState",
-        listener
-    );
-};
-
 export const fetchValetudoLogLevel = async (): Promise<LogLevelResponse> => {
     return valetudoAPI
         .get<LogLevelResponse>("/valetudo/log/level")
@@ -712,6 +730,58 @@ export const fetchMQTTProperties = async (): Promise<MQTTProperties> => {
         .then(({data}) => {
             return data;
         });
+};
+
+export const fetchMatterConfiguration = async (): Promise<MatterConfiguration> => {
+    return valetudoAPI
+        .get<MatterConfiguration>("/valetudo/config/interfaces/matter")
+        .then(({data}) => {
+            return data;
+        });
+};
+
+export const sendMatterConfiguration = async (matterConfiguration: MatterConfiguration): Promise<void> => {
+    return valetudoAPI
+        .put("/valetudo/config/interfaces/matter", matterConfiguration)
+        .then(({status}) => {
+            if (status !== 200) {
+                throw new Error("Could not update Matter configuration");
+            }
+        });
+};
+
+export const fetchMatterStatus = async (): Promise<MatterStatus> => {
+    return valetudoAPI
+        .get<MatterStatus>("/matter/status")
+        .then(({data}) => {
+            return data;
+        });
+};
+
+export const fetchMatterPairingInfo = async (): Promise<MatterPairingInfo | null> => {
+    return valetudoAPI
+        .get<MatterPairingInfo>("/matter/pairing", {validateStatus: (s) => s === 200 || s === 404})
+        .then(({data, status}) => {
+            return status === 200 ? data : null;
+        });
+};
+
+export const resetMatterCommissioning = async (): Promise<void> => {
+    return valetudoAPI
+        .put("/matter/reset")
+        .then(({status}) => {
+            if (status !== 202 && status !== 200) {
+                throw new Error("Could not reset Matter commissioning");
+            }
+        });
+};
+
+export const sendMatterAreaSelection = async (segmentIds: string[]): Promise<void> => {
+    return valetudoAPI.put("/matter/areas", {segment_ids: segmentIds}).then(({status}) => {
+        if (status !== 200) {
+            throw new Error("Could not synchronize Matter room selection");
+        }
+    });
 };
 
 export const fetchHTTPBasicAuthConfiguration = async (): Promise<HTTPBasicAuthConfiguration> => {
@@ -1284,6 +1354,14 @@ export const fetchActivityHistory = async (): Promise<ActivityHistoryEntry[]> =>
         .then(({ data }) => data);
 };
 
+export const fetchCleaningHistory = async (): Promise<CleaningHistoryRecord[]> => {
+    return valetudoAPI.get<CleaningHistoryRecord[]>("/robot/cleaningHistory").then(({data}) => data);
+};
+
+export const resetCleaningHistory = async (): Promise<void> => {
+    await valetudoAPI.delete("/robot/cleaningHistory");
+};
+
 export const fetchQuirks = async (): Promise<Array<Quirk>> => {
     return valetudoAPI
         .get<Array<Quirk>>(`/robot/capabilities/${Capability.Quirks}`)
@@ -1597,6 +1675,14 @@ export const fetchCleanRoute = async (): Promise<CleanRoute> => {
         .then(({data}) => {
             return data.route;
         });
+};
+
+export const subscribeToCleanRoute = (listener: (route: CleanRoute) => void): (() => void) => {
+    return subscribeToSSE<CleanRoutePayload>(
+        `/robot/capabilities/${Capability.CleanRouteControl}/sse`,
+        "CleanRouteUpdated",
+        data => listener(data.route)
+    );
 };
 
 export const fetchCleanRouteControlProperties = async (): Promise<CleanRouteControlProperties> => {

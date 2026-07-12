@@ -55,6 +55,12 @@
           "mqtt": {
             "$ref": "#/components/schemas/MqttConfigDTO"
           },
+          "matter": {
+            "$ref": "#/components/schemas/MatterConfigDTO"
+          },
+          "matterEstimation": {
+            "$ref": "#/components/schemas/MatterEstimationDTO"
+          },
           "ntpClient": {
             "$ref": "#/components/schemas/NTPClientConfigDTO"
           },
@@ -376,6 +382,145 @@
             "type": "boolean",
             "description": "Only applies when manageProcesses is enabled. When set, the streamer processes will only run while the robot is in an active state and will be stopped otherwise. Otherwise they will be started at boot and kept running."
           }
+        }
+      },
+      "MatterConfigDTO": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enabled",
+          "identity",
+          "commissioning",
+          "interfaces"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "cleanModeMapping": {
+            "type": "string",
+            "enum": [
+              "vacuum_and_mop",
+              "vacuum_then_mop"
+            ],
+            "description": "Valetudo combined cleaning preset represented by Matter's combined Vacuum and Mop mode."
+          },
+          "cleanModeProfiles": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["quiet", "standard", "maximum"],
+            "properties": {
+              "minimum": {"$ref": "#/components/schemas/MatterCleanModeProfileDTO"},
+              "quiet": {"$ref": "#/components/schemas/MatterCleanModeProfileDTO"},
+              "standard": {"$ref": "#/components/schemas/MatterCleanModeProfileDTO"},
+              "maximum": {"$ref": "#/components/schemas/MatterCleanModeProfileDTO"},
+              "deepClean": {"$ref": "#/components/schemas/MatterCleanModeProfileDTO"}
+            }
+          },
+          "identity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "vendorName",
+              "productName",
+              "vendorId",
+              "productId",
+              "serialNumber"
+            ],
+            "properties": {
+              "vendorName": {
+                "type": "string",
+                "description": "Vendor name advertised over Matter. Shown by commissioners."
+              },
+              "productName": {
+                "type": "string",
+                "description": "Product name advertised over Matter. Shown by commissioners."
+              },
+              "vendorId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535,
+                "description": "Matter Vendor ID. Defaults to the test VID 0xFFF1; certification required for a real VID."
+              },
+              "productId": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535,
+                "description": "Matter Product ID within the vendor's namespace."
+              },
+              "serialNumber": {
+                "type": "string",
+                "description": "Serial number reported in Basic Information. Auto-generated on first enable when empty."
+              }
+            }
+          },
+          "commissioning": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "port",
+              "discriminator",
+              "passcode"
+            ],
+            "properties": {
+              "port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535,
+                "description": "UDP port used by the Matter server for commissioning and secure sessions."
+              },
+              "discriminator": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4095,
+                "description": "12-bit commissioning discriminator. Auto-generated on first enable when zero."
+              },
+              "passcode": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 99999998,
+                "description": "27-bit commissioning passcode. Auto-generated on first enable when zero."
+              }
+            }
+          },
+          "interfaces": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Per-cluster interface toggles. Empty in this build; populated in later phases.",
+            "properties": {}
+          }
+        }
+      },
+      "MatterEstimationSampleDTO": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["value", "samples"],
+        "properties": {
+          "value": {"type": "number", "minimum": 0},
+          "samples": {"type": "integer", "minimum": 0}
+        }
+      },
+      "MatterEstimationDTO": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["cleaningRates", "washingDuration", "chargingRate"],
+        "properties": {
+          "cleaningRates": {
+            "type": "object",
+            "additionalProperties": {"$ref": "#/components/schemas/MatterEstimationSampleDTO"}
+          },
+          "washingDuration": {"$ref": "#/components/schemas/MatterEstimationSampleDTO"},
+          "chargingRate": {"$ref": "#/components/schemas/MatterEstimationSampleDTO"}
+        }
+      },
+      "MatterCleanModeProfileDTO": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fan", "water"],
+        "properties": {
+          "fan": {"type": "string"},
+          "water": {"type": "string"},
+          "route": {"type": "string"}
         }
       },
       "NTPClientConfigDTO": {

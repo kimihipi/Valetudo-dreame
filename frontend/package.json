@@ -43,6 +43,7 @@
     "axios": "1.13.2",
     "eliza-as-promised": "git+https://npm@github.com/Hypfer/eliza-as-promised#0.0.3",
     "notistack": "3.0.2",
+    "qrcode.react": "^4.2.0",
     "react": "19.2.3",
     "react-div-100vh": "0.7.0",
     "react-dom": "19.2.3",

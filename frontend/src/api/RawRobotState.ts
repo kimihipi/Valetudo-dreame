@@ -11,12 +11,44 @@ export interface RawRobotStateMetaData {
 }
 
 export enum RobotAttributeClass {
+    ActiveCleaningTaskState = "ActiveCleaningTaskStateAttribute",
     StatusState = "StatusStateAttribute",
     BatteryState = "BatteryStateAttribute",
     PresetSelectionState = "PresetSelectionStateAttribute",
     AttachmentState = "AttachmentStateAttribute",
     DockStatusState = "DockStatusStateAttribute",
     DockComponentState = "DockComponentStateAttribute",
+    CleaningTargetState = "CleaningTargetStateAttribute",
+}
+
+export interface ActiveCleaningTaskState {
+    __class: RobotAttributeClass.ActiveCleaningTaskState;
+    metaData: Record<string, never>;
+    id: string;
+    state: "running" | "paused" | "returning" | "completed" | "cancelled" | "stopped" | "failed";
+    source: string;
+    startedAt: string;
+    target: {
+        type: "all" | "segments" | "zones";
+        segmentIds: string[];
+        segmentNames: string[];
+        currentSegmentId?: string | null;
+    };
+    profile: {
+        operationMode?: string | null;
+        fanPreset?: string | null;
+        waterPreset?: string | null;
+        cleanRoute?: string | null;
+        iterations?: number
+    };
+    progress: {
+        completedRooms?: number;
+        totalRooms?: number;
+        estimatedRemainingSeconds?: number | null;
+        estimatedCompletionTime?: string | null;
+    };
+    outcome: string | null;
+    revision: number;
 }
 
 export interface StatusState {
@@ -81,11 +113,23 @@ export interface DockComponentState {
     value: DockComponentStateAttributeValue;
 }
 
+export interface CleaningTargetState {
+    __class: RobotAttributeClass.CleaningTargetState;
+    metaData: Record<string, never>;
+    value: "none" | "all" | "segments" | "zones";
+    segmentIds: string[];
+    source: string;
+    active: boolean;
+    revision: number;
+}
+
 
 export type RobotAttribute =
+    | ActiveCleaningTaskState
     | StatusState
     | BatteryState
     | PresetSelectionState
     | AttachmentState
     | DockStatusState
-    | DockComponentState;
+    | DockComponentState
+    | CleaningTargetState;

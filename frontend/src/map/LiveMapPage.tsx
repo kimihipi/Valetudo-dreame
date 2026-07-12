@@ -1,15 +1,13 @@
 import {Box, Button, CircularProgress, styled, Typography, useTheme} from "@mui/material";
-import {Capability, prefetchObstacleImagesProperties, useMapSegmentationPropertiesQuery, useRobotMapQuery} from "../api";
+import {Capability, prefetchObstacleImagesProperties, RobotAttributeClass, sendMatterAreaSelection, useMapSegmentationPropertiesQuery, useRobotAttributeQuery, useRobotMapQuery} from "../api";
 import LiveMap from "./LiveMap";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import React from "react";
 import {useQueryClient} from "@tanstack/react-query";
 import ManualControl from "../robot/ManualControl";
-import TotalStatistics from "../robot/TotalStatistics";
 import CurrentStatistics from "../controls/CurrentStatistics";
-import ControlsCard from "../controls/ControlsCard";
 import {ActionButton} from "./Styled";
-import {ArrowBack as ArrowBackIcon, Equalizer as StatisticsIcon} from "@mui/icons-material";
+import {ArrowBack as ArrowBackIcon} from "@mui/icons-material";
 import MapEditorPage from "./MapEditorPage";
 import {useValetudoColors} from "../hooks/useValetudoColors";
 import {useMapEditorOpen} from "./BaseMap";
@@ -33,6 +31,10 @@ const LiveMapPage = (): React.ReactElement => {
         isError: mapLoadError,
         refetch: refetchMap
     } = useRobotMapQuery();
+    const {data: cleaningTarget} = useRobotAttributeQuery(
+        RobotAttributeClass.CleaningTargetState,
+        attributes => attributes[0]
+    );
 
     const [
         goToLocationCapabilitySupported,
@@ -151,10 +153,6 @@ const LiveMapPage = (): React.ReactElement => {
                     <CurrentStatistics />
                     <Box mt={2} />
                     <ActivityHistory />
-                    <Box mt={2} />
-                    <ControlsCard icon={StatisticsIcon} title="Total Statistics">
-                        <TotalStatistics />
-                    </ControlsCard>
                 </Box>
                 <ActionButton
                     color="inherit"
@@ -207,6 +205,8 @@ const LiveMapPage = (): React.ReactElement => {
         rawMap={mapData}
         paletteMode={theme.palette.mode}
         trackSegmentSelectionOrder={mapSegmentationProperties ? mapSegmentationProperties.customOrderSupport : false}
+        cleaningTarget={cleaningTarget}
+        onMatterAreaSelectionChange={sendMatterAreaSelection}
 
         supportedCapabilities={{
             [Capability.MapSegmentation]: mapSegmentationCapabilitySupported,

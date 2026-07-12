@@ -143,6 +143,43 @@ class ValetudoRouter {
             res.sendStatus(200);
         });
 
+        this.router.get("/config/interfaces/matter", (req, res) => {
+            const matterConfig = structuredClone(this.config.get("matter"));
+
+            // Zero out commissioning credentials on read. They are secret (anyone
+            // who has them can commission the device) and the UI never surfaces
+            // them from the settings page — pairing codes come from /matter/pairing.
+            matterConfig.commissioning.discriminator = 0;
+            matterConfig.commissioning.passcode = 0;
+
+            res.json(matterConfig);
+        });
+
+        this.router.put("/config/interfaces/matter", this.validator, (req, res) => {
+            const matterConfig = ValetudoRouter.MAP_MATTER_CONFIG(req.body);
+
+            if (matterConfig === null) {
+                res.sendStatus(400);
+                return;
+            }
+
+            const oldConfig = this.config.get("matter");
+
+            // If the caller submitted the redacted-zero placeholders back,
+            // preserve the currently stored values. Same pattern MQTT uses
+            // for the <redacted> credential strings.
+            if (matterConfig.commissioning.discriminator === 0) {
+                matterConfig.commissioning.discriminator = oldConfig.commissioning.discriminator;
+            }
+            if (matterConfig.commissioning.passcode === 0) {
+                matterConfig.commissioning.passcode = oldConfig.commissioning.passcode;
+            }
+
+            this.config.set("matter", matterConfig);
+
+            res.sendStatus(200);
+        });
+
         this.router.get("/config/interfaces/http/auth/basic", (req, res) => {
             res.json({...this.config.get("webserver").basicAuth, password: ""});
         });
@@ -297,6 +334,72 @@ class ValetudoRouter {
                 }
             },
             optionalExposedCapabilities: Array.isArray(obj.optionalExposedCapabilities) ? [...new Set(obj.optionalExposedCapabilities)] : []
+        };
+    }
+
+    /**
+     * Beyond the OpenAPI validation middleware, this revalidates the whole body,
+     * because config.set() persists without schema validation and a stored value
+     * that fails validation on the next boot resets the entire configuration.
+     *
+     * @param {any} obj
+     * @return {object|null} null if the body is structurally invalid
+     */
+    static MAP_MATTER_CONFIG(obj) {
+        const cleanModeMappings = ["vacuum_and_mop", "vacuum_then_mop"];
+        const cleanModeMapping = obj?.cleanModeMapping ?? "vacuum_and_mop";
+        const cleanModeProfileDefaults = {
+            minimum: {fan: "low", water: "low", route: "quick"},
+            quiet: {fan: "low", water: "low", route: "routine"},
+            standard: {fan: "medium", water: "medium", route: "routine"},
+            maximum: {fan: "max", water: "high", route: "intensive"},
+            deepClean: {fan: "max", water: "high", route: "deep"}
+        };
+        const cleanModeProfiles = Object.fromEntries(Object.entries(cleanModeProfileDefaults).map(([profile, defaults]) => [
+            profile,
+            {...defaults, ...(obj?.cleanModeProfiles?.[profile] ?? {})}
+        ]));
+        const isIntInRange = (val, min, max) => {
+            return Number.isInteger(val) && val >= min && val <= max;
+        };
+
+        if (
+            typeof obj?.enabled !== "boolean" ||
+            !cleanModeMappings.includes(cleanModeMapping) ||
+            !["minimum", "quiet", "standard", "maximum", "deepClean"].every(profile => {
+                return typeof cleanModeProfiles?.[profile]?.fan === "string" &&
+                    typeof cleanModeProfiles?.[profile]?.water === "string" &&
+                    typeof cleanModeProfiles?.[profile]?.route === "string";
+            }) ||
+            typeof obj?.identity?.vendorName !== "string" ||
+            typeof obj?.identity?.productName !== "string" ||
+            !isIntInRange(obj?.identity?.vendorId, 1, 65535) ||
+            !isIntInRange(obj?.identity?.productId, 1, 65535) ||
+            typeof obj?.identity?.serialNumber !== "string" ||
+            !isIntInRange(obj?.commissioning?.port, 1, 65535) ||
+            !isIntInRange(obj?.commissioning?.discriminator, 0, 4095) ||
+            !isIntInRange(obj?.commissioning?.passcode, 0, 99999998)
+        ) {
+            return null;
+        }
+
+        return {
+            enabled: obj.enabled,
+            cleanModeMapping: cleanModeMapping,
+            cleanModeProfiles: structuredClone(cleanModeProfiles),
+            identity: {
+                vendorName: obj.identity.vendorName,
+                productName: obj.identity.productName,
+                vendorId: obj.identity.vendorId,
+                productId: obj.identity.productId,
+                serialNumber: obj.identity.serialNumber
+            },
+            commissioning: {
+                port: obj.commissioning.port,
+                discriminator: obj.commissioning.discriminator,
+                passcode: obj.commissioning.passcode
+            },
+            interfaces: {}
         };
     }
 }

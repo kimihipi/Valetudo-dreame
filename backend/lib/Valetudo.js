@@ -1,7 +1,9 @@
+const CleaningTaskManager = require("./core/CleaningTaskManager");
 const Configuration = require("./Configuration");
 const env = require("./res/env");
 const fs = require("fs");
 const Logger = require("./Logger");
+const MatterController = require("./matter/MatterController");
 const MqttController = require("./mqtt/MqttController");
 const NTPClient = require("./NTPClient");
 const os = require("os");
@@ -96,6 +98,19 @@ class Valetudo {
             valetudoHelper: this.valetudoHelper
         });
 
+        this.cleaningTaskManager = new CleaningTaskManager({
+            config: this.config,
+            robot: this.robot
+        });
+
+        this.matterController = new MatterController({
+            config: this.config,
+            robot: this.robot,
+            valetudoEventStore: this.valetudoEventStore,
+            valetudoHelper: this.valetudoHelper,
+            cleaningTaskManager: this.cleaningTaskManager
+        });
+
         this.networkAdvertisementManager = new NetworkAdvertisementManager({
             config: this.config,
             robot: this.robot,
@@ -113,13 +128,15 @@ class Valetudo {
             phoenixManager: this.phoenixManager,
             robot: this.robot,
             mqttController: this.mqttController,
+            matterController: this.matterController,
             networkAdvertisementManager: this.networkAdvertisementManager,
             ntpClient: this.ntpClient,
             updater: this.updater,
             scheduler: this.scheduler,
             valetudoEventStore: this.valetudoEventStore,
             valetudoHelper: this.valetudoHelper,
-            videoMonitorManager: this.videoMonitorManager
+            videoMonitorManager: this.videoMonitorManager,
+            cleaningTaskManager: this.cleaningTaskManager
         });
 
 
@@ -259,6 +276,10 @@ class Valetudo {
         if (this.mqttController) {
             await this.mqttController.shutdown();
         }
+        if (this.matterController) {
+            await this.matterController.shutdown();
+        }
+        this.cleaningTaskManager?.shutdown();
 
         await this.webserver.shutdown();
         await this.videoMonitorManager.shutdown();

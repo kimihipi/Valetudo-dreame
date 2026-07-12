@@ -27,6 +27,7 @@ const routeMap: Record<string, RouteInfo> = {
     "/settings/valetudo": {title: "Valetudo", parentRoute: "/settings"},
     "/settings/connectivity": {title: "Connectivity", parentRoute: "/settings"},
     "/settings/connectivity/auth": {title: "Auth Settings", parentRoute: "/settings/connectivity"},
+    "/settings/connectivity/matter": {title: "Matter Connectivity", parentRoute: "/settings/connectivity"},
     "/settings/connectivity/mqtt": {title: "MQTT Connectivity", parentRoute: "/settings/connectivity"},
     "/settings/connectivity/networkadvertisement": {title: "Network Advertisement", parentRoute: "/settings/connectivity"},
     "/settings/connectivity/ntp": {title: "NTP Connectivity", parentRoute: "/settings/connectivity"},

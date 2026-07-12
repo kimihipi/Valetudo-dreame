@@ -1,19 +1,14 @@
 import { Grid2 } from "@mui/material";
 import React from "react";
-import { useGo2RtcStreamsQuery, useStreamerStateQuery } from "../api/go2rtc";
+import { useGo2RtcStreamsQuery } from "../api/go2rtc";
 
 const CameraStream = (props: { iframeStyle?: React.CSSProperties; setVisible?: (value: boolean) => void }): React.ReactElement => {
     const { iframeStyle, setVisible } = props;
-    const { data: streamerState } = useStreamerStateQuery();
-    const { data: streams } = useGo2RtcStreamsQuery(streamerState);
+    const { data: streams } = useGo2RtcStreamsQuery();
 
     const firstStreamKey = React.useMemo(() => {
-        // When SSE-managed and stopped, hide immediately without waiting for stale stream data to clear
-        if ((streamerState?.managed ?? false) && !(streamerState?.running ?? false)) {
-            return undefined;
-        }
         return Object.keys(streams ?? {}).at(0);
-    }, [streamerState, streams]);
+    }, [streams]);
 
     React.useEffect(() => {
         setVisible?.(!!firstStreamKey);

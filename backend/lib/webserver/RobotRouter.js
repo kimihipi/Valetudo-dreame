@@ -18,12 +18,17 @@ class RobotRouter {
         this.router = express.Router({mergeParams: true});
 
         this.validator = options.validator;
+        this.cleaningTaskManager = options.cleaningTaskManager;
 
         /** @type {{timestamp: string, robotStatus: string, robotFlag: string, dockStatus: string|null, batteryLevel: number|null, batteryFlag: string|null, dockActivities?: {timestamp: string, robotFlag: string, dockStatus: string|null, batteryLevel: number|null, batteryFlag: string|null}[]}[]} */
         this.activityHistory = [];
         /** @type {string|null} */
         this.prevStatusKey = null;
         this.activityHistoryDebounceTimer = null;
+        this.mapSSEUpdateTimer = null;
+        this.pendingSSEMap = null;
+        this.cachedMapStaticFingerprint = null;
+        this.cachedMapStaticPayload = null;
 
         this.initRoutes();
         this.initSSE();
@@ -77,6 +82,17 @@ class RobotRouter {
             res.json(this.activityHistory);
         });
 
+        this.router.get("/cleaningHistory", (req, res) => {
+            res.json(this.cleaningTaskManager?.getHistory() ?? []);
+        });
+        this.router.get("/cleaningEstimates", (req, res) => {
+            res.json(this.cleaningTaskManager?.getEstimates() ?? {});
+        });
+        this.router.delete("/cleaningHistory", (req, res) => {
+            this.cleaningTaskManager?.clearHistory();
+            res.sendStatus(200);
+        });
+
         this.router.use("/capabilities/", new CapabilitiesRouter({
             robot: this.robot,
             validator: this.validator
@@ -87,7 +103,8 @@ class RobotRouter {
         const sseHubs = {
             state: new SSEHub({name: "State"}),
             attributes: new SSEHub({name: "Attributes"}),
-            map: new SSEHub({name: "Map"})
+            map: new SSEHub({name: "Map"}),
+            mapV2: new SSEHub({name: "MapV2"})
         };
         this.sseHubs = sseHubs;
 
@@ -95,7 +112,7 @@ class RobotRouter {
             if (sseHubs.state.clients.size === 0) {
                 return;
             }
-            sseHubs.state.event(
+            sseHubs.state.latestEvent(
                 ValetudoRobot.EVENTS.StateUpdated,
                 JSON.stringify(this.robot.state)
             );
@@ -105,20 +122,33 @@ class RobotRouter {
             if (sseHubs.attributes.clients.size === 0) {
                 return;
             }
-            sseHubs.attributes.event(
+            sseHubs.attributes.latestEvent(
                 ValetudoRobot.EVENTS.StateAttributesUpdated,
                 JSON.stringify(this.robot.state.attributes)
             );
         };
 
         this.mapUpdateListener = () => {
-            if (sseHubs.map.clients.size === 0) {
+            if (sseHubs.map.clients.size === 0 && sseHubs.mapV2.clients.size === 0) {
                 return;
             }
-            sseHubs.map.event(
-                ValetudoRobot.EVENTS.MapUpdated,
-                JSON.stringify(this.robot.state.map)
-            );
+            this.pendingSSEMap = this.robot.state.map;
+            if (this.mapSSEUpdateTimer === null) {
+                this.mapSSEUpdateTimer = setTimeout(() => {
+                    this.mapSSEUpdateTimer = null;
+                    const map = this.pendingSSEMap;
+                    this.pendingSSEMap = null;
+                    if (map === null) {
+                        return;
+                    }
+                    if (sseHubs.map.clients.size > 0) {
+                        sseHubs.map.latestEvent(ValetudoRobot.EVENTS.MapUpdated, JSON.stringify(map));
+                    }
+                    if (sseHubs.mapV2.clients.size > 0) {
+                        sseHubs.mapV2.latestEvent("MapUpdatedV2", this.serializeMapV2(map));
+                    }
+                }, 750);
+            }
         };
 
         this.activityHistoryListener = () => {
@@ -251,6 +281,67 @@ class RobotRouter {
                 //Intentional, as the response will be handled by the SSEMiddleware
             }
         );
+
+        this.router.get(
+            "/state/map/sse/v2",
+            SSEMiddleware({
+                hub: this.sseHubs.mapV2,
+                keepAliveInterval: 5000,
+                maxClients: 5
+            }),
+            (req, res) => {
+                if (this.robot.state.map !== null) {
+                    res.sse.writeLatest(
+                        `event: MapUpdatedV2\ndata: ${this.serializeMapV2(this.robot.state.map, true)}\n\n`
+                    );
+                }
+            }
+        );
+    }
+
+    /**
+     * @param {import("../entities/map/ValetudoMap")} map
+     * @param {boolean} [forceStatic]
+     * @return {string}
+     */
+    serializeMapV2(map, forceStatic = false) {
+        const staticLayers = map.layers.map(layer => ({
+            ...layer,
+            metaData: {
+                area: layer.metaData.area,
+                segmentId: layer.metaData.segmentId,
+                name: layer.metaData.name,
+                material: layer.metaData.material,
+                hidden: layer.metaData.hidden
+            }
+        }));
+        const fingerprint = JSON.stringify({
+            id: map.metaData.id ?? null,
+            rotation: map.metaData.rotation ?? null,
+            size: map.size,
+            pixelSize: map.pixelSize,
+            layers: staticLayers.map(layer => ({
+                type: layer.type,
+                metaData: layer.metaData,
+                dimensions: layer.dimensions
+            }))
+        });
+        const staticChanged = fingerprint !== this.cachedMapStaticFingerprint;
+        if (staticChanged) {
+            this.cachedMapStaticFingerprint = fingerprint;
+            this.cachedMapStaticPayload = JSON.stringify({
+                size: map.size,
+                pixelSize: map.pixelSize,
+                layers: staticLayers
+            });
+        }
+        const dynamicPayload = JSON.stringify({
+            metaData: map.metaData,
+            entities: map.entities,
+            layerMetaData: map.layers.map(layer => layer.metaData)
+        });
+        return `{"static":${forceStatic || staticChanged ? this.cachedMapStaticPayload : "null"},` +
+            `"dynamic":${dynamicPayload}}`;
     }
 
     getRouter() {
@@ -272,6 +363,11 @@ class RobotRouter {
             clearTimeout(this.activityHistoryDebounceTimer);
             this.activityHistoryDebounceTimer = null;
         }
+        if (this.mapSSEUpdateTimer !== null) {
+            clearTimeout(this.mapSSEUpdateTimer);
+            this.mapSSEUpdateTimer = null;
+        }
+        this.pendingSSEMap = null;
         if (this.mapUpdateListener) {
             this.robot.offMapUpdated(this.mapUpdateListener);
         }

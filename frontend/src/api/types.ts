@@ -388,6 +388,58 @@ export interface MQTTProperties {
     optionalExposableCapabilities: Array<string>;
 }
 
+export interface MatterConfiguration {
+    enabled: boolean;
+    cleanModeMapping: "vacuum_and_mop" | "vacuum_then_mop";
+    cleanModeProfiles: Record<"minimum" | "quiet" | "standard" | "maximum" | "deepClean", {
+        fan: string;
+        water: string;
+        route: string;
+    }>;
+    identity: {
+        vendorName: string;
+        productName: string;
+        vendorId: number;
+        productId: number;
+        serialNumber: string;
+    };
+    commissioning: {
+        port: number;
+        discriminator: number;
+        passcode: number;
+    };
+    interfaces: Record<string, never>;
+}
+
+export interface MatterFabric {
+    fabricIndex: number;
+    fabricId: string;
+    nodeId: string;
+    vendorId: number;
+    label: string;
+}
+
+export interface MatterStatus {
+    state: "disabled" | "starting" | "ready" | "error";
+    enabled: boolean;
+    lastError: string | null;
+    commissioned: boolean;
+    fabrics: Array<MatterFabric>;
+    cleanModeMappingOptions: Array<"vacuum_and_mop" | "vacuum_then_mop">;
+    cleanModeStrengthOptions: {
+        fan: Array<string>;
+        water: Array<string>;
+        route: Array<string>;
+    };
+}
+
+export interface MatterPairingInfo {
+    qrPairingCode: string;
+    manualPairingCode: string;
+    discriminator: number;
+    passcode: number;
+}
+
 export interface HTTPBasicAuthConfiguration {
     enabled: boolean;
     username: string;
@@ -786,4 +838,23 @@ export interface ActivityHistoryEntry {
     batteryLevel: number | null;
     batteryFlag: string | null;
     dockActivities?: DockSubActivity[];
+}
+
+export interface CleaningHistoryRecord {
+    id: string;
+    startedAt: string;
+    completedAt: string;
+    source: string;
+    outcome: string;
+    target: {type: string; segmentIds: string[]; segmentNames: string[]};
+    profile: {
+        operationMode?: string | null;
+        fanPreset?: string | null;
+        waterPreset?: string | null;
+        cleanRoute?: string | null;
+        iterations?: number
+    };
+    rooms: Array<{segmentId: string; name: string; durationSeconds: number; estimatedDurationSeconds?: number | null; visits: number}>;
+    totalDurationSeconds: number;
+    estimatedDurationSeconds?: number | null;
 }

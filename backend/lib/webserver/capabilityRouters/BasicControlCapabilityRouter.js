@@ -1,4 +1,5 @@
 const CapabilityRouter = require("./CapabilityRouter");
+const {StatusStateAttribute} = require("../../entities/state/attributes");
 
 class BasicControlCapabilityRouter extends CapabilityRouter {
     initRoutes() {
@@ -22,6 +23,12 @@ class BasicControlCapabilityRouter extends CapabilityRouter {
 
             if (method) {
                 try {
+                    const status = this.capability.robot.state.getFirstMatchingAttributeByConstructor(StatusStateAttribute);
+                    if (req.body.action === "start" && status?.value !== StatusStateAttribute.VALUE.PAUSED) {
+                        this.capability.robot.setCleaningTarget({
+                            value: "all", segmentIds: [], source: "webui", active: true
+                        });
+                    }
                     await method();
                     res.sendStatus(200);
                 } catch (e) {

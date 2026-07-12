@@ -15,9 +15,7 @@ import {
     Box,
     Button,
     Grid2,
-    Icon,
     Paper,
-    styled,
     Tooltip,
     Typography,
     IconButton
@@ -48,23 +46,23 @@ import DockSettings from "./DockSettings";
 
 const DockComponentTile = ({ label, icon: IconComponent, statusText, statusColor }: { label: string, icon: React.ElementType, statusText: string, statusColor: string }) => {
     return (
-        <Grid2 size={6} container alignItems="center" spacing={1} wrap="nowrap" sx={{padding: "0.25rem"}}>
-            <Grid2 sx={{ display: "flex", alignItems: "center" }}>
-                <IconComponent />
+        <Grid2 size={6} container alignItems="center" wrap="nowrap" sx={{gap: 1, px: 0.5, py: 0.375, minWidth: 0}}>
+            <Grid2 sx={{display: "flex", alignItems: "center", flexShrink: 0}}>
+                <IconComponent style={{height: "1.25rem", width: "1.25rem"}}/>
             </Grid2>
-            <Grid2 sx={{ display: "flex", flexDirection: "column", justifyContent: "center"}}>
-                <Typography variant="body2" sx={{ lineHeight: "1.1rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <Grid2 sx={{display: "flex", flexDirection: "column", justifyContent: "center", minWidth: 0}}>
+                <Typography variant="body2" noWrap>
                     {label}
                 </Typography>
                 <Typography
                     variant="caption"
                     sx={{
                         color: statusColor,
-                        fontWeight: "bold",
-                        lineHeight: "1.1rem",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis"
-                    }}>
+                        fontWeight: 600,
+                        lineHeight: 1.2
+                    }}
+                    noWrap
+                >
                     {statusText}
                 </Typography>
             </Grid2>
@@ -78,6 +76,15 @@ const DOCK_COMPONENT_ORDER: DockComponentStateAttributeType[] = [
     "detergent",
     "dustbag"
 ];
+
+const DOCK_STATE_LABELS: Record<string, string> = {
+    idle: "Idle",
+    cleaning: "Cleaning Mop",
+    drying: "Drying Mop",
+    emptying: "Emptying Dustbin",
+    pause: "Paused",
+    error: "Error"
+};
 
 const DockComponents = ({ supportedTypes, dockComponents }: { supportedTypes: DockComponentStateAttributeType[], dockComponents: any[] }) => {
     const palette = useValetudoColorsInverse();
@@ -174,27 +181,33 @@ const DockComponents = ({ supportedTypes, dockComponents }: { supportedTypes: Do
     const isOk = statusColor === palette.green;
     const [expanded, setExpanded] = React.useState<boolean>(!isOk);
 
+    React.useEffect(() => {
+        if (!isOk) {
+            setExpanded(true);
+        }
+    }, [isOk]);
+
     return (
-        <Paper variant="outlined" sx={{ mt: 1, mb: 1, p: 1, backgroundColor: "transparent" }}>
+        <Paper variant="outlined" sx={{mt: 1, p: 1, backgroundColor: "transparent"}}>
             <Grid2
                 container
                 alignItems="center"
                 onClick={() => setExpanded(!expanded)}
-                sx={{ cursor: "pointer" }}
+                sx={{cursor: "pointer"}}
             >
-                <Grid2 sx={{ flexGrow: 1 }}>
+                <Grid2 sx={{flexGrow: 1}}>
                     <Typography variant="subtitle2" sx={{ml: 0.5}}>Components</Typography>
                 </Grid2>
-                <Grid2 sx={{ display: "flex", alignItems: "center" }}>
+                <Grid2 sx={{display: "flex", alignItems: "center"}}>
                     {isOk ?
                         <StatusOkIcon sx={{color: statusColor, mr: 1, fontSize: "1rem"}} /> :
                         <StatusErrorIcon sx={{color: statusColor, mr: 1, fontSize: "1rem"}} />
                     }
-                    <Icon component={expanded ? CloseIcon : OpenIcon} />
+                    {expanded ? <CloseIcon/> : <OpenIcon/>}
                 </Grid2>
             </Grid2>
 
-            <Box sx={{ display: expanded ? "block" : "none", pt: 2 }}>
+            <Box sx={{display: expanded ? "block" : "none", pt: 1}}>
                 <Grid2 container spacing={1}>
                     {components.map((component) => {
                         return (
@@ -228,14 +241,6 @@ const DockCard = (): React.ReactElement => {
     } = useRobotAttributeQuery(RobotAttributeClass.DockComponentState);
 
     const isPending = isRobotStatusPending || isDockStatusPending || isRobotInfoPending || isDockComponentsPending;
-
-    const StyledIcon = styled(Icon)(({ theme }) => {
-        return {
-            marginRight: theme.spacing(1),
-            marginLeft: -theme.spacing(1),
-            fontSize: "1.25rem",
-        };
-    });
 
     const [
         triggerEmptySupported,
@@ -284,7 +289,7 @@ const DockCard = (): React.ReactElement => {
 
         return (
             <>
-                <Grid2 container direction="row" alignItems="center" sx={{flex: 1}} spacing={1} pt={1} pb={1} wrap={"wrap"}>
+                <Grid2 container direction="row" alignItems="center" sx={{flex: 1}} spacing={1} py={1} wrap="wrap">
                     {
                         mopDockCleanTriggerSupported &&
                         <Grid2 sx={{flex: 1, minWidth: "min-content"}}>
@@ -308,7 +313,8 @@ const DockCard = (): React.ReactElement => {
                                     })
                                 }}
                             >
-                                <StyledIcon as={CleanMopIcon} /> { dockState === "cleaning" ? "Stop" : "Clean" }
+                                <CleanMopIcon sx={{mr: 1, ml: -1, fontSize: "1.25rem"}}/>
+                                {dockState === "cleaning" ? "Stop" : "Clean"}
                             </Button>
                         </Grid2>
                     }
@@ -335,7 +341,8 @@ const DockCard = (): React.ReactElement => {
                                     })
                                 }}
                             >
-                                <StyledIcon as={DryMopIcon} /> { dockState === "drying" ? "Stop" : "Dry" }
+                                <DryMopIcon sx={{mr: 1, ml: -1, fontSize: "1.25rem"}}/>
+                                {dockState === "drying" ? "Stop" : "Dry"}
                             </Button>
                         </Grid2>
                     }
@@ -353,7 +360,7 @@ const DockCard = (): React.ReactElement => {
                                 }}
                                 sx={{width: "100%"}}
                             >
-                                <StyledIcon as={EmptyIcon} /> Empty
+                                <EmptyIcon sx={{mr: 1, ml: -1, fontSize: "1.25rem"}}/>Empty
                             </Button>
                         </Grid2>
                     }
@@ -368,7 +375,6 @@ const DockCard = (): React.ReactElement => {
             </>
         );
     }, [
-        StyledIcon,
         dockState,
         dockStatus,
         emptyIsExecuting,
@@ -394,7 +400,7 @@ const DockCard = (): React.ReactElement => {
         <>
             <ControlsCard
                 title="Dock"
-                subtitle={isPending ? undefined : dockState}
+                subtitle={isPending ? undefined : DOCK_STATE_LABELS[dockState] ?? dockState}
                 pending={feedbackPending}
                 icon={DockIcon}
                 isLoading={isPending}

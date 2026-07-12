@@ -313,6 +313,28 @@ class DreameMapParser {
                     );
                 }
 
+                if (Array.isArray(additionalData.vw.addcpt)) {
+                    additionalData.vw.addcpt.forEach(carpet => {
+                        const pA = DreameMapParser.CONVERT_TO_VALETUDO_COORDINATES(carpet[0], carpet[1]);
+                        const pC = DreameMapParser.CONVERT_TO_VALETUDO_COORDINATES(carpet[2], carpet[3]);
+                        const xCoords = [pA.x, pC.x].sort((a, b) => a - b);
+                        const yCoords = [pA.y, pC.y].sort((a, b) => a - b);
+
+                        jsonCarpetPolygons.push(new mapEntities.PolygonMapEntity({
+                            points: [
+                                xCoords[0], yCoords[0],
+                                xCoords[1], yCoords[0],
+                                xCoords[1], yCoords[1],
+                                xCoords[0], yCoords[1]
+                            ],
+                            type: mapEntities.PolygonMapEntity.TYPE.CARPET,
+                            metaData: {
+                                id: carpet[4]
+                            }
+                        }));
+                    });
+                }
+
             }
 
             if (additionalData.vws) {
@@ -489,7 +511,20 @@ class DreameMapParser {
             }
 
             if (jsonCarpetPolygons.length > 0) {
-                entities.push(...jsonCarpetPolygons);
+                // The same carpet can be reported by multiple sources (e.g. vw.addcpt
+                // and carpet_info), so drop exact geometric duplicates
+                const seenCarpetKeys = new Set();
+
+                entities.push(...jsonCarpetPolygons.filter(polygon => {
+                    const key = polygon.points.join(":");
+
+                    if (seenCarpetKeys.has(key)) {
+                        return false;
+                    }
+
+                    seenCarpetKeys.add(key);
+                    return true;
+                }));
             } else if (rismCarpetPolygons.length > 0) {
                 entities.push(...rismCarpetPolygons);
             } else {

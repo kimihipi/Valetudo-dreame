@@ -8,6 +8,12 @@ export const FanSpeedIcon = createSvgIcon(
     "fanSpeed"
 );
 
+// Stylised Matter-inspired glyph: four rounded petals converging on a central node.
+export const MatterIcon = createSvgIcon(
+    <path d="M12 2c-1.657 3.314-3.343 5-5 5S3.314 5.343 2 4c0 3.314 1.686 5 5 5s3.343 1.686 5 5c1.657-3.314 3.343-5 5-5s3.686-1.686 5-5c-1.314 1.343-3.343 3-5 3s-3.343-1.686-5-5zm0 8c-1.657 3.314-3.343 5-5 5s-3.686 1.686-5 5c1.314-1.343 3.343-3 5-3s3.343 1.686 5 5c1.657-3.314 3.343-5 5-5s3.343 1.657 5 3c-1.314-3.314-3-5-5-5s-3.343-1.686-5-5z"/>,
+    "matter"
+);
+
 // Extracted from https://github.com/mqtt/mqttorg-graphics/blob/master/svg/mqtt-icon-solid.svg
 export const MQTTIcon = createSvgIcon(
     <path

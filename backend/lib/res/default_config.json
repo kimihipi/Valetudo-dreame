@@ -69,6 +69,35 @@
         },
         "optionalExposedCapabilities": []
     },
+    "matter": {
+        "enabled": false,
+        "cleanModeMapping": "vacuum_and_mop",
+        "cleanModeProfiles": {
+            "minimum": {"fan": "low", "water": "low", "route": "quick"},
+            "quiet": {"fan": "low", "water": "low", "route": "routine"},
+            "standard": {"fan": "medium", "water": "medium", "route": "routine"},
+            "maximum": {"fan": "max", "water": "high", "route": "intensive"},
+            "deepClean": {"fan": "max", "water": "high", "route": "deep"}
+        },
+        "identity": {
+            "vendorName": "Valetudo",
+            "productName": "Valetudo Robot",
+            "vendorId": 65521,
+            "productId": 32769,
+            "serialNumber": ""
+        },
+        "commissioning": {
+            "port": 5540,
+            "discriminator": 0,
+            "passcode": 0
+        },
+        "interfaces": {}
+    },
+    "matterEstimation": {
+        "cleaningRates": {},
+        "washingDuration": {"value": 0, "samples": 0},
+        "chargingRate": {"value": 0, "samples": 0}
+    },
     "ntpClient": {
         "enabled": true,
         "server": "valetudo.pool.ntp.org",

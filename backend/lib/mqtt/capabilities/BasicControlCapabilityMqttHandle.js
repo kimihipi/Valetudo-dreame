@@ -29,6 +29,9 @@ class BasicControlCapabilityMqttHandle extends CapabilityMqttHandle {
             setter: async (value) => {
                 switch (value) {
                     case Commands.BASIC_CONTROL.START:
+                        this.robot.setCleaningTarget({
+                            value: "all", segmentIds: [], source: "mqtt", active: true
+                        });
                         await this.capability.start();
                         break;
                     case Commands.BASIC_CONTROL.STOP:

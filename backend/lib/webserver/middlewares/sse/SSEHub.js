@@ -41,6 +41,18 @@ class SSEHub {
         });
     }
 
+    /**
+     * Writes immediately when possible, otherwise retains only the newest
+     * payload per client until its socket drains.
+     *
+     * @param {string} event
+     * @param {string} data
+     */
+    latestEvent(event, data) {
+        const payload = `event: ${event}\ndata: ${data}\n\n`;
+        this.clients.forEach(client => client.writeLatest(payload));
+    }
+
     shutdown() {
         this.clients.forEach(client => {
             client.terminate();

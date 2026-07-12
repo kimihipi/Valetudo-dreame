@@ -226,6 +226,25 @@
       }
     }
   },
+  "/api/v2/robot/cleaningHistory": {
+    "get": {
+      "tags": ["Robot"],
+      "summary": "Get bounded cleaning task history",
+      "responses": {"200": {"description": "Ok", "content": {"application/json": {"schema": {"type": "array", "items": {"type": "object"}}}}}}
+    },
+    "delete": {
+      "tags": ["Robot"],
+      "summary": "Clear cleaning history and learned room estimates",
+      "responses": {"200": {"$ref": "#/components/responses/200"}}
+    }
+  },
+  "/api/v2/robot/cleaningEstimates": {
+    "get": {
+      "tags": ["Robot"],
+      "summary": "Get learned per-room cleaning estimates",
+      "responses": {"200": {"description": "Ok", "content": {"application/json": {"schema": {"type": "object"}}}}}
+    }
+  },
   "/api/v2/robot/state/map/sse": {
     "get": {
       "tags": [

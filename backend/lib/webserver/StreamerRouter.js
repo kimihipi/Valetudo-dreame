@@ -24,10 +24,10 @@ class StreamerRouter {
 
         if (this.videoMonitorManager) {
             this.videoMonitorManager.on(VideoMonitorManager.EVENTS.StreamerStarted, () => {
-                this.stateHub.event(STREAMER_STATE_EVENT, JSON.stringify({running: true, managed: true}));
+                this.stateHub.latestEvent(STREAMER_STATE_EVENT, JSON.stringify({running: true, managed: true}));
             });
             this.videoMonitorManager.on(VideoMonitorManager.EVENTS.StreamerStopped, () => {
-                this.stateHub.event(STREAMER_STATE_EVENT, JSON.stringify({running: false, managed: true}));
+                this.stateHub.latestEvent(STREAMER_STATE_EVENT, JSON.stringify({running: false, managed: true}));
             });
         }
 
@@ -46,7 +46,7 @@ class StreamerRouter {
             (_req, res) => {
                 const managed = this.videoMonitorManager?.isManaged ?? false;
                 const running = managed ? (this.videoMonitorManager?.streamerRunning ?? false) : false;
-                /** @type {any} */ (res).sse.write(`event: ${STREAMER_STATE_EVENT}\ndata: ${JSON.stringify({running: running, managed: managed})}\n\n`);
+                /** @type {any} */ (res).sse.writeLatest(`event: ${STREAMER_STATE_EVENT}\ndata: ${JSON.stringify({running: running, managed: managed})}\n\n`);
             }
         );
 

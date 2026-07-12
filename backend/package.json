@@ -17,6 +17,7 @@
     ]
   },
   "scripts": {
+    "prestart": "npm run build_matter_bundle",
     "start": "node index.js",
     "start:dev": "cross-env VALETUDO_DATA_PATH=../local/valetudo npm run start",
     "lint": "eslint -c .automated.eslintrc.json .",
@@ -27,10 +28,11 @@
     "prepare_commit": "npm run lint_fix && npm run ts-check && npm run test",
     "generate_code": "npm run generate_midea_protobufs",
     "generate_midea_protobufs": "pbjs --es5 ./lib/robots/midea/generated/midea_protobufs.js ../assets/protobuf/midea.proto",
-    "pre_build": "npm run generate_code && node ../util/generate_build_metadata.js",
+    "build_matter_bundle": "node ../util/build_matter_bundle.mjs",
+    "pre_build": "npm run generate_code && npm run build_matter_bundle && node ../util/generate_build_metadata.js",
     "build": "npm run build_armv7 && npm run build_aarch64 && npm run build_armv7_lowmem",
     "build_armv7": "npm run pre_build && cross-env PKG_CACHE_PATH=../build_dependencies/pkg pkg --targets node22-linuxstatic-armv7 --compress Brotli --no-bytecode --public-packages \"*\" --options \"expose-gc,max-heap-size=42\" . --output ../build/armv7/valetudo",
-    "build_aarch64": "npm run pre_build && cross-env PKG_CACHE_PATH=../build_dependencies/pkg pkg --targets node22-linuxstatic-arm64 --compress Brotli --no-bytecode --public-packages \"*\" --options \"expose-gc,max-heap-size=64\" . --output ../build/aarch64/valetudo",
+    "build_aarch64": "npm run pre_build && cross-env PKG_CACHE_PATH=../build_dependencies/pkg pkg --targets node22-linuxstatic-arm64 --compress Brotli --no-bytecode --public-packages \"*\" --options \"expose-gc,max-heap-size=96\" . --output ../build/aarch64/valetudo",
     "build_armv7_lowmem": "npm run pre_build && cross-env PKG_CACHE_PATH=../build_dependencies/pkg pkg --targets node22-linuxstatic-armv7 --compress Brotli --no-bytecode --public-packages \"*\" --options \"expose-gc,max-heap-size=34,optimize-for-size,lite-mode,no-regexp-tier-up\" . --output ../build/armv7/valetudo-lowmem"
   },
   "author": "",
@@ -64,6 +66,10 @@
     "zoo-ids": "2.0.7"
   },
   "devDependencies": {
+    "@matter/general": "^0.17.4",
+    "@matter/node": "^0.17.4",
+    "@matter/nodejs": "^0.17.4",
+    "@matter/types": "^0.17.4",
     "@types/compression": "1.8.1",
     "@types/express": "5.0.6",
     "@types/express-list-endpoints": "6.0.3",
@@ -75,6 +81,7 @@
     "@types/uuid": "10.0.0",
     "@yao-pkg/pkg": "6.6.0",
     "cross-env": "10.1.0",
+    "esbuild": "0.27.7",
     "mocha": "12.0.0-beta-4",
     "should": "13.2.3"
   }

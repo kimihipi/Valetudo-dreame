@@ -29,6 +29,34 @@ export const STATUS_FLAG_LABELS: Record<string, string> = {
     changing_mop: "Changing Mop",
 };
 
+export const STATUS_LABELS: Record<string, string> = {
+    cleaning: "Cleaning",
+    returning: "Returning",
+    docked: "Docked",
+    idle: "Idle",
+    paused: "Paused",
+    manual_control: "Manual Control",
+    moving: "Moving",
+    error: "Error",
+};
+
+export const getStatusColor = (
+    status: string | undefined,
+    palette: {green: string; orange: string; teal: string; yellow: string; purple: string; red: string}
+): string | undefined => {
+    switch (status) {
+        case "cleaning": return palette.green;
+        case "returning": return palette.orange;
+        case "docked": return palette.teal;
+        case "idle":
+        case "paused": return palette.yellow;
+        case "manual_control":
+        case "moving": return palette.purple;
+        case "error": return palette.red;
+        default: return undefined;
+    }
+};
+
 export function convertSecondsToHumans(seconds: number, showSeconds = true, showDays = true): string {
     let levels;
 
@@ -304,4 +332,3 @@ export function format8601Ish(date: Date) {
 
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
-

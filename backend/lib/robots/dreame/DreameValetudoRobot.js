@@ -201,6 +201,45 @@ class DreameValetudoRobot extends MiioValetudoRobot {
         return "Dreame";
     }
 
+    /**
+     * @returns {Promise<string|null>}
+     */
+    async getSerialNumber() {
+        try {
+            const factorySerialNumber = (await fs.promises.readFile(
+                "/mnt/private/ULI/factory/sn.txt",
+                "utf8"
+            )).trim();
+
+            if (factorySerialNumber.length > 0) {
+                return factorySerialNumber;
+            }
+        } catch (e) {
+            if (e.code !== "ENOENT") {
+                Logger.warn("Unable to read the Dreame factory serial number", e);
+            }
+        }
+
+        const services = this.constructor.MIOT_SERVICES;
+        const serialNumberProperty = services?.DEVICE?.PROPERTIES?.SERIAL_NUMBER;
+
+        if (!services?.DEVICE?.SIID || !serialNumberProperty?.PIID) {
+            return null;
+        }
+
+        try {
+            const serialNumber = await this.miotHelper.readProperty(
+                services.DEVICE.SIID,
+                serialNumberProperty.PIID
+            );
+
+            return typeof serialNumber === "string" && serialNumber.length > 0 ? serialNumber : null;
+        } catch (e) {
+            Logger.warn("Unable to determine the robot serial number", e);
+            return null;
+        }
+    }
+
     startup() {
         super.startup();
 

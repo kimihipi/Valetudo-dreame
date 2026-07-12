@@ -20,6 +20,7 @@ const ValetudoRouter = require("./ValetudoRouter");
 
 
 const fs = require("fs");
+const MatterRouter = require("./MatterRouter");
 const MQTTRouter = require("./MQTTRouter");
 const NetworkAdvertisementManagerRouter = require("./NetworkAdvertisementManagerRouter");
 const NTPClientRouter = require("./NTPClientRouter");
@@ -36,6 +37,7 @@ class WebServer {
      * @param {object} options
      * @param {import("../core/ValetudoRobot")} options.robot
      * @param {import("../mqtt/MqttController")} options.mqttController
+     * @param {import("../matter/MatterController")} options.matterController
      * @param {import("../NetworkAdvertisementManager")} options.networkAdvertisementManager
      * @param {import("../NTPClient")} options.ntpClient
      * @param {import("../updater/Updater")} options.updater
@@ -45,6 +47,7 @@ class WebServer {
      * @param {import("../PhoenixManager")} options.phoenixManager
      * @param {import("../utils/ValetudoHelper")} options.valetudoHelper
      * @param {import("../VideoMonitorManager")} options.videoMonitorManager
+     * @param {import("../core/CleaningTaskManager")} options.cleaningTaskManager
      */
     constructor(options) {
         const self = this;
@@ -161,7 +164,11 @@ class WebServer {
             this.validator = swaggerValidation.validate;
         }
 
-        this.robotRouter = new RobotRouter({robot: this.robot, validator: this.validator});
+        this.robotRouter = new RobotRouter({
+            robot: this.robot,
+            validator: this.validator,
+            cleaningTaskManager: options.cleaningTaskManager
+        });
         this.valetudoRouter = new ValetudoRouter({config: this.config, robot: this.robot, validator: this.validator});
 
         this.app.use("/api/v2/robot/", this.robotRouter.getRouter());
@@ -169,6 +176,8 @@ class WebServer {
         this.app.use("/api/v2/valetudo/", this.valetudoRouter.getRouter());
 
         this.app.use("/api/v2/mqtt/", new MQTTRouter({config: this.config, mqttController: options.mqttController, validator: this.validator}).getRouter());
+
+        this.app.use("/api/v2/matter/", new MatterRouter({config: this.config, matterController: options.matterController, validator: this.validator}).getRouter());
 
         this.app.use("/api/v2/networkadvertisement/", new NetworkAdvertisementManagerRouter({config: this.config, networkAdvertisementManager: options.networkAdvertisementManager, validator: this.validator}).getRouter());
 

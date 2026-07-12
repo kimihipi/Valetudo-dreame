@@ -4,6 +4,9 @@ const {SSEHub, SSEMiddleware} = require("../middlewares/sse");
 class CleanRouteControlCapabilityRouter extends CapabilityRouter {
     preInit() {
         this.sseHub = new SSEHub({name: "CleanRouteControl"});
+        this.capability.onRouteChanged?.(route => {
+            this.sseHub.latestEvent("CleanRouteUpdated", JSON.stringify({route: route}));
+        });
 
         this.router.get("/sse", SSEMiddleware({
             hub: this.sseHub,
@@ -35,7 +38,7 @@ class CleanRouteControlCapabilityRouter extends CapabilityRouter {
                     // Emit SSE event with updated route
                     try {
                         const route = await this.capability.getRoute();
-                        this.sseHub?.event("CleanRouteUpdated", JSON.stringify({route: route}));
+                        this.capability.notifyRouteChanged?.(route);
                     } catch (e) {
                         // intentional - state emission shouldn't block the response
                     }

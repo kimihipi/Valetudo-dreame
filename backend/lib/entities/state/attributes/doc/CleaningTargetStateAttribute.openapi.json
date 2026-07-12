@@ -1,0 +1,22 @@
+{
+  "components": {
+    "schemas": {
+      "CleaningTargetStateAttribute": {
+        "allOf": [
+          {"$ref": "#/components/schemas/StateAttribute"},
+          {
+            "type": "object",
+            "required": ["value", "segmentIds", "source", "active", "revision"],
+            "properties": {
+              "value": {"type": "string", "enum": ["none", "all", "segments", "zones"]},
+              "segmentIds": {"type": "array", "items": {"type": "string"}},
+              "source": {"type": "string"},
+              "active": {"type": "boolean"},
+              "revision": {"type": "integer", "minimum": 0}
+            }
+          }
+        ]
+      }
+    }
+  }
+}

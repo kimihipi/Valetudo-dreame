@@ -3,55 +3,50 @@ import {
     Button,
     Card,
     CardContent,
-    Checkbox,
-    Collapse,
-    Container,
     Divider,
-    FormControl,
-    FormControlLabel,
-    FormGroup,
     FormHelperText,
+    FormControlLabel,
+    FormControl,
     Grid2,
-    IconButton,
-    Input,
-    InputAdornment,
     InputLabel,
-    Popper,
+    List,
+    ListItem,
+    ListItemText,
+    MenuItem,
+    Select,
     Skeleton,
     Switch,
     Typography,
     useTheme,
 } from "@mui/material";
 import {
-    ArrowUpward,
-    Visibility as VisibilityIcon,
-    VisibilityOff as VisibilityOffIcon,
-
-    LinkOff as MQTTDisconnectedIcon,
-    Link as MQTTConnectedIcon,
-    Sync as MQTTConnectingIcon,
-    Warning as MQTTErrorIcon,
+    CheckCircle as ReadyIcon,
+    Sync as StartingIcon,
+    PowerSettingsNew as DisabledIcon,
+    Warning as ErrorIcon,
+    RestartAlt as ResetIcon,
+    Hub as ConnectivityIcon,
 } from "@mui/icons-material";
+import {QRCodeSVG} from "qrcode.react";
 import React from "react";
 import {
-    MQTTConfiguration,
-    MQTTStatus,
-    useMQTTConfigurationMutation,
-    useMQTTConfigurationQuery,
-    useMQTTPropertiesQuery,
-    useMQTTStatusQuery
+    MatterConfiguration,
+    MatterStatus,
+    useMatterConfigurationMutation,
+    useMatterConfigurationQuery,
+    useMatterPairingInfoQuery,
+    useMatterResetMutation,
+    useMatterStatusQuery,
 } from "../../api";
-import {getIn, setIn} from "../../api/utils";
-import {convertBytesToHumans, deepCopy, extractHostFromUrl} from "../../utils";
-import {InputProps} from "@mui/material/Input/Input";
+import {deepCopy} from "../../utils";
 import InfoBox from "../../components/InfoBox";
 import PaperContainer from "../../components/PaperContainer";
-import {MQTTIcon} from "../../components/CustomIcons";
-import TextInformationGrid from "../../components/TextInformationGrid";
 import DetailPageHeaderRow from "../../components/DetailPageHeaderRow";
+import ConfirmationDialog from "../../components/ConfirmationDialog";
+import {presetFriendlyNames, sortPresets} from "../../presetUtils";
 
-const MQTTStatusComponent: React.FunctionComponent<{
-    status: MQTTStatus | undefined,
+const MatterStatusComponent: React.FunctionComponent<{
+    status: MatterStatus | undefined,
     statusLoading: boolean,
     statusError: boolean
 }> = ({
@@ -59,99 +54,47 @@ const MQTTStatusComponent: React.FunctionComponent<{
     statusLoading,
     statusError
 }) => {
-
-    if (statusLoading || !status) {
-        return (
-            <Skeleton height={"4rem"}/>
-        );
+    if (statusError) {
+        return <Typography color="error">Error loading Matter status</Typography>;
     }
 
-    if (statusError) {
-        return <Typography color="error">Error loading MQTT status</Typography>;
+    if (statusLoading || !status) {
+        return <Skeleton height={"4rem"}/>;
     }
 
     const getIconForState = (): React.ReactElement => {
         switch (status.state) {
-            case "disconnected":
-                return <MQTTDisconnectedIcon sx={{fontSize: "4rem"}}/>;
+            case "disabled":
+                return <DisabledIcon sx={{fontSize: "4rem"}}/>;
+            case "starting":
+                return <StartingIcon sx={{fontSize: "4rem"}}/>;
             case "ready":
-                return <MQTTConnectedIcon sx={{fontSize: "4rem"}}/>;
-            case "init":
-                return <MQTTConnectingIcon sx={{fontSize: "4rem"}}/>;
-            case "lost":
-            case "alert":
-                return <MQTTErrorIcon sx={{fontSize: "4rem"}}/>;
+                return <ReadyIcon sx={{fontSize: "4rem"}}/>;
+            case "error":
+                return <ErrorIcon sx={{fontSize: "4rem"}}/>;
         }
     };
 
     const getContentForState = (): React.ReactElement => {
         switch (status.state) {
-            case "disconnected":
-                return (
-                    <Typography variant="h5">Disconnected</Typography>
-                );
+            case "disabled":
+                return <Typography variant="h5">Disabled</Typography>;
+            case "starting":
+                return <Typography variant="h5">Starting</Typography>;
             case "ready":
                 return (
-                    <Typography variant="h5">Connected</Typography>
+                    <Typography variant="h5">
+                        {status.commissioned ? "Ready (commissioned)" : "Ready (awaiting commissioner)"}
+                    </Typography>
                 );
-            case "init":
+            case "error":
                 return (
-                    <Typography variant="h5">Connecting/Reconfiguring</Typography>
-                );
-            case "lost":
-            case "alert":
-                return (
-                    <Typography variant="h5">Connection error</Typography>
+                    <Typography variant="h5" color="error">
+                        {status.lastError ?? "Error"}
+                    </Typography>
                 );
         }
     };
-
-    const getMessageStats = (): React.ReactElement => {
-        const items = [
-            {
-                header: "Messages Sent",
-                body: status.stats.messages.count.sent.toString()
-            },
-            {
-                header: "Bytes Sent",
-                body: convertBytesToHumans(status.stats.messages.bytes.sent)
-            },
-            {
-                header: "Messages Received",
-                body: status.stats.messages.count.received.toString()
-            },
-            {
-                header: "Bytes Received",
-                body: convertBytesToHumans(status.stats.messages.bytes.received)
-            },
-        ];
-
-        return <TextInformationGrid items={items}/>;
-    };
-
-    const getConnectionStats = (): React.ReactElement => {
-        const items = [
-            {
-                header: "Connects",
-                body: status.stats.connection.connects.toString()
-            },
-            {
-                header: "Disconnects",
-                body: status.stats.connection.disconnects.toString()
-            },
-            {
-                header: "Reconnects",
-                body: status.stats.connection.reconnects.toString()
-            },
-            {
-                header: "Errors",
-                body: status.stats.connection.errors.toString()
-            },
-        ];
-
-        return <TextInformationGrid items={items}/>;
-    };
-
 
     return (
         <Grid2 container alignItems="center" direction="column" style={{paddingBottom: "1rem"}}>
@@ -160,7 +103,7 @@ const MQTTStatusComponent: React.FunctionComponent<{
             </Grid2>
             <Grid2
                 sx={{
-                    maxWidth: "100% !important", //Why, MUI? Why?
+                    maxWidth: "100% !important",
                     wordWrap: "break-word",
                     textAlign: "center",
                     userSelect: "none"
@@ -168,697 +111,459 @@ const MQTTStatusComponent: React.FunctionComponent<{
             >
                 {getContentForState()}
             </Grid2>
-            <Grid2
-                container
-                direction="row"
-                style={{marginTop: "1rem"}}
-            >
-                <Grid2
-                    style={{flexGrow: 1}}
-                    p={1}
-                >
-                    <Card
-                        sx={{boxShadow: 3}}
-                    >
-                        <CardContent>
-                            <Typography variant="h6" gutterBottom>
-                                Message Statistics
-                            </Typography>
-                            <Divider/>
-                            {getMessageStats()}
-                        </CardContent>
-                    </Card>
-                </Grid2>
-                <Grid2
-                    style={{flexGrow: 1}}
-                    p={1}
-                >
-                    <Card
-                        sx={{boxShadow: 3}}
-                    >
-                        <CardContent>
-                            <Typography variant="h6" gutterBottom>
-                                Connection Statistics
-                            </Typography>
-                            <Divider/>
-                            {getConnectionStats()}
-                        </CardContent>
-                    </Card>
-                </Grid2>
-            </Grid2>
         </Grid2>
     );
 };
 
+const MatterPairingCard: React.FunctionComponent<{
+    matterEnabled: boolean,
+    commissioned: boolean,
+}> = ({matterEnabled, commissioned}) => {
+    const theme = useTheme();
 
-const GroupBox = (props: {
-    title: string,
-    children: React.ReactNode,
-    checked?: boolean,
-    disabled?: boolean,
-    onChange?: ((event: React.ChangeEvent<HTMLInputElement>) => void)
-}): React.ReactElement => {
-    let title = (
-        <Typography
-            variant="subtitle1"
-            sx={{
-                marginBottom: 0,
-                userSelect: "none"
-            }}
-        >
-            {props.title}
-        </Typography>
-    );
-    if (props.onChange) {
-        title = (
-            <FormControlLabel
-                control={
-                    <Checkbox
-                        checked={props.checked}
-                        disabled={props.disabled}
-                        onChange={props.onChange}
-                    />
-                }
-                disableTypography
-                label={title}
-            />
+    const {
+        data: pairing,
+        isPending: pairingPending,
+        isError: pairingError,
+    } = useMatterPairingInfoQuery(matterEnabled && !commissioned);
+
+    if (!matterEnabled) {
+        return null;
+    }
+
+    if (commissioned) {
+        return null;
+    }
+
+    if (pairingPending) {
+        return <Skeleton height={"18rem"}/>;
+    }
+
+    if (pairingError || !pairing) {
+        return (
+            <Card sx={{boxShadow: 3, marginBottom: "1rem"}}>
+                <CardContent>
+                    <Typography variant="h6" gutterBottom>Pairing</Typography>
+                    <Typography color="error">Pairing information is not available yet.</Typography>
+                </CardContent>
+            </Card>
         );
     }
 
     return (
-        <Container sx={{m: 0.2}}>
-            {title}
-            <Collapse in={props.checked || !props.onChange} appear={false}>
-                <div>
-                    {props.children}
-                </div>
-            </Collapse>
-            <Box pt={1}/>
-        </Container>
-    );
-};
+        <Card sx={{boxShadow: 3, marginBottom: "1rem"}}>
+            <CardContent>
+                <Typography variant="h6" gutterBottom>Pairing</Typography>
+                <Divider sx={{mb: 2}}/>
 
-const MQTTInput: React.FunctionComponent<{
-    mqttConfiguration: MQTTConfiguration,
-    modifyMQTTConfig: (value: any, configPath: Array<string>) => void,
-    disabled?: boolean,
-
-    title: string,
-    helperText: string,
-    required: boolean,
-    configPath: Array<string>,
-    additionalProps?: InputProps
-    inputPostProcessor?: (value: any) => any
-}> = ({
-    mqttConfiguration,
-    modifyMQTTConfig,
-    disabled = false,
-
-    title,
-    helperText,
-    required,
-    configPath,
-    additionalProps,
-    inputPostProcessor
-}) => {
-    const idBase = "mqtt-config-" + configPath.join("-");
-    const inputId = idBase + "-input";
-    const helperId = idBase + "-helper";
-    const value = getIn(mqttConfiguration, configPath);
-    const error = required && !value;
-
-    return (
-        <FormControl
-            required={required}
-            error={error}
-            component="fieldset"
-            sx={{ml: 1, mt: 2}}
-
-        >
-            <InputLabel htmlFor={inputId}>{title}</InputLabel>
-            <Input
-                id={inputId}
-                value={value}
-                onChange={(e) => {
-                    let newValue = additionalProps?.type === "number" ? parseInt(e.target.value) : e.target.value;
-                    if (inputPostProcessor) {
-                        newValue = inputPostProcessor(newValue);
-                    }
-
-                    modifyMQTTConfig(newValue, configPath);
-                }}
-                aria-describedby={helperId}
-
-                {...additionalProps}
-            />
-            <FormHelperText id={helperId} sx={{userSelect: "none"}}>
-                {helperText}
-            </FormHelperText>
-        </FormControl>
-    );
-};
-
-const MQTTSwitch: React.FunctionComponent<{
-    mqttConfiguration: MQTTConfiguration,
-    modifyMQTTConfig: (value: any, configPath: Array<string>) => void,
-    disabled?: boolean,
-
-    title: string,
-    configPath: Array<string>,
-}> = ({
-    mqttConfiguration,
-    modifyMQTTConfig,
-    disabled = false,
-
-    title,
-    configPath,
-}) => {
-    const value = getIn(mqttConfiguration, configPath);
-    return (
-        <FormControlLabel
-            control={
-                <Switch checked={value} onChange={(e) => {
-                    modifyMQTTConfig(e.target.checked, configPath);
-                }}/>
-            }
-
-            label={title}
-            sx={{userSelect: "none"}}
-        />
-    );
-};
-
-const MQTTOptionalExposedCapabilitiesEditor: React.FunctionComponent<{
-    mqttConfiguration: MQTTConfiguration,
-    modifyMQTTConfig: (value: any, configPath: Array<string>) => void,
-    disabled?: boolean,
-
-    configPath: Array<string>,
-    exposableCapabilities: Array<string>
-}> = ({
-    mqttConfiguration,
-    modifyMQTTConfig,
-    disabled = false,
-
-    configPath,
-    exposableCapabilities
-}) => {
-    let selection: Array<string> = getIn(mqttConfiguration, configPath);
-
-    return (
-        <Container sx={{m: 0.2}}>
-            <FormGroup>
-                {
-                    exposableCapabilities.map((capabilityName: string) => {
-                        return (
-                            <FormControlLabel
-                                key={capabilityName}
-                                control={
-                                    <Checkbox
-                                        checked={selection.includes(capabilityName)}
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                selection.push(capabilityName);
-                                            } else {
-                                                selection = selection.filter(e => {
-                                                    return e !== capabilityName;
-                                                });
-                                            }
-
-                                            modifyMQTTConfig(selection, configPath);
-                                        }
-                                        }
-                                    />
-                                }
-
-                                label={capabilityName}
-                                sx={{userSelect: "none"}}
+                <Grid2 container spacing={2} alignItems="center">
+                    <Grid2 sx={{display: "flex", justifyContent: "center"}}>
+                        <Box
+                            sx={{
+                                background: "#ffffff",
+                                padding: "1rem",
+                                borderRadius: 1,
+                            }}
+                        >
+                            <QRCodeSVG
+                                value={pairing.qrPairingCode}
+                                size={220}
+                                level="M"
+                                bgColor="#ffffff"
+                                fgColor="#000000"
                             />
-                        );
-                    })
-                }
-
-            </FormGroup>
-        </Container>
+                        </Box>
+                    </Grid2>
+                    <Grid2 sx={{flexGrow: 1, minWidth: "16rem"}}>
+                        <Typography variant="body2" sx={{userSelect: "none", mb: 1}}>
+                            Scan this QR code with a Matter-compatible app (Apple Home, Google Home, Alexa,
+                            Home Assistant) to add the robot to your smart-home platform.
+                        </Typography>
+                        <Typography variant="body2" sx={{userSelect: "none", mb: 1}}>
+                            Alternatively, enter the manual pairing code:
+                        </Typography>
+                        <Typography
+                            variant="h5"
+                            sx={{
+                                fontFamily: "monospace",
+                                letterSpacing: "0.1em",
+                                marginBottom: "0.5rem",
+                            }}
+                        >
+                            {pairing.manualPairingCode.replace(/(\d{4})(\d{4})(\d{3})/, "$1-$2-$3")}
+                        </Typography>
+                        <Typography variant="caption" color={theme.palette.text.secondary} sx={{display: "block"}}>
+                            Setup code: {pairing.qrPairingCode}
+                        </Typography>
+                    </Grid2>
+                </Grid2>
+            </CardContent>
+        </Card>
     );
 };
 
-const sanitizeStringForMQTT = (value: string, allowSlashes = false) => {
-    /*
-      This rather limited set of characters is unfortunately required by Home Assistant
-      Without Home Assistant, it would be enough to replace [\s+#/]
+const MatterFabricsCard: React.FunctionComponent<{
+    status: MatterStatus | undefined,
+    onReset: () => void,
+    resetting: boolean,
+}> = ({status, onReset, resetting}) => {
+    if (!status || !status.commissioned) {
+        return null;
+    }
 
-      See also: https://www.home-assistant.io/docs/mqtt/discovery/#discovery-topic
-     */
-    return value.replace(
-        allowSlashes ? /[^a-zA-Z0-9_\-/]/g : /[^a-zA-Z0-9_-]/g,
-        ""
+    return (
+        <Card sx={{boxShadow: 3, marginBottom: "1rem"}}>
+            <CardContent>
+                <Typography variant="h6" gutterBottom>Paired fabrics</Typography>
+                <Divider sx={{mb: 1}}/>
+                {status.fabrics.length === 0 ? (
+                    <Typography variant="body2">No fabrics reported.</Typography>
+                ) : (
+                    <List dense>
+                        {status.fabrics.map((f) => (
+                            <ListItem key={f.fabricIndex} disableGutters>
+                                <ListItemText
+                                    primary={f.label || `Fabric ${f.fabricIndex}`}
+                                    secondary={`vendor 0x${f.vendorId.toString(16).padStart(4, "0")} · node ${f.nodeId} · fabric ${f.fabricId}`}
+                                />
+                            </ListItem>
+                        ))}
+                    </List>
+                )}
+                <Divider sx={{my: 1}}/>
+                <Button
+                    color="error"
+                    variant="outlined"
+                    startIcon={<ResetIcon/>}
+                    loading={resetting}
+                    onClick={onReset}
+                >
+                    Reset commissioning
+                </Button>
+            </CardContent>
+        </Card>
     );
 };
 
-const sanitizeTopicPrefix = (value: string) => {
-    return value.replace(
-        /^\//,
-        ""
-    ).replace(
-        /\/$/,
-        ""
-    );
-};
-
-const sanitizeConfigBeforeSaving = (mqttConfiguration: MQTTConfiguration) => {
-    mqttConfiguration.customizations.topicPrefix = sanitizeTopicPrefix(mqttConfiguration.customizations.topicPrefix);
-};
-
-const MQTTConnectivity = (): React.ReactElement => {
-    const theme = useTheme();
-
-    const [anchorElement, setAnchorElement] = React.useState(null);
-
-    const identifierElement = React.useRef(null);
-    const topicElement = React.useRef(null);
+const MatterConnectivity = (): React.ReactElement => {
+    const {
+        data: storedMatterConfiguration,
+        isPending: matterConfigurationPending,
+        isError: matterConfigurationError,
+    } = useMatterConfigurationQuery();
 
     const {
-        data: storedMQTTConfiguration,
-        isPending: mqttConfigurationPending,
-        isError: mqttConfigurationError,
-    } = useMQTTConfigurationQuery();
+        data: matterStatus,
+        isPending: matterStatusPending,
+        isError: matterStatusError,
+    } = useMatterStatusQuery();
 
     const {
-        data: mqttStatus,
-        isPending: mqttStatusPending,
-        isError: mqttStatusError,
-    } = useMQTTStatusQuery();
+        mutate: updateMatterConfiguration,
+        isPending: matterConfigurationUpdating
+    } = useMatterConfigurationMutation();
 
     const {
-        data: mqttProperties,
-        isPending: mqttPropertiesPending,
-        isError: mqttPropertiesError
-    } = useMQTTPropertiesQuery();
+        mutate: resetMatter,
+        isPending: matterResetting
+    } = useMatterResetMutation();
 
-    const {mutate: updateMQTTConfiguration, isPending: mqttConfigurationUpdating} = useMQTTConfigurationMutation();
-
-    const [mqttConfiguration, setMQTTConfiguration] = React.useState<MQTTConfiguration | null>(null);
+    const [matterConfiguration, setMatterConfiguration] = React.useState<MatterConfiguration | null>(null);
     const [configurationModified, setConfigurationModified] = React.useState<boolean>(false);
-
-
-    const [showMQTTAuthPasswordAsPlain, setShowMQTTAuthPasswordAsPlain] = React.useState(false);
+    const [resetConfirmOpen, setResetConfirmOpen] = React.useState<boolean>(false);
 
     React.useEffect(() => {
-        if (storedMQTTConfiguration && !configurationModified && !mqttConfigurationUpdating) {
-            setMQTTConfiguration(deepCopy(storedMQTTConfiguration));
+        if (storedMatterConfiguration && !configurationModified && !matterConfigurationUpdating) {
+            setMatterConfiguration(deepCopy(storedMatterConfiguration));
             setConfigurationModified(false);
         }
-    }, [storedMQTTConfiguration, configurationModified, mqttConfigurationUpdating]);
+    }, [storedMatterConfiguration, configurationModified, matterConfigurationUpdating]);
 
-    const modifyMQTTConfig = React.useCallback((value: any, configPath: Array<string>): void => {
-        if (!mqttConfiguration) {
-            return;
-        }
-        const newConfig = deepCopy(mqttConfiguration);
-        setIn(newConfig, value, configPath);
-        setMQTTConfiguration(newConfig);
-        setConfigurationModified(true);
-    }, [mqttConfiguration]);
-
-    if (mqttConfigurationPending || mqttPropertiesPending || !mqttConfiguration) {
+    if (matterConfigurationPending || !matterConfiguration) {
         return (
             <>
                 <Skeleton height={"12rem"}/>
                 <Divider sx={{mt: 1}} style={{marginBottom: "1rem"}}/>
-                <Skeleton height={"36rem"}/>
+                <Skeleton height={"8rem"}/>
             </>
         );
     }
 
-    if (mqttConfigurationError || mqttPropertiesError || !storedMQTTConfiguration || !mqttProperties) {
-        return <Typography color="error">Error loading MQTT configuration</Typography>;
+    if (matterConfigurationError || !storedMatterConfiguration) {
+        return <Typography color="error">Error loading Matter configuration</Typography>;
     }
+
+    const running = matterStatus?.state === "ready";
+    const commissioned = matterStatus?.commissioned === true;
 
     return (
         <>
-            <MQTTStatusComponent
-                status={mqttStatus}
-                statusLoading={mqttStatusPending}
-                statusError={mqttStatusError}
+            <MatterStatusComponent
+                status={matterStatus}
+                statusLoading={matterStatusPending}
+                statusError={matterStatusError}
             />
             <Divider sx={{mt: 1}} style={{marginBottom: "1rem"}}/>
 
             <FormControlLabel
                 control={
-                    <Checkbox
-                        checked={mqttConfiguration.enabled}
-                        onChange={e => {
-                            modifyMQTTConfig(e.target.checked, ["enabled"]);
+                    <Switch
+                        checked={matterConfiguration.enabled}
+                        onChange={(e) => {
+                            setMatterConfiguration({
+                                ...matterConfiguration,
+                                enabled: e.target.checked
+                            });
+                            setConfigurationModified(true);
                         }}
                     />
                 }
-                label="MQTT enabled"
-                sx={{userSelect: "none", marginLeft: "0.5rem", marginBottom: "0.5rem"}}
+                label="Matter enabled"
+                sx={{userSelect: "none", mb: 1}}
             />
 
-            <GroupBox title="Connection">
-                <MQTTInput
-                    mqttConfiguration={mqttConfiguration}
-                    modifyMQTTConfig={modifyMQTTConfig}
-
-                    title="Host"
-                    helperText="The MQTT Broker hostname"
-                    required={true}
-                    configPath={["connection", "host"]}
-                    inputPostProcessor={(value) => {
-                        return extractHostFromUrl(value);
-                    }}
+            {running && (
+                <MatterPairingCard
+                    matterEnabled={matterConfiguration.enabled}
+                    commissioned={commissioned}
                 />
-                <MQTTInput
-                    mqttConfiguration={mqttConfiguration}
-                    modifyMQTTConfig={modifyMQTTConfig}
+            )}
 
-                    title="Port"
-                    helperText="The MQTT Broker port"
-                    required={true}
-                    configPath={["connection", "port"]}
-                    additionalProps={{type: "number"}}
-                />
+            <MatterFabricsCard
+                status={matterStatus}
+                onReset={() => setResetConfirmOpen(true)}
+                resetting={matterResetting}
+            />
 
-                <GroupBox title="TLS" checked={mqttConfiguration.connection.tls.enabled}
-                    onChange={(e) => {
-                        modifyMQTTConfig(e.target.checked, ["connection", "tls", "enabled"]);
-                    }}>
-                    <MQTTInput
-                        mqttConfiguration={mqttConfiguration}
-                        modifyMQTTConfig={modifyMQTTConfig}
+            <Card sx={{boxShadow: 3, mb: 2}}>
+                <CardContent>
+                    <Typography variant="h6" gutterBottom>Configuration</Typography>
+                    <Divider sx={{mb: 2}}/>
 
-                        title="CA"
-                        helperText="The optional Certificate Authority to verify the connection with"
-                        required={false}
-                        configPath={["connection", "tls", "ca"]}
-                        additionalProps={{
-                            multiline: true,
-                            minRows: 3,
-                            maxRows: 10,
-                        }}
-                    />
-                    <br/><br/>
-                    <MQTTSwitch
-                        mqttConfiguration={mqttConfiguration}
-                        modifyMQTTConfig={modifyMQTTConfig}
-                        title="Ignore certificate errors"
-                        configPath={["connection", "tls", "ignoreCertificateErrors"]}
-                    />
-                </GroupBox>
+                    {matterStatus?.cleanModeMappingOptions.includes("vacuum_and_mop") &&
+                matterStatus.cleanModeMappingOptions.includes("vacuum_then_mop") && (
+                        <FormControl fullWidth sx={{mb: 2}}>
+                            <InputLabel id="matter-combined-clean-mode-label">Combined clean mode</InputLabel>
+                            <Select
+                                labelId="matter-combined-clean-mode-label"
+                                label="Combined clean mode"
+                                value={matterConfiguration.cleanModeMapping}
+                                onChange={(e) => {
+                                    setMatterConfiguration({
+                                        ...matterConfiguration,
+                                        cleanModeMapping: e.target.value as MatterConfiguration["cleanModeMapping"]
+                                    });
+                                    setConfigurationModified(true);
+                                }}
+                            >
+                                <MenuItem value="vacuum_and_mop">
+                                    {presetFriendlyNames.vacuum_and_mop}
+                                </MenuItem>
+                                <MenuItem value="vacuum_then_mop">
+                                    {presetFriendlyNames.vacuum_then_mop}
+                                </MenuItem>
+                            </Select>
+                            <FormHelperText sx={{userSelect: "none"}}>
+                                Matter exposes one combined vacuum and mop mode. Choose the Valetudo operation it uses.
+                            </FormHelperText>
+                        </FormControl>
+                    )}
 
-                <GroupBox title="Authentication">
-                    <GroupBox title="Credentials"
-                        checked={mqttConfiguration.connection.authentication.credentials.enabled}
-                        onChange={(e) => {
-                            modifyMQTTConfig(e.target.checked, ["connection", "authentication", "credentials", "enabled"]);
-                        }}>
-                        <MQTTInput
-                            mqttConfiguration={mqttConfiguration}
-                            modifyMQTTConfig={modifyMQTTConfig}
+                    {matterStatus && (
+                        matterStatus.cleanModeStrengthOptions.fan.length > 0 ||
+                matterStatus.cleanModeStrengthOptions.water.length > 0 ||
+                matterStatus.cleanModeStrengthOptions.route.length > 0
+                    ) && (
+                        <Box sx={{mt: 1, mb: 2}}>
+                            <Typography variant="h6" gutterBottom>Cleaning profiles</Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{mb: 2}}>
+                            Map Matter&apos;s Minimum, Quiet, Standard, Maximum, and Deep Clean modes to this
+                            robot&apos;s Valetudo presets.
+                            </Typography>
+                            {(["minimum", "quiet", "standard", "maximum", "deepClean"] as const).map(profile => {
+                                const profileLabel = profile === "deepClean" ? "Deep Clean" :
+                                    profile.charAt(0).toUpperCase() + profile.slice(1);
+                                return (
+                                    <Box key={profile} sx={{mb: profile === "deepClean" ? 0 : 2}}>
+                                        <Typography variant="subtitle2" sx={{mb: 1}}>
+                                            {profileLabel}
+                                        </Typography>
+                                        <Grid2 container spacing={2}>
+                                            {matterStatus.cleanModeStrengthOptions.fan.length > 0 && (
+                                                <Grid2 sx={{flex: 1, minWidth: "12rem"}}>
+                                                    <FormControl fullWidth>
+                                                        <InputLabel>{profileLabel} fan speed</InputLabel>
+                                                        <Select
+                                                            label={`${profileLabel} fan speed`}
+                                                            value={matterConfiguration.cleanModeProfiles[profile].fan}
+                                                            onChange={(e) => {
+                                                                setMatterConfiguration({
+                                                                    ...matterConfiguration,
+                                                                    cleanModeProfiles: {
+                                                                        ...matterConfiguration.cleanModeProfiles,
+                                                                        [profile]: {
+                                                                            ...matterConfiguration.cleanModeProfiles[profile],
+                                                                            fan: e.target.value
+                                                                        }
+                                                                    }
+                                                                });
+                                                                setConfigurationModified(true);
+                                                            }}
+                                                        >
+                                                            {sortPresets(matterStatus.cleanModeStrengthOptions.fan).map(preset => (
+                                                                <MenuItem key={preset} value={preset}>
+                                                                    {presetFriendlyNames[preset] ?? preset}
+                                                                </MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
+                                                </Grid2>
+                                            )}
+                                            {matterStatus.cleanModeStrengthOptions.water.length > 0 && (
+                                                <Grid2 sx={{flex: 1, minWidth: "12rem"}}>
+                                                    <FormControl fullWidth>
+                                                        <InputLabel>{profileLabel} water usage</InputLabel>
+                                                        <Select
+                                                            label={`${profileLabel} water usage`}
+                                                            value={matterConfiguration.cleanModeProfiles[profile].water}
+                                                            onChange={(e) => {
+                                                                setMatterConfiguration({
+                                                                    ...matterConfiguration,
+                                                                    cleanModeProfiles: {
+                                                                        ...matterConfiguration.cleanModeProfiles,
+                                                                        [profile]: {
+                                                                            ...matterConfiguration.cleanModeProfiles[profile],
+                                                                            water: e.target.value
+                                                                        }
+                                                                    }
+                                                                });
+                                                                setConfigurationModified(true);
+                                                            }}
+                                                        >
+                                                            {sortPresets(matterStatus.cleanModeStrengthOptions.water).map(preset => (
+                                                                <MenuItem key={preset} value={preset}>
+                                                                    {presetFriendlyNames[preset] ?? preset}
+                                                                </MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
+                                                </Grid2>
+                                            )}
+                                            {matterStatus.cleanModeStrengthOptions.route.length > 0 && (
+                                                <Grid2 sx={{flex: 1, minWidth: "12rem"}}>
+                                                    <FormControl fullWidth>
+                                                        <InputLabel>{profileLabel} clean route</InputLabel>
+                                                        <Select
+                                                            label={`${profileLabel} clean route`}
+                                                            value={matterConfiguration.cleanModeProfiles[profile].route}
+                                                            onChange={(e) => {
+                                                                setMatterConfiguration({
+                                                                    ...matterConfiguration,
+                                                                    cleanModeProfiles: {
+                                                                        ...matterConfiguration.cleanModeProfiles,
+                                                                        [profile]: {
+                                                                            ...matterConfiguration.cleanModeProfiles[profile],
+                                                                            route: e.target.value
+                                                                        }
+                                                                    }
+                                                                });
+                                                                setConfigurationModified(true);
+                                                            }}
+                                                        >
+                                                            {sortPresets(matterStatus.cleanModeStrengthOptions.route).map(route => (
+                                                                <MenuItem key={route} value={route}>
+                                                                    {presetFriendlyNames[route] ?? route}
+                                                                </MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
+                                                </Grid2>
+                                            )}
+                                        </Grid2>
+                                    </Box>
+                                );
+                            })}
+                        </Box>
+                    )}
 
-                            title="Username"
-                            helperText="Username for authentication"
-                            required={true}
-                            configPath={["connection", "authentication", "credentials", "username"]}
-                        />
-                        <MQTTInput
-                            mqttConfiguration={mqttConfiguration}
-                            modifyMQTTConfig={modifyMQTTConfig}
-
-                            title="Password"
-                            helperText="Password for authentication"
-                            required={false}
-                            configPath={["connection", "authentication", "credentials", "password"]}
-                            additionalProps={{
-                                type: showMQTTAuthPasswordAsPlain ? "text" : "password",
-                                endAdornment: (
-                                    <InputAdornment position="end">
-                                        <IconButton
-                                            aria-label="toggle password visibility"
-                                            onClick={() => {
-                                                setShowMQTTAuthPasswordAsPlain(!showMQTTAuthPasswordAsPlain);
-                                            }}
-                                            onMouseDown={e => {
-                                                e.preventDefault();
-                                            }}
-                                            edge="end"
-                                        >
-                                            {showMQTTAuthPasswordAsPlain ? <VisibilityOffIcon/> : <VisibilityIcon/>}
-                                        </IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
-                    </GroupBox>
-                    <GroupBox title="Client certificate"
-                        checked={mqttConfiguration.connection.authentication.clientCertificate.enabled}
-                        onChange={(e) => {
-                            modifyMQTTConfig(e.target.checked, ["connection", "authentication", "clientCertificate", "enabled"]);
-                        }}>
-
-                        <MQTTInput
-                            mqttConfiguration={mqttConfiguration}
-                            modifyMQTTConfig={modifyMQTTConfig}
-
-                            title="Certificate"
-                            helperText="The full certificate as a multi-line string"
-                            required={true}
-                            configPath={["connection", "authentication", "clientCertificate", "certificate"]}
-                            additionalProps={{
-                                multiline: true,
-                                minRows: 3,
-                                maxRows: 10
-                            }}
-                        />
-                        <MQTTInput
-                            mqttConfiguration={mqttConfiguration}
-                            modifyMQTTConfig={modifyMQTTConfig}
-
-                            title="Key"
-                            helperText="The full key as a multi-line string"
-                            required={true}
-                            configPath={["connection", "authentication", "clientCertificate", "key"]}
-                            additionalProps={{
-                                multiline: true,
-                                minRows: 3,
-                                maxRows: 10
-                            }}
-                        />
-                    </GroupBox>
-                </GroupBox>
-            </GroupBox>
-
-            <GroupBox title="Integrations">
-                <GroupBox title="Home Assistant" checked={mqttConfiguration.interfaces.homeassistant.enabled}
-                    onChange={(e) => {
-                        modifyMQTTConfig(e.target.checked, ["interfaces", "homeassistant", "enabled"]);
-                    }}>
-                    <FormControl component="fieldset" variant="standard">
-                        <FormGroup sx={{marginLeft: "1rem"}}>
-                            <MQTTSwitch
-                                mqttConfiguration={mqttConfiguration}
-                                modifyMQTTConfig={modifyMQTTConfig}
-                                title="Delete autodiscovery metadata on shutdown"
-                                configPath={["interfaces", "homeassistant", "cleanAutoconfOnShutdown"]}
-                            />
-                        </FormGroup>
-                    </FormControl>
-                </GroupBox>
-
-                <GroupBox title="Homie" checked={mqttConfiguration.interfaces.homie.enabled}
-                    onChange={(e) => {
-                        modifyMQTTConfig(e.target.checked, ["interfaces", "homie", "enabled"]);
-                    }}>
-                    <FormControl component="fieldset" variant="standard">
-                        <FormGroup sx={{marginLeft: "1rem"}}>
-                            <MQTTSwitch
-                                mqttConfiguration={mqttConfiguration}
-                                modifyMQTTConfig={modifyMQTTConfig}
-                                title="Delete autodiscovery metadata on shutdown"
-                                configPath={["interfaces", "homie", "cleanAttributesOnShutdown"]}
-                            />
-                        </FormGroup>
-                    </FormControl>
-                </GroupBox>
-            </GroupBox>
-
-            <GroupBox title="Customizations">
-                <MQTTInput
-                    mqttConfiguration={mqttConfiguration}
-                    modifyMQTTConfig={modifyMQTTConfig}
-
-                    title="Topic prefix"
-                    helperText="MQTT topic prefix"
-                    required={false}
-                    configPath={["customizations", "topicPrefix"]}
-                    additionalProps={{
-                        placeholder: mqttProperties.defaults.customizations.topicPrefix,
-                        color: "warning",
-                        onFocus: () => {
-                            setAnchorElement(topicElement.current);
-                        },
-                        onBlur: () => {
-                            setAnchorElement(null);
-                        },
-                    }}
-                    inputPostProcessor={(value) => {
-                        return sanitizeStringForMQTT(
-                            value,
-                            true
-                        ).replace(
-                            /\/\//g,
-                            "/"
-                        );
-                    }}
-                />
-                <MQTTInput
-                    mqttConfiguration={mqttConfiguration}
-                    modifyMQTTConfig={modifyMQTTConfig}
-
-                    title="Identifier"
-                    helperText="The machine-readable name of the robot"
-                    required={false}
-                    configPath={["identity", "identifier"]}
-                    additionalProps={{
-                        placeholder: mqttProperties.defaults.identity.identifier,
-                        color: "secondary",
-                        onFocus: () => {
-                            setAnchorElement(identifierElement.current);
-                        },
-                        onBlur: () => {
-                            setAnchorElement(null);
-                        },
-                    }}
-                    inputPostProcessor={(value) => {
-                        return sanitizeStringForMQTT(value, false);
-                    }}
-                />
-                <br/>
-                <Typography variant="subtitle2" sx={{mt: "0.5rem", mb: "2rem", userSelect: "none"}} noWrap={false}>
-                    The MQTT Topic structure will look like this:<br/>
-                    <span style={{
-                        fontFamily: "\"JetBrains Mono\",monospace",
-                        fontWeight: 200,
-                        overflowWrap: "anywhere",
-                        userSelect: "text"
-                    }}>
-                        <span
-                            style={{
-                                color: theme.palette.warning.main
-                            }}
-                            ref={topicElement}
-                        >
-                            {sanitizeTopicPrefix(mqttConfiguration.customizations.topicPrefix) || mqttProperties.defaults.customizations.topicPrefix}
-                        </span>
-                        /<wbr/>
-                        <span
-                            style={{
-                                color: theme.palette.secondary.main
-                            }}
-                            ref={identifierElement}
-                        >
-                            {mqttConfiguration.identity.identifier || mqttProperties.defaults.identity.identifier}
-                        </span>
-                            /<wbr/>BatteryStateAttribute/<wbr/>level
-                    </span>
-                </Typography>
-                <MQTTSwitch
-                    mqttConfiguration={mqttConfiguration}
-                    modifyMQTTConfig={modifyMQTTConfig}
-                    title="Provide map data"
-                    configPath={["customizations", "provideMapData"]}
-                />
-            </GroupBox>
-
-            {
-                mqttProperties.optionalExposableCapabilities.length > 0 &&
-                <GroupBox title="Optionally exposable capabilities">
-                    <MQTTOptionalExposedCapabilitiesEditor
-                        mqttConfiguration={mqttConfiguration}
-                        modifyMQTTConfig={modifyMQTTConfig}
-                        configPath={["optionalExposedCapabilities"]}
-                        exposableCapabilities={mqttProperties.optionalExposableCapabilities}
-                    />
-                </GroupBox>
-            }
-
-            <Popper
-                open={Boolean(anchorElement)}
-                anchorEl={anchorElement}
-            >
-                <Box>
-                    <ArrowUpward fontSize={"large"} color={"info"}/>
-                </Box>
-            </Popper>
+                    <Grid2 container>
+                        <Grid2 style={{marginLeft: "auto"}}>
+                            <Button
+                                disabled={!configurationModified}
+                                loading={matterConfigurationUpdating}
+                                color="primary"
+                                variant="outlined"
+                                onClick={() => {
+                                    updateMatterConfiguration(matterConfiguration);
+                                    setConfigurationModified(false);
+                                }}
+                            >
+                                Save configuration
+                            </Button>
+                        </Grid2>
+                    </Grid2>
+                </CardContent>
+            </Card>
 
             <InfoBox
                 boxShadow={5}
                 style={{
-                    marginTop: "2rem",
+                    marginTop: "1rem",
                     marginBottom: "2rem"
                 }}
             >
                 <Typography color="info">
-                    Valetudo is developed against and tested with the Mosquitto MQTT broker.<br/>
-                    In an ideal world, any broker would work, but in reality, some only implement subsets of the MQTT spec.
-                    Thus, if you&apos;re experiencing any issues, try Mosquitto.
-                    <br/>
-                    Another common issue are incorrectly configured ACLs. Because the MQTT v3 protocol does not provide
-                    feedback on ACL failures, Valetudo cannot report these, meaning that things fail silently.
+                    Matter integration is in preview. This build exposes the robot as a Robot Vacuum Cleaner
+                    device with live operational and battery state, Locate support, configurable cleaning modes,
+                    and start, stop, pause, resume, and return-to-dock controls.
+                    <br/><br/>
+                    The device is advertised with a test Vendor ID (0xFFF1). Commissioners will show an
+                    &quot;uncertified accessory&quot; prompt; accept it to continue pairing.
                 </Typography>
             </InfoBox>
 
-            <Divider sx={{mt: 1}} style={{marginBottom: "1rem"}}/>
-
-            <Grid2 container>
-                <Grid2 style={{marginLeft: "auto"}}>
-                    <Button
-                        disabled={!configurationModified}
-                        loading={mqttConfigurationUpdating}
-                        color="primary"
-                        variant="outlined"
-                        onClick={() => {
-                            sanitizeConfigBeforeSaving(mqttConfiguration);
-
-                            updateMQTTConfiguration(mqttConfiguration);
-                            setConfigurationModified(false);
-                        }}
-                    >
-                        Save configuration
-                    </Button>
-                </Grid2>
-            </Grid2>
+            <ConfirmationDialog
+                title="Reset Matter commissioning"
+                text={
+                    "This wipes all paired fabrics, deletes local Matter storage, and generates a fresh " +
+                    "commissioning code. You'll need to re-pair the robot in every smart-home app that had it."
+                }
+                open={resetConfirmOpen}
+                onClose={() => setResetConfirmOpen(false)}
+                onAccept={() => {
+                    resetMatter();
+                    setResetConfirmOpen(false);
+                }}
+            />
         </>
     );
 };
 
-const MQTTConnectivityPage = (): React.ReactElement => {
+const MatterConnectivityPage = (): React.ReactElement => {
     const {
-        isFetching: mqttStatusFetching,
-        refetch: refetchMqttStatus,
-    } = useMQTTStatusQuery();
+        isFetching: matterStatusFetching,
+        refetch: refetchMatterStatus,
+    } = useMatterStatusQuery();
 
     return (
         <PaperContainer>
             <Grid2 container direction="row">
                 <Box style={{width: "100%"}}>
                     <DetailPageHeaderRow
-                        title="MQTT Connectivity"
-                        icon={<MQTTIcon/>}
+                        title="Matter Connectivity"
+                        icon={<ConnectivityIcon/>}
                         onRefreshClick={() => {
-                            refetchMqttStatus().catch(() => {
+                            refetchMatterStatus().catch(() => {
                                 /* intentional */
                             });
                         }}
-                        isRefreshing={mqttStatusFetching}
+                        isRefreshing={matterStatusFetching}
                     />
-                    <MQTTConnectivity/>
+                    <MatterConnectivity/>
                 </Box>
             </Grid2>
         </PaperContainer>
     );
 };
 
-export default MQTTConnectivityPage;
+export default MatterConnectivityPage;

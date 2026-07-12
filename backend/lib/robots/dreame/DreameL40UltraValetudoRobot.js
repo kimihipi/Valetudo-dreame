@@ -15,6 +15,10 @@ const stateAttrs = entities.state.attributes;
 
 class DreameL40UltraValetudoRobot extends DreameGen4ValetudoRobot {
 
+    get carpetIdsSupported() {
+        return true;
+    }
+
     /**
      *
      * @param {object} options

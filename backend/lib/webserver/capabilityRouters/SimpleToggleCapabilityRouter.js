@@ -44,7 +44,7 @@ class SimpleToggleCapabilityRouter extends CapabilityRouter {
                 // Emit SSE event with updated state
                 try {
                     const state = await this.capability.isEnabled();
-                    this.sseHub?.event("SimpleToggleUpdated", JSON.stringify({enabled: state}));
+                    this.sseHub?.latestEvent("SimpleToggleUpdated", JSON.stringify({enabled: state}));
                 } catch (e) {
                     // intentional - state emission shouldn't block the response
                 }

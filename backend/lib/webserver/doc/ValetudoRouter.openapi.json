@@ -263,6 +263,48 @@
       }
     }
   },
+  "/api/v2/valetudo/config/interfaces/matter": {
+    "get": {
+      "tags": [
+        "Valetudo"
+      ],
+      "summary": "Get Matter configuration",
+      "description": "The commissioning credentials (discriminator, passcode) are redacted as 0 in the response.",
+      "responses": {
+        "200": {
+          "description": "Ok",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatterConfigDTO"
+              }
+            }
+          }
+        }
+      }
+    },
+    "put": {
+      "tags": [
+        "Valetudo"
+      ],
+      "summary": "Update Matter configuration",
+      "description": "Submitting 0 for discriminator or passcode preserves the currently stored values.",
+      "requestBody": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/MatterConfigDTO"
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {
+          "$ref": "#/components/responses/200"
+        }
+      }
+    }
+  },
   "/api/v2/valetudo/config/interfaces/http/auth/basic": {
     "get": {
       "tags": [

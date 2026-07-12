@@ -39,9 +39,7 @@ const SegmentActions = (
     const {
         mutate: executeSegmentAction,
         isPending: segmentActionExecuting
-    } = useCleanSegmentsMutation({
-        onSuccess: onClear,
-    });
+    } = useCleanSegmentsMutation();
 
     const canClean = status === "idle" || status === "docked" || status === "paused" || status === "returning" || status === "error";
     const didSelectSegments = segments.length > 0;

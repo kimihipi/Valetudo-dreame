@@ -31,7 +31,7 @@ class QuirksCapabilityRouter extends CapabilityRouter {
                     res.sendStatus(200);
 
                     this.capability.getQuirks().then(quirks => {
-                        this.sseHub.event("QuirksUpdated", JSON.stringify(quirks));
+                        this.sseHub.latestEvent("QuirksUpdated", JSON.stringify(quirks));
                     }).catch(() => {/*intentional*/});
                 } catch (e) {
                     this.sendErrorResponse(req, res, e);

@@ -1,6 +1,10 @@
 const RobotFirmwareError = require("../../core/RobotFirmwareError");
 const {sleep} = require("../../utils/misc");
 
+const READ_BATCH_WINDOW_MS = 20;
+const READ_CACHE_TTL_MS = 500;
+const MAX_PROPERTIES_PER_READ = 20;
+
 class DreameMiotHelper {
     /**
      * @param {object} options
@@ -10,6 +14,9 @@ class DreameMiotHelper {
     constructor(options) {
         this.robot = options.robot;
         this.postWriteDelay = options.postWriteDelay ?? null;
+        this.propertyReadCache = new Map();
+        this.pendingPropertyReads = new Map();
+        this.propertyReadBatchTimer = null;
     }
 
     /**
@@ -17,18 +24,73 @@ class DreameMiotHelper {
      * @returns {Promise<Array<*>>}
      */
     async readProperties(properties) {
-        const res = await this.robot.sendCommand("get_properties", properties.map(p => {
-            return {
-                did: this.robot.deviceId,
-                siid: p.siid,
-                piid: p.piid
-            };
-        }));
+        const now = Date.now();
+        const entries = properties.map(property => {
+            const key = `${property.siid}:${property.piid}`;
+            let entry = this.propertyReadCache.get(key);
+            if (entry && entry.expiresAt <= now && !this.pendingPropertyReads.has(key)) {
+                this.propertyReadCache.delete(key);
+                entry = undefined;
+            }
+            if (!entry) {
+                let resolve;
+                let reject;
+                const promise = new Promise((res, rej) => {
+                    resolve = res;
+                    reject = rej;
+                });
+                entry = {
+                    key: key,
+                    property: property,
+                    promise: promise,
+                    resolve: resolve,
+                    reject: reject,
+                    expiresAt: Infinity
+                };
+                this.propertyReadCache.set(key, entry);
+                this.pendingPropertyReads.set(key, entry);
+            }
+            return entry;
+        });
+        if (this.pendingPropertyReads.size > 0 && this.propertyReadBatchTimer === null) {
+            this.propertyReadBatchTimer = setTimeout(() => this.flushPropertyReads(), READ_BATCH_WINDOW_MS);
+        }
+        return Promise.all(entries.map(entry => entry.promise));
+    }
 
-        if (res && res.length === properties.length) {
-            return res;
-        } else {
-            throw new Error("Received invalid response");
+    /** @private */
+    async flushPropertyReads() {
+        if (this.propertyReadBatchTimer !== null) {
+            clearTimeout(this.propertyReadBatchTimer);
+            this.propertyReadBatchTimer = null;
+        }
+        const entries = [...this.pendingPropertyReads.values()];
+        this.pendingPropertyReads.clear();
+        if (entries.length === 0) {
+            return;
+        }
+        try {
+            for (let offset = 0; offset < entries.length; offset += MAX_PROPERTIES_PER_READ) {
+                const chunk = entries.slice(offset, offset + MAX_PROPERTIES_PER_READ);
+                const result = await this.robot.sendCommand("get_properties", chunk.map(entry => ({
+                    did: this.robot.deviceId,
+                    siid: entry.property.siid,
+                    piid: entry.property.piid
+                })));
+                if (!result || result.length !== chunk.length) {
+                    throw new Error("Received invalid response");
+                }
+                const expiresAt = Date.now() + READ_CACHE_TTL_MS;
+                chunk.forEach((entry, index) => {
+                    entry.expiresAt = expiresAt;
+                    entry.resolve(result[index]);
+                });
+            }
+        } catch (e) {
+            entries.forEach(entry => {
+                this.propertyReadCache.delete(entry.key);
+                entry.reject(e);
+            });
         }
     }
 
@@ -54,6 +116,7 @@ class DreameMiotHelper {
      * @returns {Promise<void>}
      */
     async writeProperties(properties, options) {
+        properties.forEach(property => this.propertyReadCache.delete(`${property.siid}:${property.piid}`));
         const postWriteDelay = options?.postWriteDelay ?? this.postWriteDelay;
         const res = await this.robot.sendCommand("set_properties", properties.map(p => {
             return {
@@ -73,6 +136,7 @@ class DreameMiotHelper {
             if (postWriteDelay) {
                 await sleep(postWriteDelay); // Give the firmware some time to think
             }
+            properties.forEach(property => this.propertyReadCache.delete(`${property.siid}:${property.piid}`));
         } else {
             throw new Error("Received invalid response");
         }
@@ -105,12 +169,14 @@ class DreameMiotHelper {
      * @returns {Promise<void>}
      */
     async executeAction(siid, aiid, additionalParameters) {
+        this.propertyReadCache.clear();
         const res = await this.robot.sendCommand("action", {
             did: this.robot.deviceId,
             siid: siid,
             aiid: aiid,
             in: additionalParameters ?? []
         });
+        this.propertyReadCache.clear();
 
         if (res.code !== 0) {
             throw new RobotFirmwareError("Error code " + res.code);

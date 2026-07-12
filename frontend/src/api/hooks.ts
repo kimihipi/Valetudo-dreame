@@ -13,6 +13,7 @@ import {
     BasicControlCommand,
     deleteTimer,
     fetchActivityHistory,
+    fetchCleaningHistory,
     fetchCapabilities,
     fetchCarpetModeState,
     fetchCombinedVirtualRestrictionsProperties,
@@ -28,6 +29,11 @@ import {
     fetchManualControlState,
     fetchMap,
     fetchMapSegmentationProperties,
+    fetchMatterConfiguration,
+    fetchMatterPairingInfo,
+    fetchMatterStatus,
+    resetMatterCommissioning,
+    resetCleaningHistory,
     fetchMQTTConfiguration,
     fetchMQTTProperties,
     fetchNTPClientConfiguration,
@@ -75,6 +81,7 @@ import {
     sendMaintenanceCommand,
     sendManualControlInteraction,
     sendMapReset,
+    sendMatterConfiguration,
     sendMQTTConfiguration,
     sendNTPClientConfiguration,
     sendIntelligentMapRecognitionControlEnabled,
@@ -95,10 +102,8 @@ import {
     sendVoicePackManagementCommand,
     sendWifiConfiguration,
     subscribeToLogMessages,
+    subscribeToCleanRoute,
     subscribeToMap,
-    subscribeToQuirks,
-    subscribeToSuctionBoostControl,
-    subscribeToCleanRouteControl,
     subscribeToStateAttributes,
     updatePresetSelection,
     fetchValetudoInformation,
@@ -212,6 +217,7 @@ import {
     MultipleMapRenameRequestParameters,
     MopDockMopDryingDuration,
     MopDockMopWashTemperature,
+    MatterConfiguration,
     MQTTConfiguration,
     NetworkAdvertisementConfiguration,
     NTPClientConfiguration,
@@ -219,6 +225,7 @@ import {
     MapEntry,
     Point,
     SetLogLevelRequest,
+    SetQuirkValueCommand,
     Timer,
     UpdaterConfiguration,
     ValetudoCustomizations,
@@ -255,6 +262,9 @@ enum QueryKey {
     MQTTConfiguration = "mqtt_configuration",
     MQTTStatus = "mqtt_status",
     MQTTProperties = "mqtt_properties",
+    MatterConfiguration = "matter_configuration",
+    MatterStatus = "matter_status",
+    MatterPairingInfo = "matter_pairing_info",
     HTTPBasicAuth = "http_basic_auth",
     NetworkAdvertisementConfiguration = "network_advertisement_configuration",
     NetworkAdvertisementProperties = "network_advertisement_properties",
@@ -282,6 +292,7 @@ enum QueryKey {
     UpdaterConfiguration = "updater_configuration",
     UpdaterState = "updater_state",
     ActivityHistory = "activity_history",
+    CleaningHistory = "cleaning_history",
     CurrentStatistics = "current_statistics",
     CurrentStatisticsProperties = "current_statistics_properties",
     TotalStatistics = "total_statistics",
@@ -358,11 +369,15 @@ const useOnSettingsChangeError = (setting: string): ((error: unknown) => void) =
 
 const useSSECacheUpdater = <T>(
     key: QueryKey,
-    subscriber: (listener: (data: T) => void) => () => void
+    subscriber: (listener: (data: T) => void) => () => void,
+    enabled = true
 ): void => {
     const queryClient = useQueryClient();
 
     React.useEffect(() => {
+        if (!enabled) {
+            return;
+        }
         return subscriber((data) => {
             queryClient.setQueryData<T>([key], (oldData) => {
                 return data;
@@ -370,7 +385,7 @@ const useSSECacheUpdater = <T>(
                 updatedAt: Date.now()
             });
         });
-    }, [key, queryClient, subscriber]);
+    }, [enabled, key, queryClient, subscriber]);
 };
 
 const useSSECacheAppender = <T>(
@@ -1067,6 +1082,56 @@ export const useHTTPBasicAuthConfigurationQuery = () => {
     });
 };
 
+export const useMatterConfigurationQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.MatterConfiguration],
+        queryFn: fetchMatterConfiguration,
+
+        staleTime: Infinity,
+    });
+};
+
+export const useMatterConfigurationMutation = () => {
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.MatterConfiguration],
+        mutationFn: (matterConfiguration: MatterConfiguration) => {
+            return sendMatterConfiguration(matterConfiguration).then(fetchMatterConfiguration);
+        },
+        onError: useOnSettingsChangeError("Matter"),
+    });
+};
+
+export const useMatterStatusQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.MatterStatus],
+        queryFn: fetchMatterStatus,
+
+        staleTime: 5_000,
+        refetchInterval: 5_000
+    });
+};
+
+export const useMatterPairingInfoQuery = (enabled: boolean) => {
+    return useQuery({
+        queryKey: [QueryKey.MatterPairingInfo],
+        queryFn: fetchMatterPairingInfo,
+
+        enabled: enabled,
+        staleTime: 30_000,
+        refetchInterval: 30_000
+    });
+};
+
+export const useMatterResetMutation = () => {
+    return useValetudoFetchingMutation<MatterConfiguration, void>({
+        queryKey: [QueryKey.MatterConfiguration],
+        mutationFn: () => {
+            return resetMatterCommissioning().then(fetchMatterConfiguration);
+        },
+        onError: useOnSettingsChangeError("Matter reset"),
+    });
+};
+
 export const useHTTPBasicAuthConfigurationMutation = () => {
     return useValetudoFetchingMutation({
         queryKey: [QueryKey.HTTPBasicAuth],
@@ -1760,10 +1825,28 @@ export const useActivityHistoryQuery = () => {
     });
 };
 
-export const useCurrentStatisticsQuery = () => {
+export const useCleaningHistoryQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.CleaningHistory],
+        queryFn: fetchCleaningHistory,
+        staleTime: 10_000,
+        refetchInterval: 30_000
+    });
+};
+
+export const useCleaningHistoryResetMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: resetCleaningHistory,
+        onSuccess: () => queryClient.setQueryData([QueryKey.CleaningHistory], [])
+    });
+};
+
+export const useCurrentStatisticsQuery = (enabled = true) => {
     return useQuery({
         queryKey: [QueryKey.CurrentStatistics],
         queryFn: fetchCurrentStatistics,
+        enabled: enabled,
 
         staleTime: 30_000,
         refetchInterval: 30_000
@@ -1798,11 +1881,8 @@ export const useTotalStatisticsPropertiesQuery = () => {
     });
 };
 
-const noopSubscriber = () => () => {};
-
 export const useQuirksQuery = (options?: { enabled?: boolean }) => {
     const enabled = options?.enabled !== false;
-    useSSECacheUpdater(QueryKey.Quirks, enabled ? subscribeToQuirks : noopSubscriber);
 
     return useQuery({
         queryKey: [QueryKey.Quirks],
@@ -1813,8 +1893,9 @@ export const useQuirksQuery = (options?: { enabled?: boolean }) => {
 };
 
 export const useSetQuirkValueMutation = () => {
-    return useMutation({
-        mutationFn: sendSetQuirkValueCommand,
+    return useValetudoFetchingMutation({
+        queryKey: [QueryKey.Quirks],
+        mutationFn: (command: SetQuirkValueCommand) => sendSetQuirkValueCommand(command).then(fetchQuirks),
         onError: useOnCommandError(Capability.Quirks),
     });
 };
@@ -2162,8 +2243,6 @@ export const useMopDockSmartMopWashingControlMutation = () => {
 };
 
 export const useSuctionBoostControlQuery = () => {
-    useSSECacheUpdater(QueryKey.SuctionBoostControl, subscribeToSuctionBoostControl);
-
     return useQuery( {
         queryKey: [QueryKey.SuctionBoostControl],
         queryFn: fetchSuctionBoostControlState,
@@ -2201,12 +2280,13 @@ export const useFloorMaterialDirectionAwareNavigationControlMutation = () => {
     });
 };
 
-export const useCleanRouteQuery = () => {
-    useSSECacheUpdater(QueryKey.CleanRouteControl, subscribeToCleanRouteControl);
+export const useCleanRouteQuery = (enabled = true) => {
+    useSSECacheUpdater(QueryKey.CleanRouteControl, subscribeToCleanRoute, enabled);
 
     return useQuery({
         queryKey: [QueryKey.CleanRouteControl],
         queryFn: fetchCleanRoute,
+        enabled: enabled,
         staleTime: 1000
     });
 };

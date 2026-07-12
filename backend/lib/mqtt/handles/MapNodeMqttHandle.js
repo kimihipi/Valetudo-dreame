@@ -30,6 +30,8 @@ class MapNodeMqttHandle extends NodeMqttHandle {
         }));
 
         this.robot = options.robot;
+        this.mapDataRefreshTimer = null;
+        this.compressedMapCache = {map: null, promise: null, buffer: null, wrappedBuffer: null};
         this.pngDebounceTimer = null;
         /** @type {Buffer | null} */
         this.cachedPngBuffer = null;
@@ -187,25 +189,42 @@ class MapNodeMqttHandle extends NodeMqttHandle {
         return MqttCommonAttributes.QOS.AT_MOST_ONCE;
     }
 
+    async deconfigure(options) {
+        clearTimeout(this.mapDataRefreshTimer);
+        clearTimeout(this.pngDebounceTimer);
+        this.mapDataRefreshTimer = null;
+        this.pngDebounceTimer = null;
+        this.compressedMapCache = {map: null, promise: null, buffer: null, wrappedBuffer: null};
+        await super.deconfigure(options);
+    }
+
     /**
      * Called by MqttController on map updated.
      *
      * @public
      */
     onMapUpdated() {
-        if (this.controller.isInitialized) {
-            this.refresh().catch(err => {
-                Logger.error("Error during MQTT handle refresh", err);
-            });
-        }
-
-        if (this.pngHandle === null || !this.controller.isInitialized || this.robot.state.map === null) {
+        if (!this.controller.isInitialized || this.robot.state.map === null) {
             return;
         }
 
         const isActive = this.robot.state
             .getFirstMatchingAttributeByConstructor(StatusStateAttribute)
             ?.isActiveState ?? false;
+
+        const mapDataDelay = isActive ? 5_000 : 60_000;
+        if (this.mapDataRefreshTimer === null) {
+            this.mapDataRefreshTimer = setTimeout(() => {
+                this.mapDataRefreshTimer = null;
+                this.refresh().catch(err => {
+                    Logger.error("Error during MQTT map handle refresh", err);
+                });
+            }, mapDataDelay);
+        }
+
+        if (this.pngHandle === null) {
+            return;
+        }
 
         // 5s while cleaning; 5s on the first update after docking (captures
         // final position); 60s for all subsequent idle updates.
@@ -280,57 +299,67 @@ class MapNodeMqttHandle extends NodeMqttHandle {
         if (this.robot.state.map === null || !(this.controller.currentConfig.customizations.provideMapData ?? true) || !this.controller.isInitialized) {
             return null;
         }
-        const robot = this.robot;
-
-        const mapForMqtt = {
-            ...robot.state.map,
-            layers: robot.state.map.layers.filter(l => !l.metaData.hidden)
-        };
-
-        const promise = new Promise((resolve, reject) => {
-            zlib.deflate(JSON.stringify(mapForMqtt), (err, buf) => {
-                if (err !== null) {
-                    return reject(err);
-                }
-
-                let payload;
-
-                if (wrapInPng) {
-                    const length = Buffer.alloc(4);
-                    const checksum = Buffer.alloc(4);
-
-                    const textChunkData = Buffer.concat([
-                        PNG_WRAPPER.TEXT_CHUNK_TYPE,
-                        PNG_WRAPPER.TEXT_CHUNK_METADATA,
-                        buf
-                    ]);
-
-                    length.writeInt32BE(PNG_WRAPPER.TEXT_CHUNK_METADATA.length + buf.length, 0);
-                    checksum.writeUInt32BE(crc.crc32(textChunkData), 0);
-
-
-                    payload = Buffer.concat([
-                        PNG_WRAPPER.IMAGE_WITHOUT_END_CHUNK,
-                        length,
-                        textChunkData,
-                        checksum,
-                        PNG_WRAPPER.END_CHUNK
-                    ]);
-                } else {
-                    payload = buf;
-                }
-
-                resolve(payload);
-            });
-        });
-
         try {
-            // intentional return await
-            return await promise;
+            const map = this.robot.state.map;
+            if (this.compressedMapCache.map !== map) {
+                const mapForMqtt = {
+                    ...map,
+                    layers: map.layers.filter(l => !l.metaData.hidden)
+                };
+                this.compressedMapCache = {
+                    map: map,
+                    promise: new Promise((resolve, reject) => {
+                        zlib.deflate(JSON.stringify(mapForMqtt), (err, buf) => {
+                            if (err !== null) {
+                                reject(err);
+                            } else {
+                                resolve(buf);
+                            }
+                        });
+                    }),
+                    buffer: null,
+                    wrappedBuffer: null
+                };
+            }
+            const cache = this.compressedMapCache;
+            if (cache.buffer === null) {
+                cache.buffer = await cache.promise;
+                cache.promise = null;
+            }
+            if (!wrapInPng) {
+                return cache.buffer;
+            }
+            if (cache.wrappedBuffer === null) {
+                cache.wrappedBuffer = MapNodeMqttHandle.WRAP_MAP_DATA(cache.buffer);
+            }
+            return cache.wrappedBuffer;
         } catch (err) {
             Logger.error("Error while deflating map data for mqtt publish", err);
         }
         return null;
+    }
+
+    /**
+     * @param {Buffer} compressedMap
+     * @return {Buffer}
+     */
+    static WRAP_MAP_DATA(compressedMap) {
+        const length = Buffer.alloc(4);
+        const checksum = Buffer.alloc(4);
+        const textChunkData = Buffer.concat([
+            PNG_WRAPPER.TEXT_CHUNK_TYPE,
+            PNG_WRAPPER.TEXT_CHUNK_METADATA,
+            compressedMap
+        ]);
+        length.writeInt32BE(PNG_WRAPPER.TEXT_CHUNK_METADATA.length + compressedMap.length, 0);
+        checksum.writeUInt32BE(crc.crc32(textChunkData), 0);
+        return Buffer.concat([
+            PNG_WRAPPER.IMAGE_WITHOUT_END_CHUNK,
+            length,
+            textChunkData,
+            checksum,
+            PNG_WRAPPER.END_CHUNK
+        ]);
     }
 
 

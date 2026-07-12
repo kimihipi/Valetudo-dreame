@@ -1,0 +1,26 @@
+{
+  "components": {
+    "schemas": {
+      "ActiveCleaningTaskStateAttribute": {
+        "allOf": [
+          {"$ref": "#/components/schemas/StateAttribute"},
+          {
+            "type": "object",
+            "required": ["id", "state", "source", "startedAt", "target", "profile", "progress", "revision"],
+            "properties": {
+              "id": {"type": "string"},
+              "state": {"type": "string", "enum": ["running", "paused", "returning", "completed", "cancelled", "stopped", "failed"]},
+              "source": {"type": "string"},
+              "startedAt": {"type": "string", "format": "date-time"},
+              "target": {"type": "object"},
+              "profile": {"type": "object"},
+              "progress": {"type": "object"},
+              "outcome": {"type": "string", "nullable": true},
+              "revision": {"type": "integer", "minimum": 0}
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -28,9 +28,15 @@ module.exports = function(options) {
             options.hub.clients.delete(clientToTerminate);
         }
 
+        let pendingLatestChunk = null;
+        let waitingForDrain = false;
         res.sse = {
             write: (data) => {
                 write(data);
+            },
+            writeLatest: (data) => {
+                pendingLatestChunk = data;
+                flushLatest();
             },
             terminate: () => {
                 res.end();
@@ -92,6 +98,22 @@ module.exports = function(options) {
             }
         }
 
+        function flushLatest() {
+            if (waitingForDrain || pendingLatestChunk === null || res.destroyed) {
+                return;
+            }
+            const chunk = pendingLatestChunk;
+            pendingLatestChunk = null;
+            waitingForDrain = !res.write(chunk);
+            res.flush();
+            if (waitingForDrain) {
+                res.once("drain", () => {
+                    waitingForDrain = false;
+                    flushLatest();
+                });
+            }
+        }
+
         /**
          * Writes heartbeats at a regular rate on the socket.
          *
@@ -100,6 +122,9 @@ module.exports = function(options) {
         function startKeepAlives(interval) {
             //=> Regularly send keep-alive SSE comments, clear interval on socket close
             const keepAliveTimer = setInterval(() => {
+                if (waitingForDrain) {
+                    return;
+                }
                 return write(": sse-keep-alive\n");
             }, interval);
             //=> When the connection gets closed (close=client, finish=server), stop the keep-alive timer

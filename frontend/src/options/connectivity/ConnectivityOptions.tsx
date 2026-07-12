@@ -7,7 +7,8 @@ import {
     AccessTime as NTPIcon,
     VpnKey as AuthIcon,
     Wifi as WifiIcon,
-    AutoFixHigh as NetworkAdvertisementIcon
+    AutoFixHigh as NetworkAdvertisementIcon,
+    Hub as ConnectivityIcon,
 } from "@mui/icons-material";
 import {ListMenu} from "../../components/list_menu/ListMenu";
 import {SpacerListMenuItem} from "../../components/list_menu/SpacerListMenuItem";
@@ -44,6 +45,16 @@ const ConnectivityOptions = (): React.ReactElement => {
                 primaryLabel="MQTT Connectivity"
                 secondaryLabel="Connect Valetudo to your MQTT Broker"
                 icon={<MQTTIcon/>}
+            />
+        );
+
+        items.push(
+            <LinkListMenuItem
+                key="matterConnectivity"
+                url="/settings/connectivity/matter"
+                primaryLabel="Matter Connectivity"
+                secondaryLabel="Expose the robot as a Matter Robot Vacuum device"
+                icon={<ConnectivityIcon/>}
             />
         );
 

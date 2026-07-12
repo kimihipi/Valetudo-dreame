@@ -52,6 +52,12 @@ class MapSegmentationCapabilityMqttHandle extends CapabilityMqttHandle {
                         segments.push(segment);
                     }
 
+                    this.robot.setCleaningTarget({
+                        value: "segments",
+                        segmentIds: segments.map(segment => segment.id),
+                        source: "mqtt",
+                        active: true
+                    });
                     await this.capability.executeSegmentAction(segments, requestOptions);
                 } else {
                     throw new Error("Missing or empty segment_ids Array in payload");

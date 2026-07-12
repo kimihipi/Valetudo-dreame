@@ -185,6 +185,7 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
 
         this.registerCapability(new capabilities.DreameCarpetZonesCapability({
             robot: this,
+            carpetIdsSupported: this.carpetIdsSupported,
             miot_actions: {
                 map_edit: {
                     siid: MIOT_SERVICES.MAP.SIID,
@@ -391,6 +392,10 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
     }
 
     get supportsExtendedStatus() {
+        return false;
+    }
+
+    get carpetIdsSupported() {
         return false;
     }
 

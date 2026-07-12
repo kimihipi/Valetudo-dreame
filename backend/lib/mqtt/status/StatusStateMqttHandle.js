@@ -114,7 +114,7 @@ class StatusStateMqttHandle extends RobotStateNodeMqttHandle {
                     const statusState = this.robot.state.getFirstMatchingAttribute(this.getInterestingStatusAttributes()[0]);
                     let value;
 
-                    if (statusState?.value === stateAttrs.StatusStateAttribute.VALUE.ERROR) {
+                    if (statusState?.value === stateAttrs.StatusStateAttribute.VALUE.ERROR && statusState.error) {
                         value = statusState.error;
                     } else {
                         value = new ValetudoRobotError({

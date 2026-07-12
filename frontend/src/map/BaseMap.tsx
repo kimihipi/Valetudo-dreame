@@ -331,9 +331,19 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
 
         this.mapLayerManager.setSelectedSegmentIds(updatedSelectedSegmentIds);
 
+        this.onSegmentSelectionChanged(updatedSelectedSegmentIds);
+
         this.setState({
             selectedSegmentIds: updatedSelectedSegmentIds,
         } as S & MapState);
+    }
+
+    /**
+     * Called after the ordered room selection changes.
+     * @param {string[]} _segmentIds ordered selected segment IDs
+     */
+    protected onSegmentSelectionChanged(_segmentIds: string[]): void {
+        // Optional integration hook.
     }
 
 
