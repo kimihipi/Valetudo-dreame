@@ -1,6 +1,6 @@
 import axios from "axios";
 import { RawMapData } from "./RawMapData";
-import {PresetSelectionState, PresetValue, RobotAttribute} from "./RawRobotState";
+import {CleaningTargetState, PresetSelectionState, PresetValue, RobotAttribute} from "./RawRobotState";
 import {
     ActivityHistoryEntry,
     AutoEmptyDockAutoEmptyDuration,
@@ -256,6 +256,8 @@ export const subscribeToMap = (
     listener: (data: RawMapData) => void
 ): (() => void) => {
     let staticMap: Pick<RawMapData, "size" | "pixelSize" | "layers"> | null = null;
+    let mergedLayers: RawMapData["layers"] | null = null;
+    let layerMetaDataSignature: string | null = null;
     return subscribeToSSE(
         "/robot/state/map/sse/v2",
         "MapUpdatedV2",
@@ -274,18 +276,25 @@ export const subscribeToMap = (
                     pixelSize: prepared.pixelSize,
                     layers: prepared.layers
                 };
+                mergedLayers = null;
+                layerMetaDataSignature = null;
             }
             if (staticMap === null) {
                 return;
+            }
+            const nextLayerMetaDataSignature = JSON.stringify(frame.dynamic.layerMetaData);
+            if (mergedLayers === null || layerMetaDataSignature !== nextLayerMetaDataSignature) {
+                mergedLayers = staticMap.layers.map((layer, index) => ({
+                    ...layer,
+                    metaData: {...layer.metaData, ...frame.dynamic.layerMetaData[index]}
+                }));
+                layerMetaDataSignature = nextLayerMetaDataSignature;
             }
             const map = {
                 ...staticMap,
                 metaData: frame.dynamic.metaData,
                 entities: frame.dynamic.entities,
-                layers: staticMap.layers.map((layer, index) => ({
-                    ...layer,
-                    metaData: {...layer.metaData, ...frame.dynamic.layerMetaData[index]}
-                }))
+                layers: mergedLayers!
             };
             latestSSEMap = {data: map, timestamp: Date.now()};
             mapSeedWaiters.forEach(waiter => waiter(map));
@@ -776,12 +785,10 @@ export const resetMatterCommissioning = async (): Promise<void> => {
         });
 };
 
-export const sendMatterAreaSelection = async (segmentIds: string[]): Promise<void> => {
-    return valetudoAPI.put("/matter/areas", {segment_ids: segmentIds}).then(({status}) => {
-        if (status !== 200) {
-            throw new Error("Could not synchronize Matter room selection");
-        }
-    });
+export const sendCleaningTarget = async (
+    target: Pick<CleaningTargetState, "value" | "segmentIds">
+): Promise<CleaningTargetState> => {
+    return valetudoAPI.put<CleaningTargetState>("/robot/state/cleaning_target", target).then(({data}) => data);
 };
 
 export const fetchHTTPBasicAuthConfiguration = async (): Promise<HTTPBasicAuthConfiguration> => {
@@ -1675,14 +1682,6 @@ export const fetchCleanRoute = async (): Promise<CleanRoute> => {
         .then(({data}) => {
             return data.route;
         });
-};
-
-export const subscribeToCleanRoute = (listener: (route: CleanRoute) => void): (() => void) => {
-    return subscribeToSSE<CleanRoutePayload>(
-        `/robot/capabilities/${Capability.CleanRouteControl}/sse`,
-        "CleanRouteUpdated",
-        data => listener(data.route)
-    );
 };
 
 export const fetchCleanRouteControlProperties = async (): Promise<CleanRouteControlProperties> => {

@@ -57,6 +57,11 @@
                 "customOrder": {
                   "type": "boolean",
                   "description": "Whether or not Segments should be cleaned in order of ID appearance in the Array. Defaults to false. (Needs firmware support)"
+                },
+                "targetRevision": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Optional staged cleaning-target revision required when starting"
                 }
               }
             },

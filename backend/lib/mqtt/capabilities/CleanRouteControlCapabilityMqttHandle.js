@@ -33,6 +33,7 @@ class CleanRouteControlCapabilityMqttHandle extends CapabilityMqttHandle {
                         throw new Error(`Invalid route: ${value}`);
                     }
                     await this.capability.setRoute(value);
+                    this.capability.notifyRouteChanged(value);
                 },
                 getter: async () => {
                     return await this.capability.getRoute();

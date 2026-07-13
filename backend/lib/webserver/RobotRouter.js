@@ -1,6 +1,8 @@
 const express = require("express");
 
 
+const CleaningTaskService = require("../core/CleaningTaskService");
+const stateAttrs = require("../entities/state/attributes");
 const ValetudoRobot = require("../core/ValetudoRobot");
 
 const CapabilitiesRouter = require("./CapabilitiesRouter");
@@ -12,6 +14,8 @@ class RobotRouter {
      * @param {object} options
      * @param {import("../core/ValetudoRobot")} options.robot
      * @param {*} options.validator
+     * @param {import("../core/CleaningTaskManager")} options.cleaningTaskManager
+     * @param {import("../core/CleaningTaskService")} options.cleaningTaskService
      */
     constructor(options) {
         this.robot = options.robot;
@@ -19,6 +23,7 @@ class RobotRouter {
 
         this.validator = options.validator;
         this.cleaningTaskManager = options.cleaningTaskManager;
+        this.cleaningTaskService = options.cleaningTaskService ?? new CleaningTaskService({robot: this.robot});
 
         /** @type {{timestamp: string, robotStatus: string, robotFlag: string, dockStatus: string|null, batteryLevel: number|null, batteryFlag: string|null, dockActivities?: {timestamp: string, robotFlag: string, dockStatus: string|null, batteryLevel: number|null, batteryFlag: string|null}[]}[]} */
         this.activityHistory = [];
@@ -69,6 +74,31 @@ class RobotRouter {
             }
         });
 
+        this.router.get("/state/cleaning_target", (req, res) => {
+            const target = this.robot.state.getFirstMatchingAttributeByConstructor(
+                stateAttrs.CleaningTargetStateAttribute
+            );
+            res.json(target ?? new stateAttrs.CleaningTargetStateAttribute({
+                value: stateAttrs.CleaningTargetStateAttribute.VALUE.NONE,
+                segmentIds: [],
+                mapId: this.robot.state.map?.metaData?.id ?? null,
+                mapVersion: this.robot.state.map?.metaData?.version ?? null,
+                profile: this.cleaningTaskService.getCurrentProfile(),
+                source: "system",
+                active: false,
+                revision: 0
+            }));
+        });
+
+        this.router.put("/state/cleaning_target", this.validator, (req, res) => {
+            try {
+                res.json(this.cleaningTaskService.stageTarget({...req.body, source: "webui", active: false}));
+            } catch (error) {
+                const status = error.statusCode ?? 400;
+                res.status(status).send(error.message);
+            }
+        });
+
         this.router.get("/state/map", async (req, res) => {
             try {
                 res.json(this.robot.state.map);
@@ -95,7 +125,8 @@ class RobotRouter {
 
         this.router.use("/capabilities/", new CapabilitiesRouter({
             robot: this.robot,
-            validator: this.validator
+            validator: this.validator,
+            cleaningTaskService: this.cleaningTaskService
         }).getRouter());
     }
 

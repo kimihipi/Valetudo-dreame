@@ -408,7 +408,7 @@
           "cleanModeProfiles": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["quiet", "standard", "maximum"],
+            "required": ["minimum", "quiet", "standard", "maximum", "deepClean"],
             "properties": {
               "minimum": {"$ref": "#/components/schemas/MatterCleanModeProfileDTO"},
               "quiet": {"$ref": "#/components/schemas/MatterCleanModeProfileDTO"},
@@ -516,8 +516,9 @@
       "MatterCleanModeProfileDTO": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["fan", "water"],
+        "required": ["enabled", "fan", "water", "route"],
         "properties": {
+          "enabled": {"type": "boolean"},
           "fan": {"type": "string"},
           "water": {"type": "string"},
           "route": {"type": "string"}

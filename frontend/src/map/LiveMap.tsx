@@ -140,7 +140,9 @@ const LiveMapModeSwitcherWithAutomatic: React.FunctionComponent<{
 
 interface LiveMapProps extends MapProps {
     cleaningTarget?: CleaningTargetState,
-    onMatterAreaSelectionChange?: (segmentIds: string[]) => Promise<void>,
+    onCleaningTargetChange?: (
+        target: Pick<CleaningTargetState, "value" | "segmentIds">
+    ) => Promise<CleaningTargetState>,
     supportedCapabilities: {
         [Capability.MapSegmentation]: boolean,
         [Capability.ZoneCleaning]: boolean,
@@ -162,9 +164,8 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
     private readonly supportedModes: Array<LiveMapMode>;
     private _cleanOrderActive: boolean;
     private appliedCleaningTargetRevision = -1;
-    private matterSelectionSyncTimer: ReturnType<typeof setTimeout> | null = null;
-    private lastMatterSelectionSignature: string | null = null;
-    private localEmptySegmentDraft = false;
+    private cleaningTargetSyncTimer: ReturnType<typeof setTimeout> | null = null;
+    private lastCleaningTargetSignature: string | null = null;
 
     constructor(props: LiveMapProps) {
         super(props);
@@ -214,9 +215,10 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
     }
 
     protected updateState() : void {
-        super.updateState();
+        this.applySelectedSegmentIdsToLabels(this.state.selectedSegmentIds);
 
         this.setState({
+            selectedSegmentIds: this.state.selectedSegmentIds,
             zones: this.structureManager.getClientStructures().filter(s => {
                 return s.type === ZoneClientStructure.TYPE;
             }) as Array<ZoneClientStructure>,
@@ -226,6 +228,18 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
         });
 
         this.updateCleanOrderLabels();
+    }
+
+    private applySelectedSegmentIdsToLabels(segmentIds: string[]): void {
+        const segmentLabels = this.structureManager.getMapStructures().filter(s =>
+            s.type === SegmentLabelMapStructure.TYPE
+        ) as Array<SegmentLabelMapStructure>;
+        segmentLabels.forEach(label => {
+            const index = segmentIds.indexOf(label.id);
+            label.selected = index !== -1;
+            label.topLabel = this.props.trackSegmentSelectionOrder && index !== -1 ? String(index + 1) : undefined;
+        });
+        this.mapLayerManager.setSelectedSegmentIds(segmentIds);
     }
 
     private updateCleanOrderLabels(): void {
@@ -245,11 +259,9 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
                 }
             });
 
-            if (Object.keys(cleanOrderBySegmentId).length > 0) {
-                segmentLabels.forEach(label => {
-                    label.cleanOrderBadge = cleanOrderBySegmentId[label.id];
-                });
-            }
+            segmentLabels.forEach(label => {
+                label.cleanOrderBadge = cleanOrderBySegmentId[label.id];
+            });
         } else {
             segmentLabels.forEach(label => {
                 label.cleanOrderBadge = undefined;
@@ -268,6 +280,9 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
 
         switch (this.state.mode) {
             case "segments": {
+                if (this.props.cleaningTarget?.active) {
+                    return true;
+                }
                 const intersectingSegmentId = this.mapLayerManager.getIntersectingSegment(tappedPointInMapSpace.x, tappedPointInMapSpace.y);
 
                 if (intersectingSegmentId) {
@@ -281,10 +296,17 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
 
 
                     if (matchedSegmentLabel) {
-                        matchedSegmentLabel.onTap();
-
-                        this.updateState();
-                        this.redrawLayers();
+                        const selectedSegmentIds = this.state.selectedSegmentIds.includes(matchedSegmentLabel.id) ?
+                            this.state.selectedSegmentIds.filter(id => id !== matchedSegmentLabel.id) :
+                            [...this.state.selectedSegmentIds, matchedSegmentLabel.id];
+                        this.setState({selectedSegmentIds: selectedSegmentIds}, () => {
+                            this.applySelectedSegmentIdsToLabels(selectedSegmentIds);
+                            this.redrawLayers();
+                            this.queueCleaningTargetSync({
+                                value: selectedSegmentIds.length > 0 ? "segments" : "none",
+                                segmentIds: selectedSegmentIds
+                            });
+                        });
 
                         return true;
                     }
@@ -322,18 +344,17 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
         super.componentDidUpdate(prevProps, prevState);
 
         if (
-            this.props.cleaningTarget?.revision !== this.appliedCleaningTargetRevision &&
-            ["matter", "webui"].includes(this.props.cleaningTarget?.source ?? "")
+            this.props.cleaningTarget !== undefined &&
+            this.props.cleaningTarget.revision !== this.appliedCleaningTargetRevision
         ) {
-            if (!(this.localEmptySegmentDraft && this.props.cleaningTarget?.source === "webui")) {
-                this.applyCleaningTarget(this.props.cleaningTarget!);
-            }
+            this.applyCleaningTarget(this.props.cleaningTarget);
         }
 
         const cleaningInProgress = this.props.cleaningTarget?.active === true;
         if (
             !cleaningInProgress &&
-            (this.state.selectedSegmentIds.length > 0 ||
+            (this.state.mode === "segments" ||
+             this.state.selectedSegmentIds.length > 0 ||
              this.state.zones.length > 0 ||
              this.state.goToTarget !== undefined)
         ) {
@@ -350,54 +371,51 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
             supportedModes: this.supportedModes,
             setMode: this.handleModeChange,
         });
-        if (["matter", "webui"].includes(this.props.cleaningTarget?.source ?? "")) {
-            this.applyCleaningTarget(this.props.cleaningTarget!);
+        if (this.props.cleaningTarget) {
+            this.applyCleaningTarget(this.props.cleaningTarget);
         }
     }
 
-    protected onSegmentSelectionChanged(segmentIds: string[]): void {
-        if (this.state.mode === "segments") {
-            this.localEmptySegmentDraft = segmentIds.length === 0;
-            this.queueMatterSelectionSync(segmentIds);
-        }
-    }
-
-    private queueMatterSelectionSync(segmentIds: string[], allowEmpty = false): void {
-        if (segmentIds.length === 0 && !allowEmpty) {
-            if (this.matterSelectionSyncTimer !== null) {
-                clearTimeout(this.matterSelectionSyncTimer);
-                this.matterSelectionSyncTimer = null;
-            }
+    private queueCleaningTargetSync(
+        target: Pick<CleaningTargetState, "value" | "segmentIds">,
+        force = false
+    ): void {
+        const signature = JSON.stringify(target);
+        if (!this.props.onCleaningTargetChange || (!force && signature === this.lastCleaningTargetSignature)) {
             return;
         }
-        const signature = JSON.stringify(segmentIds);
-        if (!this.props.onMatterAreaSelectionChange || signature === this.lastMatterSelectionSignature) {
-            return;
+        if (this.cleaningTargetSyncTimer !== null) {
+            clearTimeout(this.cleaningTargetSyncTimer);
         }
-        if (this.matterSelectionSyncTimer !== null) {
-            clearTimeout(this.matterSelectionSyncTimer);
-        }
-        this.matterSelectionSyncTimer = setTimeout(() => {
-            this.matterSelectionSyncTimer = null;
-            this.lastMatterSelectionSignature = signature;
-            // Matter may be disabled. Keep the signature even on failure so a
-            // map refresh does not retry the same user selection indefinitely.
-            this.props.onMatterAreaSelectionChange?.(segmentIds).catch(() => {});
+        this.cleaningTargetSyncTimer = setTimeout(() => {
+            this.cleaningTargetSyncTimer = null;
+            this.props.onCleaningTargetChange?.(target).then(acknowledgedTarget => {
+                this.lastCleaningTargetSignature = JSON.stringify({
+                    value: acknowledgedTarget.value,
+                    segmentIds: acknowledgedTarget.segmentIds
+                });
+            }).catch(() => {
+                if (this.props.cleaningTarget) {
+                    this.applyCleaningTarget(this.props.cleaningTarget);
+                }
+            });
         }, 100);
     }
 
     /**
      * Apply an integration-owned target without persisting it as the user's preferred map mode.
-     * @param {CleaningTargetState} target ordered target published by the backend
+     * @param {CleaningTargetState|undefined} target ordered target published by the backend
      */
-    private applyCleaningTarget(target: CleaningTargetState): void {
-        if (!this.supportedModes.includes("segments") || !["none", "all", "segments"].includes(target.value)) {
+    private applyCleaningTarget(target: CleaningTargetState | undefined): void {
+        if (!target || !["none", "all", "segments", "automatic"].includes(target.value) ||
+            (target.value === "segments" && !this.supportedModes.includes("segments")) ||
+            (target.value === "automatic" && !this.supportedModes.includes("automatic"))) {
             return;
         }
 
-        const mode: LiveMapMode = target.value === "segments" ? "segments" : "all";
-        this.localEmptySegmentDraft = false;
-        const segmentIds = mode === "segments" ? target.segmentIds : [];
+        const mode: LiveMapMode = target.value === "segments" ? "segments" :
+            target.value === "all" ? "all" : target.value === "automatic" ? "automatic" : this.state.mode;
+        const segmentIds = target.value === "segments" ? target.segmentIds : [];
         const segmentLabels = this.structureManager.getMapStructures().filter(s =>
             s.type === SegmentLabelMapStructure.TYPE
         ) as Array<SegmentLabelMapStructure>;
@@ -407,34 +425,27 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
             return;
         }
 
-        segmentLabels.forEach(label => {
-            const index = segmentIds.indexOf(label.id);
-            label.selected = index !== -1;
-            label.topLabel = this.props.trackSegmentSelectionOrder && index !== -1 ? String(index + 1) : undefined;
-            if (mode === "segments") {
-                label.cleanOrderBadge = undefined;
-            }
-        });
-
         this.appliedCleaningTargetRevision = target.revision;
-        this.lastMatterSelectionSignature = JSON.stringify(segmentIds);
-        this._cleanOrderActive = mode === "all";
-        if (mode === "all") {
-            // Segment mode hides the firmware clean-order badges. Rebuild them
-            // when Matter switches the map back to whole-home cleaning.
-            this.updateCleanOrderLabels();
-        }
+        this.lastCleaningTargetSignature = JSON.stringify({value: target.value, segmentIds: target.segmentIds});
+        this._cleanOrderActive = mode === "all" || mode === "automatic";
+        // Whole-home/automatic modes show firmware clean order. Segment mode
+        // must clear those badges so only the selected target's ordered IDs
+        // receive numbered badges.
+        this.updateCleanOrderLabels();
         this.mapLayerManager.setAlwaysDimUnselectedSegments(mode === "segments");
-        this.mapLayerManager.setSelectedSegmentIds(segmentIds);
-        this.setState({mode: mode, selectedSegmentIds: segmentIds});
-        useLiveMapMode.setState({mode: mode});
-        this.redrawLayers();
+        this.setState({mode: mode, selectedSegmentIds: segmentIds}, () => {
+            this.applySelectedSegmentIdsToLabels(segmentIds);
+            this.redrawLayers();
+        });
+        if (target.value !== "none") {
+            useLiveMapMode.setState({mode: mode});
+        }
     }
 
     componentWillUnmount(): void {
-        if (this.matterSelectionSyncTimer !== null) {
-            clearTimeout(this.matterSelectionSyncTimer);
-            this.matterSelectionSyncTimer = null;
+        if (this.cleaningTargetSyncTimer !== null) {
+            clearTimeout(this.cleaningTargetSyncTimer);
+            this.cleaningTargetSyncTimer = null;
         }
         useLiveMapMode.setState({setMode: null});
         super.componentWillUnmount();
@@ -460,9 +471,11 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
             }
         });
 
-        this.updateState();
-        this.redrawLayers();
-        this.setState({mode: newMode});
+        this.setState({mode: newMode, selectedSegmentIds: []}, () => {
+            this.applySelectedSegmentIdsToLabels([]);
+            this.updateState();
+            this.redrawLayers();
+        });
         useLiveMapMode.setState({mode: newMode});
 
         try {
@@ -470,10 +483,11 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
         } catch (e) {
             /* intentional */
         }
-        if (newMode === "all") {
-            this.localEmptySegmentDraft = false;
-            this.queueMatterSelectionSync([], true);
-        }
+        this.queueCleaningTargetSync({
+            value: newMode === "all" ? "all" : newMode === "automatic" ? "automatic" :
+                newMode === "segments" ? "segments" : "none",
+            segmentIds: []
+        }, true);
     };
 
     recenterMap = (): void => {
@@ -495,21 +509,16 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
                     <Box sx={{display: "flex", alignItems: "flex-end", gap: 1}}>
                         <Box sx={{flex: 1, minWidth: 0}}>
                             {
-                                this.state.mode === "segments" &&
+                                this.state.mode === "segments" && !this.props.cleaningTarget?.active &&
 
                                 <SegmentActions
                                     segments={this.state.selectedSegmentIds}
                                     onClear={() => {
-                                        this.structureManager.getMapStructures().forEach(s => {
-                                            if (s.type === SegmentLabelMapStructure.TYPE) {
-                                                const label = s as SegmentLabelMapStructure;
-
-                                                label.selected = false;
-                                            }
+                                        this.setState({selectedSegmentIds: []}, () => {
+                                            this.applySelectedSegmentIdsToLabels([]);
+                                            this.redrawLayers();
                                         });
-                                        this.updateState();
-
-                                        this.redrawLayers();
+                                        this.queueCleaningTargetSync({value: "segments", segmentIds: []});
                                     }}
                                 />
                             }

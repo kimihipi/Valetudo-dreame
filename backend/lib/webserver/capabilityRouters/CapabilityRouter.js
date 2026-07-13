@@ -10,10 +10,12 @@ class CapabilityRouter {
      * @param {object} options
      * @param {import("../../core/capabilities/Capability") | any} options.capability
      * @param {*} options.validator
+     * @param {import("../../core/CleaningTaskService")} options.cleaningTaskService
      */
     constructor(options) {
         this.router = express.Router({mergeParams: true});
         this.capability = options.capability;
+        this.cleaningTaskService = options.cleaningTaskService;
 
         this.validator = options.validator;
 
@@ -60,7 +62,11 @@ class CapabilityRouter {
         }
 
 
-        res.status(500).json(err.message);
+        if (err.commandId) {
+            res.set("X-Valetudo-Command-Id", err.commandId);
+        }
+        const status = err.statusCode ?? (err instanceof RangeError || err instanceof TypeError ? 400 : 500);
+        res.status(status).json(err.message);
     }
 
     getRouter() {

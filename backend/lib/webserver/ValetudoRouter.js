@@ -144,7 +144,8 @@ class ValetudoRouter {
         });
 
         this.router.get("/config/interfaces/matter", (req, res) => {
-            const matterConfig = structuredClone(this.config.get("matter"));
+            const storedMatterConfig = structuredClone(this.config.get("matter"));
+            const matterConfig = ValetudoRouter.MAP_MATTER_CONFIG(storedMatterConfig) ?? storedMatterConfig;
 
             // Zero out commissioning credentials on read. They are secret (anyone
             // who has them can commission the device) and the UI never surfaces
@@ -349,11 +350,11 @@ class ValetudoRouter {
         const cleanModeMappings = ["vacuum_and_mop", "vacuum_then_mop"];
         const cleanModeMapping = obj?.cleanModeMapping ?? "vacuum_and_mop";
         const cleanModeProfileDefaults = {
-            minimum: {fan: "low", water: "low", route: "quick"},
-            quiet: {fan: "low", water: "low", route: "routine"},
-            standard: {fan: "medium", water: "medium", route: "routine"},
-            maximum: {fan: "max", water: "high", route: "intensive"},
-            deepClean: {fan: "max", water: "high", route: "deep"}
+            minimum: {enabled: true, fan: "low", water: "low", route: "quick"},
+            quiet: {enabled: true, fan: "low", water: "low", route: "routine"},
+            standard: {enabled: true, fan: "medium", water: "medium", route: "routine"},
+            maximum: {enabled: true, fan: "max", water: "high", route: "intensive"},
+            deepClean: {enabled: true, fan: "max", water: "high", route: "deep"}
         };
         const cleanModeProfiles = Object.fromEntries(Object.entries(cleanModeProfileDefaults).map(([profile, defaults]) => [
             profile,
@@ -367,10 +368,11 @@ class ValetudoRouter {
             typeof obj?.enabled !== "boolean" ||
             !cleanModeMappings.includes(cleanModeMapping) ||
             !["minimum", "quiet", "standard", "maximum", "deepClean"].every(profile => {
-                return typeof cleanModeProfiles?.[profile]?.fan === "string" &&
+                return typeof cleanModeProfiles?.[profile]?.enabled === "boolean" &&
+                    typeof cleanModeProfiles?.[profile]?.fan === "string" &&
                     typeof cleanModeProfiles?.[profile]?.water === "string" &&
                     typeof cleanModeProfiles?.[profile]?.route === "string";
-            }) ||
+            }) || !Object.values(cleanModeProfiles).some(profile => profile.enabled) ||
             typeof obj?.identity?.vendorName !== "string" ||
             typeof obj?.identity?.productName !== "string" ||
             !isIntInRange(obj?.identity?.vendorId, 1, 65535) ||

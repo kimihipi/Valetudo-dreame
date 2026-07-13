@@ -116,6 +116,12 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
     const {data: status} = useRobotStatusQuery();
     const {data: battery} = useRobotAttributeQuery(RobotAttributeClass.BatteryState, attrs => attrs[0]);
     const {data: task} = useRobotAttributeQuery(RobotAttributeClass.ActiveCleaningTaskState, attrs => attrs[0]);
+    const {data: cleaningTarget} = useRobotAttributeQuery(
+        RobotAttributeClass.CleaningTargetState, attrs => attrs[0]
+    );
+    const {data: cleaningCommand} = useRobotAttributeQuery(
+        RobotAttributeClass.CleaningCommandState, attrs => attrs[0]
+    );
     const {data: fanPreset} = useRobotAttributeQuery(
         RobotAttributeClass.PresetSelectionState,
         attrs => attrs.find(attr => attr.type === "fan_speed")
@@ -157,8 +163,10 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
     const firmwareTotalSeconds = currentStatistics?.find(statistic => statistic.type === "time")?.value;
     const automaticActive = automaticPreset?.value !== undefined && automaticPreset.value !== "off";
     const selectedLiveMapMode = liveMapMode === "none" || liveMapMode === "goto" ? "all" : liveMapMode;
+    const backendTargetMode = cleaningTarget?.value && cleaningTarget.value !== "none" ?
+        cleaningTarget.value : null;
     const targetMode = task ? (automaticActive ? "automatic" : task.target.type) :
-        selectedLiveMapMode;
+        backendTargetMode ?? selectedLiveMapMode;
     const targetModeLabel = targetMode.charAt(0).toUpperCase() + targetMode.slice(1);
     const completedRooms = task?.progress.completedRooms ?? 0;
     const totalRooms = task?.progress.totalRooms ?? 0;
@@ -169,6 +177,7 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
     const TargetModeIcon = TARGET_MODE_ICONS[targetMode] ?? AllModeIcon;
     const cleaningMode = automaticActive ? automaticSubMode?.value : operationModePreset?.value;
     const hasAdditionalSettings = Boolean(fanPreset?.value || waterPreset?.value || (cleanRoute && RouteIcon));
+    const commandInFlight = cleaningCommand?.state === "pending" || cleaningCommand?.state === "accepted";
 
     React.useEffect(() => {
         if (!taskFinished || !currentStatisticsSupported) {
@@ -287,7 +296,7 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
                                     key={command}
                                     variant="outlined"
                                     aria-label={label}
-                                    disabled={!enabled || isPending}
+                                    disabled={!enabled || isPending || commandInFlight}
                                     onClick={event => {
                                         event.stopPropagation();
                                         sendCommand(command);

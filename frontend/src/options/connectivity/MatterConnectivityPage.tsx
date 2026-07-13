@@ -295,6 +295,8 @@ const MatterConnectivity = (): React.ReactElement => {
 
     const running = matterStatus?.state === "ready";
     const commissioned = matterStatus?.commissioned === true;
+    const enabledCleanModeProfileCount = Object.values(matterConfiguration.cleanModeProfiles)
+        .filter(profile => profile.enabled).length;
 
     return (
         <>
@@ -383,11 +385,33 @@ const MatterConnectivity = (): React.ReactElement => {
                             {(["minimum", "quiet", "standard", "maximum", "deepClean"] as const).map(profile => {
                                 const profileLabel = profile === "deepClean" ? "Deep Clean" :
                                     profile.charAt(0).toUpperCase() + profile.slice(1);
+                                const profileEnabled = matterConfiguration.cleanModeProfiles[profile].enabled;
                                 return (
                                     <Box key={profile} sx={{mb: profile === "deepClean" ? 0 : 2}}>
-                                        <Typography variant="subtitle2" sx={{mb: 1}}>
-                                            {profileLabel}
-                                        </Typography>
+                                        <FormControlLabel
+                                            control={
+                                                <Switch
+                                                    size="small"
+                                                    checked={profileEnabled}
+                                                    disabled={profileEnabled && enabledCleanModeProfileCount === 1}
+                                                    onChange={(e) => {
+                                                        setMatterConfiguration({
+                                                            ...matterConfiguration,
+                                                            cleanModeProfiles: {
+                                                                ...matterConfiguration.cleanModeProfiles,
+                                                                [profile]: {
+                                                                    ...matterConfiguration.cleanModeProfiles[profile],
+                                                                    enabled: e.target.checked
+                                                                }
+                                                            }
+                                                        });
+                                                        setConfigurationModified(true);
+                                                    }}
+                                                />
+                                            }
+                                            label={profileLabel}
+                                            sx={{mb: 1, userSelect: "none"}}
+                                        />
                                         <Grid2 container spacing={2}>
                                             {matterStatus.cleanModeStrengthOptions.fan.length > 0 && (
                                                 <Grid2 sx={{flex: 1, minWidth: "12rem"}}>
@@ -395,6 +419,7 @@ const MatterConnectivity = (): React.ReactElement => {
                                                         <InputLabel>{profileLabel} fan speed</InputLabel>
                                                         <Select
                                                             label={`${profileLabel} fan speed`}
+                                                            disabled={!profileEnabled}
                                                             value={matterConfiguration.cleanModeProfiles[profile].fan}
                                                             onChange={(e) => {
                                                                 setMatterConfiguration({
@@ -425,6 +450,7 @@ const MatterConnectivity = (): React.ReactElement => {
                                                         <InputLabel>{profileLabel} water usage</InputLabel>
                                                         <Select
                                                             label={`${profileLabel} water usage`}
+                                                            disabled={!profileEnabled}
                                                             value={matterConfiguration.cleanModeProfiles[profile].water}
                                                             onChange={(e) => {
                                                                 setMatterConfiguration({
@@ -455,6 +481,7 @@ const MatterConnectivity = (): React.ReactElement => {
                                                         <InputLabel>{profileLabel} clean route</InputLabel>
                                                         <Select
                                                             label={`${profileLabel} clean route`}
+                                                            disabled={!profileEnabled}
                                                             value={matterConfiguration.cleanModeProfiles[profile].route}
                                                             onChange={(e) => {
                                                                 setMatterConfiguration({

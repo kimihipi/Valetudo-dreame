@@ -392,6 +392,7 @@ export interface MatterConfiguration {
     enabled: boolean;
     cleanModeMapping: "vacuum_and_mop" | "vacuum_then_mop";
     cleanModeProfiles: Record<"minimum" | "quiet" | "standard" | "maximum" | "deepClean", {
+        enabled: boolean;
         fan: string;
         water: string;
         route: string;

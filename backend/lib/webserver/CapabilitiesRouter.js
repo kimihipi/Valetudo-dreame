@@ -12,12 +12,14 @@ class CapabilitiesRouter {
      * @param {object} options
      * @param {import("../core/ValetudoRobot")} options.robot
      * @param {*} options.validator
+     * @param {import("../core/CleaningTaskService")} options.cleaningTaskService
      */
     constructor(options) {
         this.robot = options.robot;
         this.router = express.Router({mergeParams: true});
 
         this.validator = options.validator;
+        this.cleaningTaskService = options.cleaningTaskService;
 
         this.initRoutes();
     }
@@ -36,7 +38,11 @@ class CapabilitiesRouter {
             if (matchedRouter) {
                 this.router.use(
                     "/" + robotCapability.getType(),
-                    new matchedRouter({capability: robotCapability, validator: this.validator}).getRouter()
+                    new matchedRouter({
+                        capability: robotCapability,
+                        validator: this.validator,
+                        cleaningTaskService: this.cleaningTaskService
+                    }).getRouter()
                 );
 
             } else {

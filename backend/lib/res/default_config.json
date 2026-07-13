@@ -73,11 +73,11 @@
         "enabled": false,
         "cleanModeMapping": "vacuum_and_mop",
         "cleanModeProfiles": {
-            "minimum": {"fan": "low", "water": "low", "route": "quick"},
-            "quiet": {"fan": "low", "water": "low", "route": "routine"},
-            "standard": {"fan": "medium", "water": "medium", "route": "routine"},
-            "maximum": {"fan": "max", "water": "high", "route": "intensive"},
-            "deepClean": {"fan": "max", "water": "high", "route": "deep"}
+            "minimum": {"enabled": true, "fan": "low", "water": "low", "route": "quick"},
+            "quiet": {"enabled": true, "fan": "low", "water": "low", "route": "routine"},
+            "standard": {"enabled": true, "fan": "medium", "water": "medium", "route": "routine"},
+            "maximum": {"enabled": true, "fan": "max", "water": "high", "route": "intensive"},
+            "deepClean": {"enabled": true, "fan": "max", "water": "high", "route": "deep"}
         },
         "identity": {
             "vendorName": "Valetudo",

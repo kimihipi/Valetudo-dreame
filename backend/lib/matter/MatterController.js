@@ -62,6 +62,8 @@ const ROOM_DETECTION_INTERVAL_MS = 5_000;
 const FILTER_RESOURCE_POLL_INTERVAL_MS = 300_000;
 const AUXILIARY_REFRESH_INTERVAL_MS = 30_000;
 const MATTER_TRANSACTION_RETRY_MS = 100;
+const TARGETED_SYNC_DELAY_MS = 25;
+const TARGETED_SYNC_MAX_RETRIES = 20;
 const CLEAN_MODE_STORAGE_SCHEMA = 3;
 const CLEAN_MODE_IDS = Object.freeze({
     vacuum: 0,
@@ -96,6 +98,8 @@ class MatterController {
      * @param {import("../Configuration")} options.config
      * @param {import("../ValetudoEventStore")} options.valetudoEventStore
      * @param {import("../utils/ValetudoHelper")} options.valetudoHelper
+     * @param {import("../core/CleaningTaskManager")} options.cleaningTaskManager
+     * @param {import("../core/CleaningTaskService")} options.cleaningTaskService
      */
     constructor(options) {
         this.config = options.config;
@@ -103,6 +107,7 @@ class MatterController {
         this.valetudoEventStore = options.valetudoEventStore;
         this.valetudoHelper = options.valetudoHelper;
         this.cleaningTaskManager = options.cleaningTaskManager;
+        this.cleaningTaskService = options.cleaningTaskService;
 
         this.mutexes = {
             configUpdate: Semaphore(1)
@@ -155,6 +160,14 @@ class MatterController {
         this.serviceAreaSyncPending = false;
         this.matterCommandDepth = 0;
         this.suppressNextMatterConfigUpdate = false;
+        this.suppressCleaningTargetMirror = false;
+        this.pendingCleaningTargetMirror = null;
+        this.cleaningTargetMirrorTimer = null;
+        this.cleaningTargetMirrorRetries = 0;
+        this.pendingTaskProjection = null;
+        this.taskProjectionTimer = null;
+        this.taskProjectionRetries = 0;
+        this.lastPublishedTaskProjection = null;
         this.mapUpdateListener = () => this.handleMapUpdated();
         this.mapUpdatesSubscribed = false;
         this.matterOperation = MatterController.NEW_OPERATION_TRACKER();
@@ -164,8 +177,14 @@ class MatterController {
             // Valetudo consumers. Feeding it back into Matter would cause an
             // unnecessary RVC transaction and can restore stale room progress
             // immediately after a commissioner re-selects all rooms.
-            if (attribute instanceof stateAttrs.CleaningTargetStateAttribute ||
-                attribute instanceof stateAttrs.ActiveCleaningTaskStateAttribute) {
+            if (attribute instanceof stateAttrs.CleaningTargetStateAttribute) {
+                if (attribute.source !== "matter" && !this.suppressCleaningTargetMirror) {
+                    this.queueCleaningTargetMirror(attribute);
+                }
+                return;
+            }
+            if (attribute instanceof stateAttrs.ActiveCleaningTaskStateAttribute) {
+                this.handleActiveCleaningTaskState(attribute);
                 return;
             }
             const batteryOnly = attribute instanceof stateAttrs.BatteryStateAttribute;
@@ -175,14 +194,6 @@ class MatterController {
             });
             this.scheduleAuxiliaryRefresh();
         });
-        this.operationOutcomeListener = outcome => {
-            if (!this.matterOperation.active) {
-                return;
-            }
-            this.pendingOperationOutcome = outcome;
-            this.queueRobotStateSync({rvc: true, immediate: true});
-        };
-
         this.loadConfig();
 
         if (this.currentConfig.enabled) {
@@ -204,6 +215,31 @@ class MatterController {
                 });
             }
         });
+    }
+
+    /**
+     * Projects shared task progress and treats its terminal state as the
+     * authoritative Matter operation-completion signal.
+     *
+     * @private
+     * @param {import("../entities/state/attributes/ActiveCleaningTaskStateAttribute")} attribute
+     */
+    handleActiveCleaningTaskState(attribute) {
+        const terminal = ["completed", "cancelled", "stopped", "failed"].includes(attribute.state);
+        if (!terminal) {
+            if (!this.matterOperation.active) {
+                const startedAt = Date.parse(attribute.startedAt ?? "");
+                this.matterOperation = MatterController.NEW_OPERATION_TRACKER();
+                this.matterOperation.active = true;
+                this.matterOperation.startedAt = Number.isFinite(startedAt) ? startedAt : Date.now();
+            }
+            this.matterOperation.taskId = attribute.id;
+            this.queueTaskProjection(attribute);
+        } else if (this.matterOperation.active &&
+            (!this.matterOperation.taskId || this.matterOperation.taskId === attribute.id)) {
+            this.pendingOperationOutcome = attribute.outcome ?? attribute.state;
+            this.queueRobotStateSync({rvc: true, serviceAreas: true, immediate: true});
+        }
     }
 
     /**
@@ -324,17 +360,12 @@ class MatterController {
             this.lastServiceAreaTopologyHash = null;
             this.lastRoomDetectionAt = 0;
         }
-        const status = this.robot.state.getFirstMatchingAttributeByConstructor(stateAttrs.StatusStateAttribute);
-        const trackPosition = [
-            stateAttrs.StatusStateAttribute.VALUE.CLEANING,
-            stateAttrs.StatusStateAttribute.VALUE.PAUSED
-        ].includes(status?.value);
-        if (!topologyChanged && !trackPosition) {
+        if (!topologyChanged) {
             return;
         }
         this.queueRobotStateSync({
-            rvc: true,
-            serviceAreas: topologyChanged,
+            rvc: false,
+            serviceAreas: true,
             delayMs: MAP_STATE_SYNC_INTERVAL_MS
         });
     }
@@ -491,6 +522,17 @@ class MatterController {
 
     /**
      * @private
+     * @return {boolean}
+     */
+    hasActiveSharedCleaningTask() {
+        const task = this.robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.ActiveCleaningTaskStateAttribute
+        );
+        return Boolean(task && !["completed", "cancelled", "stopped", "failed"].includes(task.state));
+    }
+
+    /**
+     * @private
      * @return {number}
      */
     getMatterOperationalState() {
@@ -511,13 +553,18 @@ class MatterController {
             return operationalState.Charging;
         }
 
+        if (status?.flag === stateAttrs.StatusStateAttribute.FLAG.RESUMABLE &&
+            this.hasActiveSharedCleaningTask()) {
+            return operationalState.Paused;
+        }
+
         switch (status?.value) {
             case stateAttrs.StatusStateAttribute.VALUE.CLEANING:
             case stateAttrs.StatusStateAttribute.VALUE.MANUAL_CONTROL:
             case stateAttrs.StatusStateAttribute.VALUE.MOVING:
                 return operationalState.Running;
             case stateAttrs.StatusStateAttribute.VALUE.PAUSED:
-                return operationalState.Paused;
+                return this.hasActiveSharedCleaningTask() ? operationalState.Paused : operationalState.Stopped;
             case stateAttrs.StatusStateAttribute.VALUE.RETURNING:
                 return operationalState.SeekingCharger;
             case stateAttrs.StatusStateAttribute.VALUE.DOCKED:
@@ -644,7 +691,12 @@ class MatterController {
 
     /**
      * @private
-     * @return {Promise<{condition: number, changeIndication: number, inPlaceIndicator: boolean}|null>}
+     * @return {Promise<{
+     *   condition: number,
+     *   degradationDirection: number,
+     *   changeIndication: number,
+     *   inPlaceIndicator: boolean
+     * }|null>}
      */
     async getFilterResourceState() {
         const capability = this.robot.capabilities[ConsumableMonitoringCapability.TYPE];
@@ -801,7 +853,7 @@ class MatterController {
 
     /**
      * @private
-     * @return {Promise<number|null>}
+     * @return {number|null}
      */
     getCurrentOperationDuration() {
         const time = this.statisticsCache.data?.time;
@@ -842,6 +894,27 @@ class MatterController {
             this.estimation[collection][key] = learned;
         }
         this.config.set("matterEstimation", structuredClone(this.estimation));
+    }
+
+    /**
+     * Persists one charging-rate sample for the whole charging session. Battery updates while
+     * charging only update chargingSample in memory, avoiding a full configuration write every
+     * five minutes. A partial session is deliberately discarded if Matter is shut down before
+     * charging completes.
+     *
+     * @private
+     */
+    finishChargingSample() {
+        const sample = this.chargingSample;
+        this.chargingSample = null;
+        if (!sample) {
+            return;
+        }
+        const elapsed = (sample.lastTimestamp - sample.timestamp) / 1000;
+        const gained = sample.lastLevel - sample.level;
+        if (elapsed >= 300 && gained >= 3) {
+            this.learnEstimate("chargingRate", null, gained / elapsed);
+        }
     }
 
     /**
@@ -945,7 +1018,7 @@ class MatterController {
     /**
      * @private
      * @param {number|null} phase
-     * @return {Promise<number|null>}
+     * @return {number|null}
      */
     getMatterCountdown(phase) {
         const now = Date.now();
@@ -968,19 +1041,27 @@ class MatterController {
         const battery = this.robot.state.getFirstMatchingAttributeByConstructor(stateAttrs.BatteryStateAttribute);
         if (phaseName === "Charging" && battery?.flag === stateAttrs.BatteryStateAttribute.FLAG.CHARGING) {
             if (!this.chargingSample) {
-                this.chargingSample = {level: battery.level, timestamp: now};
+                this.chargingSample = {
+                    level: battery.level,
+                    timestamp: now,
+                    lastLevel: battery.level,
+                    lastTimestamp: now
+                };
+            } else {
+                this.chargingSample.lastLevel = battery.level;
+                this.chargingSample.lastTimestamp = now;
             }
             const elapsed = (now - this.chargingSample.timestamp) / 1000;
             const gained = battery.level - this.chargingSample.level;
-            if (elapsed >= 300 && gained >= 3) {
-                this.learnEstimate("chargingRate", null, gained / elapsed);
-                this.chargingSample = {level: battery.level, timestamp: now};
-            }
-            if (this.estimation.chargingRate.samples >= 2 && this.estimation.chargingRate.value > 0) {
-                return Math.min(0xffffffff, Math.round((100 - battery.level) / this.estimation.chargingRate.value));
+            const liveRate = elapsed >= 300 && gained >= 3 ? gained / elapsed : null;
+            const learnedRate = this.estimation.chargingRate.samples >= 2 && this.estimation.chargingRate.value > 0 ?
+                this.estimation.chargingRate.value : null;
+            const chargingRate = liveRate ?? learnedRate;
+            if (chargingRate) {
+                return Math.min(0xffffffff, Math.round((100 - battery.level) / chargingRate));
             }
         } else {
-            this.chargingSample = null;
+            this.finishChargingSample();
         }
 
         if (["Drying", "Mop washing"].includes(phaseName) && this.phaseEstimate.total) {
@@ -1110,12 +1191,16 @@ class MatterController {
         ].includes(value)) {
             return null;
         }
+        if (this.hasActiveSharedCleaningTask()) {
+            // The shared task manager waits briefly for the robot's authoritative task-result
+            // signal. Errors may be recoverable intervention states, so do not pre-empt the
+            // manager with a status-derived failure either.
+            return null;
+        }
 
         let completionErrorCode = matterModules.OperationalState.ErrorState.UnableToCompleteOperation;
         if (hasError) {
             completionErrorCode = matterError.errorStateId;
-        } else if (value === stateAttrs.StatusStateAttribute.VALUE.DOCKED || operation.sawReturning) {
-            completionErrorCode = matterModules.OperationalState.ErrorState.NoError;
         }
 
         const totalOperationalTime = this.getCurrentOperationDuration();
@@ -1138,8 +1223,12 @@ class MatterController {
         // A paused cleanup is still an active cleaning operation. Keep the run mode
         // on Cleaning so commissioners cannot change physical cleaning settings
         // until the task has resumed or ended.
-        return status?.value === stateAttrs.StatusStateAttribute.VALUE.CLEANING ||
-            status?.value === stateAttrs.StatusStateAttribute.VALUE.PAUSED ? 1 : 0;
+        const activeTask = this.hasActiveSharedCleaningTask();
+        return status?.value === stateAttrs.StatusStateAttribute.VALUE.CLEANING || activeTask && (
+            status?.value === stateAttrs.StatusStateAttribute.VALUE.PAUSED ||
+            status?.value === stateAttrs.StatusStateAttribute.VALUE.ERROR ||
+            status?.flag === stateAttrs.StatusStateAttribute.FLAG.RESUMABLE
+        ) ? 1 : 0;
     }
 
     /**
@@ -1168,7 +1257,8 @@ class MatterController {
         } else if ([
             stateAttrs.StatusStateAttribute.VALUE.CLEANING,
             stateAttrs.StatusStateAttribute.VALUE.PAUSED
-        ].includes(status?.value)) {
+        ].includes(status?.value) || status?.flag === stateAttrs.StatusStateAttribute.FLAG.RESUMABLE &&
+            this.hasActiveSharedCleaningTask()) {
             return MATTER_PHASES.indexOf("Cleaning");
         }
 
@@ -1249,6 +1339,13 @@ class MatterController {
         if (!this.rvcEndpoint || !this.getMapSegmentationCapability()) {
             return;
         }
+        if (this.hasActiveSharedCleaningTask() && this.serviceAreaSegments.size > 0) {
+            // Live-map parsers can briefly expose only part of the room topology while a new map
+            // frame is assembled. Replacing supportedAreas/progress at that point makes pending
+            // and completed rooms disappear in commissioners. Keep the operation's topology
+            // snapshot stable and reconcile the latest map after the task reaches a terminal state.
+            return;
+        }
         const now = Date.now();
         if (now - this.lastServiceAreaTopologyCheck < SERVICE_AREA_TOPOLOGY_INTERVAL_MS) {
             return;
@@ -1290,13 +1387,15 @@ class MatterController {
     }
 
     /**
-     * Finds the selected Matter area containing the robot's current map
-     * position. A small radius handles coordinate rounding at room borders.
+     * Fallback for legacy or temporarily untracked cleaning operations. Normal
+     * room progress comes from CleaningTaskManager's shared active-task state.
+     * Finds the selected Matter area containing the robot's current map position;
+     * a small radius handles coordinate rounding at room borders.
      *
      * @private
      * @return {number|null}
      */
-    getCurrentServiceArea() {
+    detectCurrentServiceAreaFallback() {
         const map = this.robot.state.map;
         const position = map?.entities?.find(entity => entity.type === PointMapEntity.TYPE.ROBOT_POSITION);
         if (!position || !map.pixelSize) {
@@ -1355,10 +1454,58 @@ class MatterController {
 
     /**
      * @private
+     * @param {import("../entities/state/attributes/ActiveCleaningTaskStateAttribute")} task
+     * @return {void}
+     */
+    projectActiveTaskToServiceAreas(task) {
+        if (!this.rvcEndpoint?.state?.serviceArea || !matterModules?.ServiceArea ||
+            ["completed", "cancelled", "stopped", "failed"].includes(task.state)) {
+            return;
+        }
+        const areaIdBySegmentId = new Map([...this.serviceAreaSegments.entries()].map(([areaId, segment]) => [
+            String(segment.id), areaId
+        ]));
+        const targetSegmentIds = task.target?.segmentIds ?? [];
+        const trackedAreaIds = targetSegmentIds.length > 0 ? targetSegmentIds
+            .map(segmentId => areaIdBySegmentId.get(String(segmentId))).filter(areaId => areaId !== undefined) :
+            [...this.serviceAreaSegments.keys()];
+        const currentArea = task.target?.currentSegmentId === null || task.target?.currentSegmentId === undefined ?
+            null : areaIdBySegmentId.get(String(task.target.currentSegmentId)) ?? null;
+        const completedRooms = Math.max(0, Math.min(trackedAreaIds.length, task.progress?.completedRooms ?? 0));
+        const completedAreaIds = new Set((task.progress?.completedSegmentIds ?? [])
+            .map(segmentId => areaIdBySegmentId.get(String(segmentId)))
+            .filter(areaId => areaId !== undefined));
+        const hasExactCompletedRooms = Array.isArray(task.progress?.completedSegmentIds);
+        const statuses = matterModules.ServiceArea.OperationalStatus;
+        const nextProgress = new Map();
+        trackedAreaIds.forEach((areaId, index) => {
+            const previous = this.serviceAreaProgress.get(areaId);
+            nextProgress.set(areaId, {
+                areaId: areaId,
+                status: areaId === currentArea ? statuses.Operating :
+                    (hasExactCompletedRooms ? completedAreaIds.has(areaId) : index < completedRooms) ?
+                        statuses.Completed : statuses.Pending,
+                totalOperationalTime: previous?.totalOperationalTime ?? null
+            });
+        });
+        this.serviceAreaProgress = nextProgress;
+        this.currentServiceArea = currentArea;
+    }
+
+    /**
+     * @private
      * @param {object|null} operationCompletion
      * @return {void}
      */
     updateServiceAreaProgress(operationCompletion) {
+        const sharedTask = this.robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.ActiveCleaningTaskStateAttribute
+        );
+        if (!operationCompletion && sharedTask &&
+            !["completed", "cancelled", "stopped", "failed"].includes(sharedTask.state)) {
+            this.projectActiveTaskToServiceAreas(sharedTask);
+            return;
+        }
         const trackedAreas = operationCompletion && this.serviceAreaProgress.size > 0 ?
             [...this.serviceAreaProgress.keys()] : this.getTrackedServiceAreaIds();
         if (trackedAreas.length === 0) {
@@ -1400,7 +1547,10 @@ class MatterController {
             return;
         }
         this.lastRoomDetectionAt = now;
-        let detectedArea = this.getCurrentServiceArea();
+        // Normally CleaningTaskManager supplies currentSegmentId through the shared active-task
+        // attribute and the early return above projects it directly. Keep pixel scanning only for
+        // legacy/untracked tasks where no usable shared task exists.
+        let detectedArea = this.detectCurrentServiceAreaFallback();
         if (detectedArea === null && trackedAreas.length === 1) {
             detectedArea = trackedAreas[0];
         }
@@ -1434,30 +1584,26 @@ class MatterController {
      * @return {Promise<void>}
      */
     async startMatterCleaning() {
-        const capability = this.getMapSegmentationCapability();
-        const selectedAreaIds = this.rvcEndpoint?.state?.serviceArea?.selectedAreas ?? [];
-        const orderedAreaIds = this.orderMatterAreaIds(selectedAreaIds);
-        const segments = orderedAreaIds.map(areaId => this.serviceAreaSegments.get(areaId)).filter(Boolean);
-
-        if (capability && segments.length > 0) {
-            this.serviceAreaProgress.clear();
-            this.currentServiceArea = null;
-            for (const areaId of orderedAreaIds) {
-                this.serviceAreaProgress.set(areaId, {
-                    areaId: areaId,
-                    status: matterModules.ServiceArea.OperationalStatus.Pending
-                });
+        const Target = stateAttrs.CleaningTargetStateAttribute;
+        const target = this.robot.state.getFirstMatchingAttributeByConstructor(Target);
+        if (target?.value === Target.VALUE.SEGMENTS) {
+            if (target.segmentIds.length === 0) {
+                throw new Error("Select at least one room before starting segment cleaning");
             }
-            const properties = capability.getProperties?.() ?? {customOrderSupport: false};
-            await capability.executeSegmentAction(segments, {
-                iterations: 1,
-                customOrder: properties.customOrderSupport === true
+            const properties = this.getMapSegmentationCapability()?.getProperties?.() ?? {customOrderSupport: false};
+            await this.cleaningTaskService.startSegments({
+                segmentIds: target.segmentIds,
+                iterations: target.iterations,
+                customOrder: properties.customOrderSupport === true,
+                expectedRevision: target.revision,
+                source: "matter"
             });
-            this.publishMatterCleaningTarget(orderedAreaIds, true);
-        } else {
-            await this.robot.capabilities[BasicControlCapability.TYPE].start();
-            this.publishMatterCleaningTarget([], true);
+            return;
         }
+        await this.cleaningTaskService.startAll({
+            expectedRevision: target?.revision,
+            source: "matter"
+        });
     }
 
     /**
@@ -1499,28 +1645,6 @@ class MatterController {
     }
 
     /**
-     * Publishes Matter's Service Area selection in firmware room order into
-     * Valetudo's shared state so the Web UI reflects the execution order.
-     *
-     * @private
-     * @param {Array<number>} areaIds
-     * @param {boolean} active
-     */
-    publishMatterCleaningTarget(areaIds, active) {
-        const segmentIds = this.orderMatterAreaIds(areaIds).map(areaId =>
-            this.serviceAreaSegments.get(areaId)?.id
-        ).filter(id => id !== undefined);
-        const Target = stateAttrs.CleaningTargetStateAttribute;
-
-        this.robot.setCleaningTarget({
-            value: segmentIds.length > 0 ? Target.VALUE.SEGMENTS : Target.VALUE.ALL,
-            segmentIds: segmentIds,
-            source: "matter",
-            active: active
-        });
-    }
-
-    /**
      * Mirrors a commissioner selection while keeping the controller's cached
      * progress consistent with the Service Area cluster transaction.
      *
@@ -1529,6 +1653,8 @@ class MatterController {
      */
     handleMatterAreaSelection(areaIds) {
         const orderedAreaIds = this.orderMatterAreaIds(areaIds);
+        const segmentIds = orderedAreaIds.map(areaId => this.serviceAreaSegments.get(areaId)?.id)
+            .filter(id => id !== undefined);
         this.serviceAreaProgress.clear();
         this.currentServiceArea = null;
         for (const areaId of orderedAreaIds) {
@@ -1537,7 +1663,17 @@ class MatterController {
                 status: matterModules.ServiceArea.OperationalStatus.Pending
             });
         }
-        this.publishMatterCleaningTarget(orderedAreaIds, false);
+        try {
+            this.cleaningTaskService.stageTarget({
+                value: segmentIds.length > 0 ? stateAttrs.CleaningTargetStateAttribute.VALUE.SEGMENTS :
+                    stateAttrs.CleaningTargetStateAttribute.VALUE.ALL,
+                segmentIds: segmentIds,
+                source: "matter",
+                active: false
+            });
+        } catch (error) {
+            Logger.warn("Unable to stage Matter Service Area selection", error);
+        }
     }
 
     /**
@@ -1549,18 +1685,169 @@ class MatterController {
      * @return {Promise<void>}
      */
     async selectMatterAreasBySegmentIds(segmentIds) {
-        if (this.state !== STATE.READY || !this.rvcEndpoint?.state?.serviceArea) {
-            throw new Error("Matter Service Area is not available");
+        const uniqueSegmentIds = [...new Set(segmentIds.map(String))];
+        this.suppressCleaningTargetMirror = true;
+        let target;
+        try {
+            target = this.cleaningTaskService.stageTarget({
+                value: uniqueSegmentIds.length > 0 ?
+                    stateAttrs.CleaningTargetStateAttribute.VALUE.SEGMENTS :
+                    stateAttrs.CleaningTargetStateAttribute.VALUE.ALL,
+                segmentIds: uniqueSegmentIds,
+                source: "webui",
+                active: false
+            });
+        } finally {
+            this.suppressCleaningTargetMirror = false;
         }
+        await this.mirrorCleaningTargetToMatter(target);
+    }
+
+    /**
+     * Coalesces target changes and retries only the Service Area write when a
+     * commissioner transaction temporarily owns the cluster.
+     *
+     * @private
+     * @param {import("../entities/state/attributes/CleaningTargetStateAttribute")} target
+     * @param {number} [delayMs]
+     * @return {void}
+     */
+    queueCleaningTargetMirror(target, delayMs = TARGETED_SYNC_DELAY_MS) {
+        if (this.pendingCleaningTargetMirror?.revision !== target.revision) {
+            this.pendingCleaningTargetMirror = target;
+            this.cleaningTargetMirrorRetries = 0;
+        }
+        if (this.cleaningTargetMirrorTimer !== null) {
+            return;
+        }
+        this.cleaningTargetMirrorTimer = setTimeout(() => {
+            this.cleaningTargetMirrorTimer = null;
+            const pending = this.pendingCleaningTargetMirror;
+            if (!pending) {
+                return;
+            }
+            this.mirrorCleaningTargetToMatter(pending).then(() => {
+                if (this.pendingCleaningTargetMirror?.revision === pending.revision) {
+                    this.pendingCleaningTargetMirror = null;
+                    this.cleaningTargetMirrorRetries = 0;
+                } else {
+                    this.queueCleaningTargetMirror(this.pendingCleaningTargetMirror, 0);
+                }
+            }).catch(error => {
+                if (IS_SYNCHRONOUS_TRANSACTION_CONFLICT(error) &&
+                    this.cleaningTargetMirrorRetries < TARGETED_SYNC_MAX_RETRIES) {
+                    this.cleaningTargetMirrorRetries++;
+                    this.queueCleaningTargetMirror(this.pendingCleaningTargetMirror, MATTER_TRANSACTION_RETRY_MS);
+                } else {
+                    Logger.warn("Unable to mirror the shared cleaning target to Matter", error);
+                    this.pendingCleaningTargetMirror = null;
+                    this.cleaningTargetMirrorRetries = 0;
+                }
+            });
+        }, delayMs);
+        this.cleaningTargetMirrorTimer.unref?.();
+    }
+
+    /**
+     * @private
+     * @param {import("../entities/state/attributes/ActiveCleaningTaskStateAttribute")} task
+     * @param {number} [delayMs]
+     * @return {void}
+     */
+    queueTaskProjection(task, delayMs = TARGETED_SYNC_DELAY_MS) {
+        this.pendingTaskProjection = task;
+        if (this.taskProjectionTimer !== null) {
+            return;
+        }
+        this.taskProjectionTimer = setTimeout(() => {
+            this.taskProjectionTimer = null;
+            const pending = this.pendingTaskProjection;
+            if (!pending) {
+                return;
+            }
+            this.publishTaskProjection(pending).then(() => {
+                if (this.pendingTaskProjection?.revision === pending.revision) {
+                    this.pendingTaskProjection = null;
+                    this.taskProjectionRetries = 0;
+                } else {
+                    this.queueTaskProjection(this.pendingTaskProjection, 0);
+                }
+            }).catch(error => {
+                if (IS_SYNCHRONOUS_TRANSACTION_CONFLICT(error) &&
+                    this.taskProjectionRetries < TARGETED_SYNC_MAX_RETRIES) {
+                    this.taskProjectionRetries++;
+                    this.queueTaskProjection(this.pendingTaskProjection, MATTER_TRANSACTION_RETRY_MS);
+                } else {
+                    Logger.warn("Unable to publish shared cleaning-task progress to Matter", error);
+                    this.pendingTaskProjection = null;
+                    this.taskProjectionRetries = 0;
+                }
+            });
+        }, delayMs);
+        this.taskProjectionTimer.unref?.();
+    }
+
+    /**
+     * @private
+     * @param {import("../entities/state/attributes/ActiveCleaningTaskStateAttribute")} task
+     * @return {Promise<void>}
+     */
+    async publishTaskProjection(task) {
+        if (this.state !== STATE.READY || !this.rvcEndpoint) {
+            return;
+        }
+        this.projectActiveTaskToServiceAreas(task);
+        const estimatedCompletionMs = Date.parse(task.progress?.estimatedCompletionTime ?? "");
+        const projection = {
+            currentArea: this.currentServiceArea,
+            progress: [...this.serviceAreaProgress.values()].map(entry => ({
+                areaId: entry.areaId,
+                status: entry.status,
+                totalOperationalTime: entry.totalOperationalTime ?? null
+            })),
+            countdownTime: Number.isFinite(task.progress?.estimatedRemainingSeconds) ?
+                Math.max(0, Math.round(task.progress.estimatedRemainingSeconds)) : null,
+            estimatedEndTime: Number.isFinite(estimatedCompletionMs) ? Math.round(estimatedCompletionMs / 1000) : null
+        };
+        if (STATE_VALUES_EQUAL(projection, this.lastPublishedTaskProjection)) {
+            return;
+        }
+        await this.rvcEndpoint.act(agent => {
+            if (agent.serviceArea) {
+                agent.serviceArea.state.currentArea = projection.currentArea;
+                agent.serviceArea.state.progress = projection.progress;
+                agent.serviceArea.state.estimatedEndTime = projection.estimatedEndTime;
+            }
+            agent.rvcOperationalState.state.countdownTime = projection.countdownTime;
+        });
+        this.lastPublishedTaskProjection = projection;
+    }
+
+    /**
+     * Mirrors the backend-owned cleaning target into Matter when Service Area is available.
+     * Matter has no staged "none" selection, so an explicitly cleared draft is not mirrored.
+     *
+     * @private
+     * @param {import("../entities/state/attributes/CleaningTargetStateAttribute")} target
+     * @return {Promise<void>}
+     */
+    async mirrorCleaningTargetToMatter(target) {
+        const Target = stateAttrs.CleaningTargetStateAttribute;
+        if (target.value === Target.VALUE.NONE || this.state !== STATE.READY ||
+            !this.rvcEndpoint?.state?.serviceArea) {
+            return;
+        }
+        if (target.value === Target.VALUE.SEGMENTS && target.segmentIds.length === 0) {
+            return;
+        }
+        const segmentIds = target.value === Target.VALUE.SEGMENTS ? target.segmentIds.map(String) : [];
         const areaIdsBySegmentId = new Map([...this.serviceAreaSegments.entries()].map(([areaId, segment]) => [
             String(segment.id), areaId
         ]));
-        const uniqueSegmentIds = [...new Set(segmentIds.map(String))];
-        const areaIds = uniqueSegmentIds.map(segmentId => areaIdsBySegmentId.get(segmentId));
+        const areaIds = segmentIds.map(segmentId => areaIdsBySegmentId.get(segmentId));
         if (areaIds.some(areaId => areaId === undefined)) {
-            throw new RangeError("One or more selected rooms are no longer available");
+            throw new RangeError("One or more selected rooms are no longer available in Matter");
         }
-
         const statuses = matterModules.ServiceArea.OperationalStatus;
         const progress = areaIds.map(areaId => ({
             areaId: areaId,
@@ -1573,20 +1860,12 @@ class MatterController {
             agent.serviceArea.state.currentArea = null;
             agent.serviceArea.state.estimatedEndTime = null;
         });
-
         this.serviceAreaProgress.clear();
         this.currentServiceArea = null;
         for (const entry of progress) {
             this.serviceAreaProgress.set(entry.areaId, entry);
         }
-        this.robot.setCleaningTarget({
-            value: uniqueSegmentIds.length > 0 ?
-                stateAttrs.CleaningTargetStateAttribute.VALUE.SEGMENTS :
-                stateAttrs.CleaningTargetStateAttribute.VALUE.ALL,
-            segmentIds: uniqueSegmentIds,
-            source: "webui",
-            active: false
-        });
+        this.lastPublishedTaskProjection = null;
     }
 
     /**
@@ -1594,10 +1873,17 @@ class MatterController {
      * @return {Promise<void>}
      */
     async stopMatterCleaning() {
-        await this.robot.capabilities[BasicControlCapability.TYPE].stop();
-        if (this.matterOperation.active) {
-            this.pendingOperationOutcome = "cancelled";
-        }
+        await this.cleaningTaskService.stop({source: "matter"});
+    }
+
+    /** @private */
+    async pauseMatterCleaning() {
+        await this.cleaningTaskService.pause({source: "matter"});
+    }
+
+    /** @private */
+    async resumeMatterCleaning() {
+        await this.cleaningTaskService.resume({source: "matter"});
     }
 
     /**
@@ -1807,18 +2093,19 @@ class MatterController {
         const hasStrengths = strengthOptions.fan.length > 0 || strengthOptions.water.length > 0 ||
             strengthOptions.route.length > 0;
         const profiles = hasStrengths ? [
-            {id: "minimum", label: "Minimum", tag: RvcCleanMode.ModeTag.Min},
-            {id: "quiet", label: "Quiet", tag: RvcCleanMode.ModeTag.Quiet},
+            {id: "minimum", label: "Minimum", tag: RvcCleanMode.ModeTag.Min, offset: 0},
+            {id: "quiet", label: "Quiet", tag: RvcCleanMode.ModeTag.Quiet, offset: 1},
             // Matter RVC has no Standard/Normal tag. Auto keeps this middle
             // profile distinct and visible in commissioners such as Apple Home.
-            {id: "standard", label: "Standard", tag: RvcCleanMode.ModeTag.Auto},
-            {id: "maximum", label: "Maximum", tag: RvcCleanMode.ModeTag.Max},
-            {id: "deepClean", label: "Deep Clean", tag: RvcCleanMode.ModeTag.DeepClean}
-        ] : [{id: "standard", label: "", tag: null}];
+            {id: "standard", label: "Standard", tag: RvcCleanMode.ModeTag.Auto, offset: 2},
+            {id: "maximum", label: "Maximum", tag: RvcCleanMode.ModeTag.Max, offset: 3},
+            {id: "deepClean", label: "Deep Clean", tag: RvcCleanMode.ModeTag.DeepClean, offset: 4}
+        ].filter(profile => this.currentConfig.cleanModeProfiles?.[profile.id]?.enabled !== false) :
+            [{id: "standard", label: "", tag: null, offset: 0}];
 
         for (const operationMode of operationModes.filter(mode => presets.includes(mode.preset))) {
-            for (const [profileIndex, profile] of profiles.entries()) {
-                const mode = operationMode.modeBase + profileIndex;
+            for (const profile of profiles) {
+                const mode = operationMode.modeBase + profile.offset;
                 const tags = [...operationMode.tags];
                 if (profile.tag !== null) {
                     tags.push(profile.tag);
@@ -2025,18 +2312,6 @@ class MatterController {
                 }
                 if (operationCompletion) {
                     this.pendingMatterOperationCompletion = null;
-                    setImmediate(() => {
-                        const Target = stateAttrs.CleaningTargetStateAttribute;
-                        const current = this.robot.state.getFirstMatchingAttributeByConstructor(Target);
-                        if (current?.source === "matter") {
-                            this.robot.setCleaningTarget({
-                                value: Target.VALUE.NONE,
-                                segmentIds: [],
-                                source: "matter",
-                                active: false
-                            });
-                        }
-                    });
                 }
             }
         }
@@ -2093,6 +2368,8 @@ class MatterController {
      */
     subscribeToRobotState() {
         for (const attributeClass of [
+            stateAttrs.CleaningTargetStateAttribute,
+            stateAttrs.ActiveCleaningTaskStateAttribute,
             stateAttrs.StatusStateAttribute,
             stateAttrs.DockStatusStateAttribute,
             stateAttrs.DockComponentStateAttribute,
@@ -2102,7 +2379,6 @@ class MatterController {
         ]) {
             this.robot.state.subscribe(this.robotStateSubscriber, {attributeClass: attributeClass.name});
         }
-        this.robot.onOperationOutcome(this.operationOutcomeListener);
     }
 
     /**
@@ -2175,24 +2451,12 @@ class MatterController {
                 changeRunMode: basicControlCapability ? mode => this.executeMatterCommand(() => {
                     return mode === 1 ? this.startMatterCleaning() : this.stopMatterCleaning();
                 }) : undefined,
-                pause: basicControlCapability ? () => this.executeMatterCommand(() => basicControlCapability.pause()) :
-                    undefined,
-                resume: basicControlCapability ? () => this.executeMatterCommand(() => {
-                    const status = this.robot.state.getFirstMatchingAttributeByConstructor(
-                        stateAttrs.StatusStateAttribute
-                    );
-                    if (
-                        [
-                            stateAttrs.StatusStateAttribute.VALUE.DOCKED,
-                            stateAttrs.StatusStateAttribute.VALUE.IDLE
-                        ].includes(status?.value) && status?.flag !== stateAttrs.StatusStateAttribute.FLAG.RESUMABLE
-                    ) {
-                        throw new Error("Robot has no paused operation to resume");
-                    }
-                    return basicControlCapability.start();
-                }) : undefined,
-                goHome: basicControlCapability ? () => this.executeMatterCommand(() => basicControlCapability.home()) :
-                    undefined,
+                pause: basicControlCapability ? () => this.executeMatterCommand(() =>
+                    this.pauseMatterCleaning()) : undefined,
+                resume: basicControlCapability ? () => this.executeMatterCommand(() =>
+                    this.resumeMatterCleaning()) : undefined,
+                goHome: basicControlCapability ? () => this.executeMatterCommand(() =>
+                    this.cleaningTaskService.home({source: "matter"})) : undefined,
                 serviceArea: !!mapSegmentationCapability,
                 selectAreas: mapSegmentationCapability ? areaIds => {
                     this.handleMatterAreaSelection(areaIds);
@@ -2326,6 +2590,16 @@ class MatterController {
             this.scheduleAuxiliaryRefresh(AUXILIARY_REFRESH_INTERVAL_MS);
 
             this.state = STATE.READY;
+            const cleaningTarget = this.robot.state.getFirstMatchingAttributeByConstructor(
+                stateAttrs.CleaningTargetStateAttribute
+            );
+            if (cleaningTarget) {
+                try {
+                    await this.mirrorCleaningTargetToMatter(cleaningTarget);
+                } catch (error) {
+                    Logger.warn("Unable to restore the shared cleaning target after Matter startup", error);
+                }
+            }
             Logger.info(
                 "Matter controller ready " +
                 `(commissioned=${this.node.state.commissioning.commissioned}, ` +
@@ -2345,7 +2619,6 @@ class MatterController {
                 this.node = null;
             }
             this.robot.state.unsubscribeAll(this.robotStateSubscriber);
-            this.robot.offOperationOutcome(this.operationOutcomeListener);
             if (this.mapUpdatesSubscribed) {
                 this.robot.offMapUpdated(this.mapUpdateListener);
                 this.mapUpdatesSubscribed = false;
@@ -2358,6 +2631,7 @@ class MatterController {
             this.currentServiceArea = null;
             this.lastDockActivity = null;
             this.pendingOperationOutcome = null;
+            this.clearTargetedSyncs();
             this.lastServiceAreaTopologyHash = null;
             this.lastServiceAreaTopologyCheck = 0;
             this.mapTopologyVersion = null;
@@ -2389,6 +2663,7 @@ class MatterController {
 
         Logger.info("Matter controller shutting down");
         this.auxiliaryRefreshEnabled = false;
+        this.clearTargetedSyncs();
 
         if (this.robotStateSyncTimer !== null) {
             clearTimeout(this.robotStateSyncTimer);
@@ -2404,7 +2679,6 @@ class MatterController {
         this.serviceAreaSyncPending = false;
 
         this.robot.state.unsubscribeAll(this.robotStateSubscriber);
-        this.robot.offOperationOutcome(this.operationOutcomeListener);
         if (this.mapUpdatesSubscribed) {
             this.robot.offMapUpdated(this.mapUpdateListener);
             this.mapUpdatesSubscribed = false;
@@ -2445,11 +2719,29 @@ class MatterController {
         this.lastPublishedCountdown = {value: null, phase: null, timestamp: 0};
         this.lastPublishedRvcState = null;
         this.lastPublishedBatteryState = null;
+        this.lastPublishedTaskProjection = null;
         this.mapSegmentCache = {version: null, dirty: true, bySegmentId: new Map(), byAreaId: new Map()};
         this.lastRoomDetectionAt = 0;
         this.matterOperation = MatterController.NEW_OPERATION_TRACKER();
 
         this.state = STATE.DISABLED;
+    }
+
+    /** @private */
+    clearTargetedSyncs() {
+        if (this.cleaningTargetMirrorTimer !== null) {
+            clearTimeout(this.cleaningTargetMirrorTimer);
+            this.cleaningTargetMirrorTimer = null;
+        }
+        if (this.taskProjectionTimer !== null) {
+            clearTimeout(this.taskProjectionTimer);
+            this.taskProjectionTimer = null;
+        }
+        this.pendingCleaningTargetMirror = null;
+        this.cleaningTargetMirrorRetries = 0;
+        this.pendingTaskProjection = null;
+        this.taskProjectionRetries = 0;
+        this.lastPublishedTaskProjection = null;
     }
 
     /**
@@ -2598,7 +2890,8 @@ MatterController.NEW_OPERATION_TRACKER = function NEW_OPERATION_TRACKER() {
         startedAt: null,
         pausedAt: null,
         pausedMilliseconds: 0,
-        sawReturning: false
+        sawReturning: false,
+        taskId: null
     };
 };
 

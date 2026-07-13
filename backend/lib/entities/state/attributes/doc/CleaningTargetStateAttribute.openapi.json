@@ -6,13 +6,19 @@
           {"$ref": "#/components/schemas/StateAttribute"},
           {
             "type": "object",
-            "required": ["value", "segmentIds", "source", "active", "revision"],
+            "required": ["value", "segmentIds", "zones", "iterations", "mapId", "mapVersion", "profile", "source", "active", "revision", "updatedAt"],
             "properties": {
-              "value": {"type": "string", "enum": ["none", "all", "segments", "zones"]},
+              "value": {"type": "string", "enum": ["none", "all", "segments", "zones", "automatic"]},
               "segmentIds": {"type": "array", "items": {"type": "string"}},
+              "zones": {"type": "array", "items": {"type": "object"}},
+              "iterations": {"type": "integer", "minimum": 1},
+              "mapId": {"type": "string", "nullable": true},
+              "mapVersion": {"nullable": true, "oneOf": [{"type": "string"}, {"type": "integer"}]},
+              "profile": {"type": "object"},
               "source": {"type": "string"},
               "active": {"type": "boolean"},
-              "revision": {"type": "integer", "minimum": 0}
+              "revision": {"type": "integer", "minimum": 0},
+              "updatedAt": {"type": "string", "format": "date-time"}
             }
           }
         ]

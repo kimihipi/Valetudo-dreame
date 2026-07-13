@@ -48,7 +48,15 @@ class CleanRouteControlCapability extends Capability {
      * @param {CleanRouteControlCapabilityRoute} route
      */
     notifyRouteChanged(route) {
+        this.publishRoute(route);
         this.routeChangedListeners.forEach(listener => listener(route));
+    }
+
+    /**
+     * @param {CleanRouteControlCapabilityRoute} route
+     */
+    publishRoute(route) {
+        this.robot.publishPresetSelectionState("clean_route", route);
     }
 
     /**

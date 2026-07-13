@@ -1069,8 +1069,8 @@ DreameGen2ValetudoRobot.GEN2_STATUS_MAP = Object.freeze({
     16: { value: stateAttrs.StatusStateAttribute.VALUE.DOCKED },                                                                       // STATION_RESET
     17: { value: stateAttrs.StatusStateAttribute.VALUE.RETURNING, flag: stateAttrs.StatusStateAttribute.FLAG.INSTALL_MOP },            // RETURNING_INSTALL_MOP
     18: { value: stateAttrs.StatusStateAttribute.VALUE.RETURNING, flag: stateAttrs.StatusStateAttribute.FLAG.REMOVE_MOP },             // RETURNING_REMOVE_MOP
-    19: { value: stateAttrs.StatusStateAttribute.VALUE.DOCKED },                                                                       // WATER_CHECK
-    20: { value: stateAttrs.StatusStateAttribute.VALUE.DOCKED },                                                                       // CLEAN_ADD_WATER
+    19: { value: stateAttrs.StatusStateAttribute.VALUE.DOCKED, flag: stateAttrs.StatusStateAttribute.FLAG.ADD_WATER },                 // WATER_CHECK
+    20: { value: stateAttrs.StatusStateAttribute.VALUE.DOCKED, flag: stateAttrs.StatusStateAttribute.FLAG.ADD_WATER },                 // CLEAN_ADD_WATER
     21: { value: stateAttrs.StatusStateAttribute.VALUE.PAUSED, flag: stateAttrs.StatusStateAttribute.FLAG.RESUMABLE },                 // WASHING_PAUSED
     22: { value: stateAttrs.StatusStateAttribute.VALUE.DOCKED, flag: stateAttrs.StatusStateAttribute.FLAG.EMPTYING },                  // AUTO_EMPTYING
     23: { value: stateAttrs.StatusStateAttribute.VALUE.MANUAL_CONTROL },                                                               // REMOTE_CONTROL

@@ -19,6 +19,7 @@ export enum RobotAttributeClass {
     DockStatusState = "DockStatusStateAttribute",
     DockComponentState = "DockComponentStateAttribute",
     CleaningTargetState = "CleaningTargetStateAttribute",
+    CleaningCommandState = "CleaningCommandStateAttribute",
 }
 
 export interface ActiveCleaningTaskState {
@@ -78,7 +79,7 @@ export type PresetValue = string;
 export interface PresetSelectionState {
     __class: RobotAttributeClass.PresetSelectionState;
     metaData: Record<string, never>;
-    type: "fan_speed" | "water_grade" | "operation_mode" | "mop_dock_mop_cleaning_frequency" | "mop_dock_detergent" | "mop_dock_mop_wash_intensity" | "automatic_control" | "automatic_sub_mode";
+    type: "fan_speed" | "water_grade" | "operation_mode" | "mop_dock_mop_cleaning_frequency" | "mop_dock_detergent" | "mop_dock_mop_wash_intensity" | "automatic_control" | "automatic_sub_mode" | "clean_route";
     value: PresetValue;
     customValue?: number;
 }
@@ -116,10 +117,30 @@ export interface DockComponentState {
 export interface CleaningTargetState {
     __class: RobotAttributeClass.CleaningTargetState;
     metaData: Record<string, never>;
-    value: "none" | "all" | "segments" | "zones";
+    value: "none" | "all" | "segments" | "zones" | "automatic";
     segmentIds: string[];
+    zones: Array<Record<string, unknown>>;
+    iterations: number;
+    mapId: string | null;
+    mapVersion: string | number | null;
+    profile: Record<string, string | number | boolean | null>;
     source: string;
     active: boolean;
+    revision: number;
+    updatedAt: string;
+}
+
+export interface CleaningCommandState {
+    __class: RobotAttributeClass.CleaningCommandState;
+    metaData: Record<string, never>;
+    id: string;
+    command: "home" | "pause" | "resume" | "start_all" | "start_segments" | "stop";
+    state: "pending" | "accepted" | "verified" | "failed" | "uncertain";
+    source: string;
+    targetRevision: number | null;
+    createdAt: string;
+    updatedAt: string;
+    error: string | null;
     revision: number;
 }
 
@@ -132,4 +153,5 @@ export type RobotAttribute =
     | AttachmentState
     | DockStatusState
     | DockComponentState
+    | CleaningCommandState
     | CleaningTargetState;

@@ -107,16 +107,64 @@ class ValetudoRobot {
      * @param {Array<string|number>} [target.segmentIds]
      * @param {string} [target.source]
      * @param {boolean} [target.active]
+     * @param {number} [target.expectedRevision]
+     * @return {object|null} the published attribute, or null when the expected revision no longer matches
      */
     setCleaningTarget(target) {
         const Attribute = entities.state.attributes.CleaningTargetStateAttribute;
         const previous = this.state.getFirstMatchingAttributeByConstructor(Attribute);
+        if (target.expectedRevision !== undefined && previous?.revision !== target.expectedRevision) {
+            return null;
+        }
+        const publishedTarget = {...target};
+        delete publishedTarget.expectedRevision;
 
-        this.state.upsertFirstMatchingAttribute(new Attribute({
-            ...target,
+        const attribute = new Attribute({
+            ...publishedTarget,
             revision: (previous?.revision ?? 0) + 1
-        }));
+        });
+        this.state.upsertFirstMatchingAttribute(attribute);
         this.emitStateAttributesUpdated();
+        return attribute;
+    }
+
+    /**
+     * Publishes command lifecycle state on behalf of the cleaning task service.
+     * Keeping notification emission here preserves the robot's event boundary.
+     *
+     * @public
+     * @param {import("../entities/state/attributes/CleaningCommandStateAttribute")} attribute
+     */
+    publishCleaningCommandState(attribute) {
+        const Attribute = entities.state.attributes.CleaningCommandStateAttribute;
+        if (!(attribute instanceof Attribute)) {
+            throw new TypeError("Expected a CleaningCommandStateAttribute");
+        }
+        this.state.upsertFirstMatchingAttribute(attribute);
+        this.emitStateAttributesUpdated();
+    }
+
+    /**
+     * Publishes a capability preset through the shared robot attribute stream.
+     *
+     * @public
+     * @param {string} type
+     * @param {string} value
+     * @return {import("../entities/state/attributes/PresetSelectionStateAttribute")}
+     */
+    publishPresetSelectionState(type, value) {
+        const Attribute = entities.state.attributes.PresetSelectionStateAttribute;
+        const current = this.state.getFirstMatchingAttribute({
+            attributeClass: Attribute.name,
+            attributeType: type
+        });
+        if (current?.value === value) {
+            return current;
+        }
+        const attribute = new Attribute({type: type, value: value});
+        this.state.upsertFirstMatchingAttribute(attribute);
+        this.emitStateAttributesUpdated();
+        return attribute;
     }
 
     /**
@@ -412,18 +460,32 @@ class ValetudoRobot {
      * stronger signal than an inferred state transition.
      *
      * @protected
-     * @param {"completed"|"cancelled"|"failed"} outcome
+     * @param {"completed"|"cancelled"|"stopped"|"failed"} outcome
      */
     emitOperationOutcome(outcome) {
         this.eventEmitter.emit(ValetudoRobot.EVENTS.OperationOutcome, outcome);
     }
 
-    /** @param {(outcome: "completed"|"cancelled"|"failed") => void} listener */
+    /**
+     * Reports a cleaning outcome from an external command coordinator.
+     * Vendor implementations should continue using the protected emitter.
+     *
+     * @public
+     * @param {"completed"|"cancelled"|"stopped"|"failed"} outcome
+     */
+    reportOperationOutcome(outcome) {
+        if (!["completed", "cancelled", "stopped", "failed"].includes(outcome)) {
+            throw new RangeError("Unsupported cleaning operation outcome");
+        }
+        this.emitOperationOutcome(outcome);
+    }
+
+    /** @param {(outcome: "completed"|"cancelled"|"stopped"|"failed") => void} listener */
     onOperationOutcome(listener) {
         this.eventEmitter.on(ValetudoRobot.EVENTS.OperationOutcome, listener);
     }
 
-    /** @param {(outcome: "completed"|"cancelled"|"failed") => void} listener */
+    /** @param {(outcome: "completed"|"cancelled"|"stopped"|"failed") => void} listener */
     offOperationOutcome(listener) {
         this.eventEmitter.off(ValetudoRobot.EVENTS.OperationOutcome, listener);
     }

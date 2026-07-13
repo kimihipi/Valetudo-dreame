@@ -1,4 +1,5 @@
 const CleaningTaskManager = require("./core/CleaningTaskManager");
+const CleaningTaskService = require("./core/CleaningTaskService");
 const Configuration = require("./Configuration");
 const env = require("./res/env");
 const fs = require("fs");
@@ -102,13 +103,15 @@ class Valetudo {
             config: this.config,
             robot: this.robot
         });
+        this.cleaningTaskService = new CleaningTaskService({robot: this.robot});
 
         this.matterController = new MatterController({
             config: this.config,
             robot: this.robot,
             valetudoEventStore: this.valetudoEventStore,
             valetudoHelper: this.valetudoHelper,
-            cleaningTaskManager: this.cleaningTaskManager
+            cleaningTaskManager: this.cleaningTaskManager,
+            cleaningTaskService: this.cleaningTaskService
         });
 
         this.networkAdvertisementManager = new NetworkAdvertisementManager({
@@ -136,7 +139,8 @@ class Valetudo {
             valetudoEventStore: this.valetudoEventStore,
             valetudoHelper: this.valetudoHelper,
             videoMonitorManager: this.videoMonitorManager,
-            cleaningTaskManager: this.cleaningTaskManager
+            cleaningTaskManager: this.cleaningTaskManager,
+            cleaningTaskService: this.cleaningTaskService
         });
 
 

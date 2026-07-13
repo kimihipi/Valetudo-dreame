@@ -27,6 +27,7 @@ export const STATUS_FLAG_LABELS: Record<string, string> = {
     emptying: "Emptying",
     draining: "Draining",
     changing_mop: "Changing Mop",
+    add_water: "Adding Water",
 };
 
 export const STATUS_LABELS: Record<string, string> = {

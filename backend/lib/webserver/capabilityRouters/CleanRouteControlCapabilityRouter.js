@@ -20,8 +20,10 @@ class CleanRouteControlCapabilityRouter extends CapabilityRouter {
     initRoutes() {
         this.router.get("/", async (req, res) => {
             try {
+                const route = await this.capability.getRoute();
+                this.capability.publishRoute(route);
                 res.json({
-                    route: await this.capability.getRoute()
+                    route: route
                 });
             } catch (e) {
                 this.sendErrorResponse(req, res, e instanceof Error ? e : new Error(String(e)));

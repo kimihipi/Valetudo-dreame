@@ -81,6 +81,11 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
     protected activeScrollEvent = false;
     protected pendingInternalDrawableStateUpdate = false;
     protected scrollTimeout: NodeJS.Timeout | undefined;
+    private drawableUpdateRunning = false;
+    private drawableUpdatePending = false;
+    private drawPending = false;
+    private drawAnimationFrame: number | null = null;
+    private mounted = false;
 
 
     protected constructor(props : MapProps) {
@@ -132,6 +137,7 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
     }
 
     componentDidMount(): void {
+        this.mounted = true;
         this.canvas = this.canvasRef.current!;
         this.canvas.height = considerHiDPI(this.canvas.clientHeight);
         this.canvas.width = considerHiDPI(this.canvas.clientWidth);
@@ -231,20 +237,50 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
     }
 
     componentWillUnmount(): void {
+        this.mounted = false;
         window.removeEventListener("resize", this.resizeListener);
         document.removeEventListener("visibilitychange", this.visibilityStateChangeListener);
+        if (this.scrollTimeout) {
+            clearTimeout(this.scrollTimeout);
+            this.scrollTimeout = undefined;
+        }
+        if (this.drawAnimationFrame !== null) {
+            window.cancelAnimationFrame(this.drawAnimationFrame);
+            this.drawAnimationFrame = null;
+        }
+        this.drawPending = false;
+        this.drawableUpdatePending = false;
+        this.mapLayerManager.destroy();
 
         usePendingMapAction.setState({hasPendingMapAction: false});
     }
 
     protected updateInternalDrawableState() : void {
-        this.structureManager.setPixelSize(this.props.rawMap.pixelSize);
-
-        this.updateDrawableComponents().then(() => {
-            this.draw();
-        }).catch(() => {
-            /* intentional */
-        });
+        this.drawableUpdatePending = true;
+        if (this.drawableUpdateRunning) {
+            return;
+        }
+        this.drawableUpdateRunning = true;
+        const processLatest = async () => {
+            try {
+                while (this.drawableUpdatePending && this.mounted) {
+                    this.drawableUpdatePending = false;
+                    this.structureManager.setPixelSize(this.props.rawMap.pixelSize);
+                    await this.updateDrawableComponents();
+                }
+                if (this.mounted) {
+                    this.draw();
+                }
+            } catch (_) {
+                /* A newer frame may still be rendered after a transient worker failure. */
+            } finally {
+                this.drawableUpdateRunning = false;
+                if (this.drawableUpdatePending && this.mounted) {
+                    this.updateInternalDrawableState();
+                }
+            }
+        };
+        processLatest().catch(() => {});
     }
 
     protected getMapDataForRendering(): RawMapData {
@@ -270,29 +306,31 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
             });
         });
 
-        this.drawableComponents = [];
+        try {
+            this.drawableComponents = [];
 
-        const mapData = this.getMapDataForRendering();
+            const mapData = this.getMapDataForRendering();
 
-        this.structureManager.updateMapStructuresFromMapData(mapData);
-        this.updateState();
+            this.structureManager.updateMapStructuresFromMapData(mapData);
+            this.updateState();
 
-        await this.mapLayerManager.draw(mapData, this.props.paletteMode);
-        this.drawableComponents.push(this.mapLayerManager.getCanvas());
+            await this.mapLayerManager.draw(mapData, this.props.paletteMode);
+            this.drawableComponents.push(this.mapLayerManager.getCanvas());
 
-        const pathsImage = await PathDrawer.drawPaths( {
-            pathMapEntities: this.props.rawMap.entities.filter(e => {
-                return e.type === RawMapEntityType.Path || e.type === RawMapEntityType.PredictedPath;
-            }),
-            mapWidth: this.props.rawMap.size.x,
-            mapHeight: this.props.rawMap.size.y,
-            pixelSize: this.props.rawMap.pixelSize,
-            paletteMode: this.props.paletteMode,
-        });
+            const pathsImage = await PathDrawer.drawPaths( {
+                pathMapEntities: mapData.entities.filter(e => {
+                    return e.type === RawMapEntityType.Path || e.type === RawMapEntityType.PredictedPath;
+                }),
+                mapWidth: mapData.size.x,
+                mapHeight: mapData.size.y,
+                pixelSize: mapData.pixelSize,
+                paletteMode: this.props.paletteMode,
+            });
 
-        this.drawableComponents.push(pathsImage);
-
-        this.drawableComponentsMutex.leave();
+            this.drawableComponents.push(pathsImage);
+        } finally {
+            this.drawableComponentsMutex.leave();
+        }
     }
 
     protected updateState() : void {
@@ -348,9 +386,20 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
 
 
     protected draw() : void {
-        window.requestAnimationFrame(() => {
+        this.drawPending = true;
+        if (this.drawAnimationFrame !== null || !this.mounted) {
+            return;
+        }
+        this.drawAnimationFrame = window.requestAnimationFrame(() => {
+            this.drawAnimationFrame = null;
             this.drawableComponentsMutex.take(() => {
-                const ctx = this.ctxWrapper.getContext();
+                if (!this.mounted) {
+                    this.drawableComponentsMutex.leave();
+                    return;
+                }
+                this.drawPending = false;
+                try {
+                    const ctx = this.ctxWrapper.getContext();
 
                 this.ctxWrapper.save();
                 this.ctxWrapper.setTransform(1, 0, 0, 1, 0, 0);
@@ -399,8 +448,13 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
                     );
                 });
 
-                this.ctxWrapper.restore();
-                this.drawableComponentsMutex.leave();
+                    this.ctxWrapper.restore();
+                } finally {
+                    this.drawableComponentsMutex.leave();
+                    if (this.drawPending && this.mounted) {
+                        this.draw();
+                    }
+                }
             });
         });
     }

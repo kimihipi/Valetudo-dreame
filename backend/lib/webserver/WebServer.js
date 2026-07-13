@@ -48,6 +48,7 @@ class WebServer {
      * @param {import("../utils/ValetudoHelper")} options.valetudoHelper
      * @param {import("../VideoMonitorManager")} options.videoMonitorManager
      * @param {import("../core/CleaningTaskManager")} options.cleaningTaskManager
+     * @param {import("../core/CleaningTaskService")} options.cleaningTaskService
      */
     constructor(options) {
         const self = this;
@@ -167,7 +168,8 @@ class WebServer {
         this.robotRouter = new RobotRouter({
             robot: this.robot,
             validator: this.validator,
-            cleaningTaskManager: options.cleaningTaskManager
+            cleaningTaskManager: options.cleaningTaskManager,
+            cleaningTaskService: options.cleaningTaskService
         });
         this.valetudoRouter = new ValetudoRouter({config: this.config, robot: this.robot, validator: this.validator});
 

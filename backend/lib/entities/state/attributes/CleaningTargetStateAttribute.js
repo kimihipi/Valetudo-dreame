@@ -10,9 +10,15 @@ class CleaningTargetStateAttribute extends StateAttribute {
      * @param {object} options
      * @param {CleaningTargetStateAttributeValue} options.value
      * @param {Array<string|number>} [options.segmentIds]
+     * @param {Array<object>} [options.zones]
+     * @param {number} [options.iterations]
+     * @param {string|null} [options.mapId]
+     * @param {number|string|null} [options.mapVersion]
+     * @param {object} [options.profile]
      * @param {string} [options.source]
      * @param {boolean} [options.active]
      * @param {number} [options.revision]
+     * @param {string} [options.updatedAt]
      * @param {object} [options.metaData]
      */
     constructor(options) {
@@ -20,9 +26,15 @@ class CleaningTargetStateAttribute extends StateAttribute {
 
         this.value = options.value;
         this.segmentIds = (options.segmentIds ?? []).map(id => String(id));
+        this.zones = options.zones ?? [];
+        this.iterations = options.iterations ?? 1;
+        this.mapId = options.mapId ?? null;
+        this.mapVersion = options.mapVersion ?? null;
+        this.profile = options.profile ?? {};
         this.source = options.source ?? "robot";
         this.active = options.active === true;
         this.revision = options.revision ?? 0;
+        this.updatedAt = options.updatedAt ?? new Date().toISOString();
     }
 }
 
@@ -34,7 +46,8 @@ CleaningTargetStateAttribute.VALUE = Object.freeze({
     NONE: "none",
     ALL: "all",
     SEGMENTS: "segments",
-    ZONES: "zones"
+    ZONES: "zones",
+    AUTOMATIC: "automatic"
 });
 
 module.exports = CleaningTargetStateAttribute;

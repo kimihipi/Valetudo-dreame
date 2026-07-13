@@ -1,20 +1,22 @@
 const CapabilityRouter = require("./CapabilityRouter");
-const {StatusStateAttribute} = require("../../entities/state/attributes");
 
 class BasicControlCapabilityRouter extends CapabilityRouter {
     initRoutes() {
         const methodMap = {
-            "start": () => {
-                return this.capability.start();
+            "start": req => {
+                return this.cleaningTaskService.startAll({
+                    source: "webui",
+                    expectedRevision: req.body.targetRevision
+                });
             },
             "stop": () => {
-                return this.capability.stop();
+                return this.cleaningTaskService.stop({source: "webui"});
             },
             "pause": () => {
-                return this.capability.pause();
+                return this.cleaningTaskService.pause({source: "webui"});
             },
             "home": () => {
-                return this.capability.home();
+                return this.cleaningTaskService.home({source: "webui"});
             }
         };
 
@@ -23,14 +25,12 @@ class BasicControlCapabilityRouter extends CapabilityRouter {
 
             if (method) {
                 try {
-                    const status = this.capability.robot.state.getFirstMatchingAttributeByConstructor(StatusStateAttribute);
-                    if (req.body.action === "start" && status?.value !== StatusStateAttribute.VALUE.PAUSED) {
-                        this.capability.robot.setCleaningTarget({
-                            value: "all", segmentIds: [], source: "webui", active: true
-                        });
+                    const result = await method(req);
+                    if (result?.commandId) {
+                        res.set("X-Valetudo-Command-Id", result.commandId).status(200).json({commandId: result.commandId});
+                    } else {
+                        res.sendStatus(200);
                     }
-                    await method();
-                    res.sendStatus(200);
                 } catch (e) {
                     this.sendErrorResponse(req, res, e);
                 }

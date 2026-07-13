@@ -1,5 +1,5 @@
 import {Box, Button, CircularProgress, styled, Typography, useTheme} from "@mui/material";
-import {Capability, prefetchObstacleImagesProperties, RobotAttributeClass, sendMatterAreaSelection, useMapSegmentationPropertiesQuery, useRobotAttributeQuery, useRobotMapQuery} from "../api";
+import {Capability, prefetchObstacleImagesProperties, RobotAttributeClass, sendCleaningTarget, useMapSegmentationPropertiesQuery, useRobotAttributeQuery, useRobotMapQuery} from "../api";
 import LiveMap from "./LiveMap";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import React from "react";
@@ -206,7 +206,7 @@ const LiveMapPage = (): React.ReactElement => {
         paletteMode={theme.palette.mode}
         trackSegmentSelectionOrder={mapSegmentationProperties ? mapSegmentationProperties.customOrderSupport : false}
         cleaningTarget={cleaningTarget}
-        onMatterAreaSelectionChange={sendMatterAreaSelection}
+        onCleaningTargetChange={sendCleaningTarget}
 
         supportedCapabilities={{
             [Capability.MapSegmentation]: mapSegmentationCapabilitySupported,

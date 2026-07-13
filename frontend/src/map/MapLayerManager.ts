@@ -10,8 +10,9 @@ export class MapLayerManager {
 
     private mapLayerManagerWorker: Worker;
     private mapLayerManagerWorkerAvailable = false;
-    private mapLayerManagerWorkerLastNonce = "";
+    private mapLayerManagerWorkerLastLayers: RawMapData["layers"] | undefined;
     private pendingCallback: (() => void) | undefined;
+    private destroyed = false;
 
     private segmentLookupInfo: {
         data: Uint8ClampedArray,
@@ -93,6 +94,10 @@ export class MapLayerManager {
 
     draw(data : RawMapData, paletteMode: PaletteMode): Promise<void> {
         return new Promise((resolve, reject) => {
+            if (this.destroyed) {
+                resolve();
+                return;
+            }
             //As the map data might change dimensions, we need to keep track of that.
             if (
                 this.canvas.width !== Math.round(data.size.x / data.pixelSize) ||
@@ -109,14 +114,14 @@ export class MapLayerManager {
             if (data.layers.length > 0) {
                 if (this.mapLayerManagerWorkerAvailable) {
                     this.mapLayerManagerWorker.postMessage( {
-                        mapLayers: data.metaData.nonce !== this.mapLayerManagerWorkerLastNonce ? data.layers : undefined,
+                        mapLayers: data.layers !== this.mapLayerManagerWorkerLastLayers ? data.layers : undefined,
                         pixelSize: data.pixelSize,
                         paletteMode: paletteMode,
                         selectedSegmentIds: this.selectedSegmentIds,
                         alwaysDimUnselectedSegments: this.alwaysDimUnselectedSegments
                     });
 
-                    this.mapLayerManagerWorkerLastNonce = data.metaData.nonce;
+                    this.mapLayerManagerWorkerLastLayers = data.layers;
 
                     //I'm not 100% sure if this cleanup is necessary, but it should prevent eternally stuck promises
                     if (typeof this.pendingCallback === "function") {
@@ -197,5 +202,21 @@ export class MapLayerManager {
 
     getCanvas(): HTMLCanvasElement {
         return this.canvas;
+    }
+
+    destroy(): void {
+        this.destroyed = true;
+        if (typeof this.pendingCallback === "function") {
+            this.pendingCallback();
+            this.pendingCallback = undefined;
+        }
+        this.mapLayerManagerWorker.onmessage = null;
+        this.mapLayerManagerWorker.onerror = null;
+        this.mapLayerManagerWorker.terminate();
+        this.canvas.width = 1;
+        this.canvas.height = 1;
+        this.segmentLookupInfo = {
+            data: new Uint8ClampedArray(), width: 1, height: 1, top: 0, left: 0, idMapping: {}
+        };
     }
 }

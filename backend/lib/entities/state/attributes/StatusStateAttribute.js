@@ -73,6 +73,7 @@ StatusStateAttribute.FLAG = Object.freeze({
     EMPTYING: "emptying",
     DRAINING: "draining",
     CHANGING_MOP: "changing_mop",
+    ADD_WATER: "add_water",
 });
 
 

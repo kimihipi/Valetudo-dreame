@@ -1,5 +1,4 @@
 const CapabilityRouter = require("./CapabilityRouter");
-const ValetudoMapSegment = require("../../entities/core/ValetudoMapSegment");
 
 class MapSegmentationCapabilityRouter extends CapabilityRouter {
     initRoutes() {
@@ -15,30 +14,17 @@ class MapSegmentationCapabilityRouter extends CapabilityRouter {
             if (req.body.action === "start_segment_action") {
                 if (Array.isArray(req.body.segment_ids)) {
                     try {
-                        const options = {};
-
-                        if (typeof req.body.iterations === "number") {
-                            options.iterations = req.body.iterations;
-                        }
-
-                        if (req.body.customOrder === true) {
-                            options.customOrder = true;
-                        }
-
-                        const segments = req.body.segment_ids.map(sid => {
-                            return new ValetudoMapSegment({
-                                id: sid
-                            });
-                        });
-                        this.capability.robot.setCleaningTarget({
-                            value: "segments",
+                        const result = await this.cleaningTaskService.startSegments({
                             segmentIds: req.body.segment_ids,
-                            source: "rest",
-                            active: true
+                            iterations: req.body.iterations,
+                            customOrder: req.body.customOrder,
+                            expectedRevision: req.body.targetRevision,
+                            source: "webui"
                         });
-                        await this.capability.executeSegmentAction(segments, options);
 
-                        res.sendStatus(200);
+                        res.set("X-Valetudo-Command-Id", result.commandId).status(200).json({
+                            commandId: result.commandId
+                        });
                     } catch (e) {
                         this.sendErrorResponse(req, res, e);
                     }

@@ -41,6 +41,7 @@ PresetSelectionStateAttribute.TYPE = Object.freeze({
     MOP_DOCK_MOP_WASH_INTENSITY: "mop_dock_mop_wash_intensity",
     AUTOMATIC_CONTROL: "automatic_control",
     AUTOMATIC_SUB_MODE: "automatic_sub_mode",
+    CLEAN_ROUTE: "clean_route",
 });
 
 /**

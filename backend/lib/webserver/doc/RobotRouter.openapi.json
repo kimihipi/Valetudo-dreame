@@ -137,10 +137,19 @@
                 "items": {
                   "anyOf": [
                     {
+                      "$ref": "#/components/schemas/ActiveCleaningTaskStateAttribute"
+                    },
+                    {
                       "$ref": "#/components/schemas/AttachmentStateAttribute"
                     },
                     {
                       "$ref": "#/components/schemas/BatteryStateAttribute"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CleaningCommandStateAttribute"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CleaningTargetStateAttribute"
                     },
                     {
                       "$ref": "#/components/schemas/DockComponentStateAttribute"
@@ -160,6 +169,47 @@
             }
           }
         }
+      }
+    }
+  },
+  "/api/v2/robot/state/cleaning_target": {
+    "get": {
+      "tags": ["Robot"],
+      "summary": "Get the shared cleaning target",
+      "responses": {
+        "200": {
+          "description": "Current staged or active cleaning target",
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CleaningTargetStateAttribute"}}}
+        }
+      }
+    },
+    "put": {
+      "tags": ["Robot"],
+      "summary": "Stage a shared cleaning target",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["value", "segmentIds"],
+              "properties": {
+                "value": {"type": "string", "enum": ["none", "all", "segments", "zones", "automatic"]},
+                "segmentIds": {"type": "array", "items": {"type": "string"}},
+                "zones": {"type": "array", "items": {"type": "object"}},
+                "iterations": {"type": "integer", "minimum": 1},
+                "profile": {"type": "object"},
+                "expectedRevision": {"type": "integer", "minimum": 0}
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {"description": "Target staged"},
+        "400": {"description": "Invalid target"},
+        "409": {"description": "Selected rooms do not match the current map"}
       }
     }
   },

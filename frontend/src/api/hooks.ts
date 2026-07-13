@@ -102,7 +102,6 @@ import {
     sendVoicePackManagementCommand,
     sendWifiConfiguration,
     subscribeToLogMessages,
-    subscribeToCleanRoute,
     subscribeToMap,
     subscribeToStateAttributes,
     updatePresetSelection,
@@ -367,6 +366,9 @@ const useOnSettingsChangeError = (setting: string): ((error: unknown) => void) =
     }, [setting, enqueueSnackbar]);
 };
 
+type SSECacheBridge = {references: number; unsubscribe: () => void};
+const SSECacheBridges = new WeakMap<QueryClient, Map<QueryKey, SSECacheBridge>>();
+
 const useSSECacheUpdater = <T>(
     key: QueryKey,
     subscriber: (listener: (data: T) => void) => () => void,
@@ -378,13 +380,36 @@ const useSSECacheUpdater = <T>(
         if (!enabled) {
             return;
         }
-        return subscriber((data) => {
-            queryClient.setQueryData<T>([key], (oldData) => {
-                return data;
-            }, {
-                updatedAt: Date.now()
-            });
-        });
+        let bridges = SSECacheBridges.get(queryClient);
+        if (!bridges) {
+            bridges = new Map();
+            SSECacheBridges.set(queryClient, bridges);
+        }
+        let bridge = bridges.get(key);
+        if (!bridge) {
+            bridge = {
+                references: 0,
+                unsubscribe: subscriber((data) => {
+                    queryClient.setQueryData<T>([key], data, {updatedAt: Date.now()});
+                })
+            };
+            bridges.set(key, bridge);
+        }
+        bridge.references++;
+
+        return () => {
+            if (!bridge || !bridges) {
+                return;
+            }
+            bridge.references--;
+            if (bridge.references === 0) {
+                bridge.unsubscribe();
+                bridges.delete(key);
+            }
+            if (bridges.size === 0) {
+                SSECacheBridges.delete(queryClient);
+            }
+        };
     }, [enabled, key, queryClient, subscriber]);
 };
 
@@ -511,18 +536,9 @@ export const capabilityToPresetType: Record<Parameters<typeof usePresetSelection
 export const usePresetSelectionMutation = (
     capability: Capability.FanSpeedControl | Capability.WaterUsageControl | Capability.OperationModeControl | Capability.MopDockMopCleaningFrequencyControl | Capability.MopDockDetergentControl | Capability.MopDockMopWashIntensityControl | Capability.AutomaticControl | Capability.AutomaticSubModeControl
 ) => {
-    const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: (level: PresetSelectionState["value"]) => {
-            return updatePresetSelection(capability, level).then(
-                fetchStateAttributes
-            );
-        },
-        onSuccess: (data) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
+            return updatePresetSelection(capability, level);
         },
         onError: useOnCommandError(capability),
     });
@@ -544,18 +560,9 @@ export const useAutomaticControlAttributeQuery = () => {
 };
 
 export const useSetAutomaticControlMutation = () => {
-    const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: (preset: PresetSelectionState["value"]) => {
-            return updatePresetSelection(Capability.AutomaticControl, preset).then(
-                fetchStateAttributes
-            );
-        },
-        onSuccess: (data) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
+            return updatePresetSelection(Capability.AutomaticControl, preset);
         },
         onError: useOnCommandError(Capability.AutomaticControl),
     });
@@ -577,55 +584,34 @@ export const useAutomaticSubModeControlAttributeQuery = () => {
 };
 
 export const useSetAutomaticSubModeControlMutation = () => {
-    const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: (preset: PresetSelectionState["value"]) => {
-            return updatePresetSelection(Capability.AutomaticSubModeControl, preset).then(
-                fetchStateAttributes
-            );
-        },
-        onSuccess: (data) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
+            return updatePresetSelection(Capability.AutomaticSubModeControl, preset);
         },
         onError: useOnCommandError(Capability.AutomaticSubModeControl),
     });
 };
 
 export const useBasicControlMutation = () => {
-    const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: (command: BasicControlCommand) => {
-            return sendBasicControlCommand(command).then(fetchStateAttributes);
+            return sendBasicControlCommand(command);
         },
         onError: useOnCommandError(Capability.BasicControl),
-        onSuccess: (data) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
-        },
     });
 };
 
 export const useGoToMutation = (
-    options?: UseMutationOptions<RobotAttribute[], unknown, Point>
+    options?: UseMutationOptions<void, unknown, Point>
 ) => {
-    const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: (coordinates: { x: number; y: number }) => {
-            return sendGoToCommand(coordinates).then(fetchStateAttributes);
+            return sendGoToCommand(coordinates);
         },
         ...options,
 
         onError: useOnCommandError(Capability.GoToLocation),
         onSuccess: async (data, ...args) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
             await options?.onSuccess?.(data, ...args);
         },
     });
@@ -641,21 +627,16 @@ export const useZonePropertiesQuery = () => {
 };
 
 export const useCleanZonesMutation = (
-    options?: UseMutationOptions<RobotAttribute[], unknown, ZoneActionRequestParameters>
+    options?: UseMutationOptions<void, unknown, ZoneActionRequestParameters>
 ) => {
-    const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: (parameters: ZoneActionRequestParameters) => {
-            return sendCleanZonesCommand(parameters).then(fetchStateAttributes);
+            return sendCleanZonesCommand(parameters);
         },
         ...options,
 
         onError: useOnCommandError(Capability.ZoneCleaning),
         onSuccess: async (data, ...args) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
             await options?.onSuccess?.(data, ...args);
         },
     });
@@ -681,42 +662,34 @@ export const useMapSegmentationPropertiesQuery = (enabled?: boolean) => {
 };
 
 export const useCleanSegmentsMutation = (
-    options?: UseMutationOptions<RobotAttribute[], unknown, MapSegmentationActionRequestParameters>
+    options?: UseMutationOptions<void, unknown, MapSegmentationActionRequestParameters>
 ) => {
-    const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: (parameters: MapSegmentationActionRequestParameters) => {
-            return sendCleanSegmentsCommand(parameters).then(fetchStateAttributes);
+            return sendCleanSegmentsCommand(parameters);
         },
         ...options,
 
         onError: useOnCommandError(Capability.MapSegmentation),
         onSuccess: async (data, ...args) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
             await options?.onSuccess?.(data, ...args);
         },
     });
 };
 
 export const useJoinSegmentsMutation = (
-    options?: UseMutationOptions<RobotAttribute[], unknown, MapSegmentEditJoinRequestParameters>
+    options?: UseMutationOptions<void, unknown, MapSegmentEditJoinRequestParameters>
 ) => {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (parameters: MapSegmentEditJoinRequestParameters) => {
-            return sendJoinSegmentsCommand(parameters).then(fetchStateAttributes);
+            return sendJoinSegmentsCommand(parameters);
         },
         ...options,
 
         onError: useOnCommandError(Capability.MapSegmentEdit),
         onSuccess: async (data, ...args) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
             await options?.onSuccess?.(data, ...args);
             await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
         },
@@ -724,21 +697,18 @@ export const useJoinSegmentsMutation = (
 };
 
 export const useSplitSegmentMutation = (
-    options?: UseMutationOptions<RobotAttribute[], unknown, MapSegmentEditSplitRequestParameters>
+    options?: UseMutationOptions<void, unknown, MapSegmentEditSplitRequestParameters>
 ) => {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (parameters: MapSegmentEditSplitRequestParameters) => {
-            return sendSplitSegmentCommand(parameters).then(fetchStateAttributes);
+            return sendSplitSegmentCommand(parameters);
         },
         ...options,
 
         onError: useOnCommandError(Capability.MapSegmentEdit),
         onSuccess: async (data, ...args) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
             await options?.onSuccess?.(data, ...args);
             await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
         },
@@ -746,21 +716,18 @@ export const useSplitSegmentMutation = (
 };
 
 export const useRenameSegmentMutation = (
-    options?: UseMutationOptions<RobotAttribute[], unknown, MapSegmentRenameRequestParameters>
+    options?: UseMutationOptions<void, unknown, MapSegmentRenameRequestParameters>
 ) => {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (parameters: MapSegmentRenameRequestParameters) => {
-            return sendRenameSegmentCommand(parameters).then(fetchStateAttributes);
+            return sendRenameSegmentCommand(parameters);
         },
         ...options,
 
         onError: useOnCommandError(Capability.MapSegmentRename),
         onSuccess: async (data, ...args) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
             await options?.onSuccess?.(data, ...args);
             await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
         },
@@ -787,21 +754,18 @@ export const useMapSegmentMaterialControlPropertiesQuery = () => {
 };
 
 export const useSetSegmentMaterialMutation = (
-    options?: UseMutationOptions<RobotAttribute[], unknown, MapSegmentMaterialControlRequestParameters>
+    options?: UseMutationOptions<void, unknown, MapSegmentMaterialControlRequestParameters>
 ) => {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (parameters: MapSegmentMaterialControlRequestParameters) => {
-            return sendSetSegmentMaterialCommand(parameters).then(fetchStateAttributes);
+            return sendSetSegmentMaterialCommand(parameters);
         },
         ...options,
 
         onError: useOnCommandError(Capability.MapSegmentMaterialControl),
         onSuccess: async (data, ...args) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
             await options?.onSuccess?.(data, ...args);
             await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
         },
@@ -813,14 +777,11 @@ export const useSegmentCleanOrderMutation = () => {
 
     return useMutation({
         mutationFn: (segmentIds: string[]) => {
-            return sendSegmentCleanOrderCommand(segmentIds).then(fetchStateAttributes);
+            return sendSegmentCleanOrderCommand(segmentIds);
         },
 
         onError: useOnCommandError(Capability.MapSegmentCleanOrder),
-        onSuccess: async (data, ...args) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
+        onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
         },
     });
@@ -889,13 +850,10 @@ export const useMultipleMapRotateMutation = () => {
 
     return useMutation({
         mutationFn: (parameters: MultipleMapRotateRequestParameters) => {
-            return sendMultipleMapRotateCommand(parameters).then(fetchStateAttributes);
+            return sendMultipleMapRotateCommand(parameters);
         },
         onError: useOnCommandError(Capability.MultipleMapRotate),
-        onSuccess: async (data, ...args) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
+        onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
         },
     });
@@ -1695,20 +1653,17 @@ export const useCombinedVirtualRestrictionsPropertiesQuery = () => {
 };
 
 export const useCombinedVirtualRestrictionsMutation = (
-    options?: UseMutationOptions<RobotAttribute[], unknown, CombinedVirtualRestrictionsUpdateRequestParameters>
+    options?: UseMutationOptions<void, unknown, CombinedVirtualRestrictionsUpdateRequestParameters>
 ) => {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (parameters: CombinedVirtualRestrictionsUpdateRequestParameters) => {
-            return sendCombinedVirtualRestrictionsUpdate(parameters).then(fetchStateAttributes);
+            return sendCombinedVirtualRestrictionsUpdate(parameters);
         },
         onError: useOnCommandError(Capability.CombinedVirtualRestrictions),
         ...options,
         onSuccess: async (data, ...args) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
             // Set the pending count before invalidating so onMapUpdate fires with it already set
             await options?.onSuccess?.(data, ...args);
             await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
@@ -1910,35 +1865,21 @@ export const useRobotPropertiesQuery = () => {
 };
 
 export const useMopDockCleanManualTriggerMutation = () => {
-    const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: (command: MopDockCleanManualTriggerCommand) => {
-            return sendMopDockCleanManualTriggerCommand(command).then(fetchStateAttributes);
+            return sendMopDockCleanManualTriggerCommand(command);
         },
 
         onError: useOnCommandError(Capability.MopDockCleanManualTrigger),
-        onSuccess: (data) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
-        },
     });
 };
 
 export const useMopDockDryManualTriggerMutation = () => {
-    const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: (command: MopDockDryManualTriggerCommand) => {
-            return sendMopDockDryManualTriggerCommand(command).then(fetchStateAttributes);
+            return sendMopDockDryManualTriggerCommand(command);
         },
         onError: useOnCommandError(Capability.MopDockDryManualTrigger),
-        onSuccess: (data) => {
-            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
-                updatedAt: Date.now(),
-            });
-        },
     });
 };
 
@@ -2281,21 +2222,25 @@ export const useFloorMaterialDirectionAwareNavigationControlMutation = () => {
 };
 
 export const useCleanRouteQuery = (enabled = true) => {
-    useSSECacheUpdater(QueryKey.CleanRouteControl, subscribeToCleanRoute, enabled);
-
-    return useQuery({
+    const {data: sharedRoute} = useRobotAttributeQuery(
+        RobotAttributeClass.PresetSelectionState,
+        attributes => attributes.find(attribute => attribute.type === "clean_route")
+    );
+    const query = useQuery({
         queryKey: [QueryKey.CleanRouteControl],
         queryFn: fetchCleanRoute,
         enabled: enabled,
         staleTime: 1000
     });
+    return {...query, data: enabled ? sharedRoute?.value as CleanRoute ?? query.data : undefined};
 };
 
 export const useCleanRouteMutation = () => {
     return useValetudoFetchingMutation({
         queryKey: [QueryKey.CleanRouteControl],
-        mutationFn: (route: CleanRoute) => {
-            return sendCleanRoute({route: route}).then(fetchCleanRoute);
+        mutationFn: async (route: CleanRoute) => {
+            await sendCleanRoute({route: route});
+            return route;
         },
         onError: useOnCommandError(Capability.CleanRouteControl)
     });
