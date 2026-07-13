@@ -13,7 +13,7 @@ const StatusStateAttribute = require("../entities/state/attributes/StatusStateAt
 const ValetudoMapSegment = require("../entities/core/ValetudoMapSegment");
 
 const CREATE_CONFLICT_ERROR = (name, message) => {
-    const error = new Error(message);
+    const error = /** @type {Error & {statusCode: number}} */ (new Error(message));
     error.name = name;
     error.statusCode = 409;
     return error;
@@ -285,6 +285,11 @@ class CleaningTaskService {
         };
     }
 
+    /**
+     * @template T
+     * @param {() => T | Promise<T>} execute
+     * @return {Promise<T>}
+     */
     serializeCommand(execute) {
         const queued = this.commandQueue.then(execute, execute);
         this.commandQueue = queued.then(() => undefined, () => undefined);
@@ -385,7 +390,7 @@ class CleaningTaskService {
                 resolve(result);
             };
             const subscriber = new CallbackAttributeSubscriber((eventType, attribute) => {
-                if (values.includes(attribute.value)) {
+                if (values.includes(/** @type {any} */ (attribute).value)) {
                     finish(true);
                 }
             });

@@ -220,7 +220,7 @@ class DreameValetudoRobot extends MiioValetudoRobot {
             }
         }
 
-        const services = this.constructor.MIOT_SERVICES;
+        const services = /** @type {any} */ (this.constructor).MIOT_SERVICES;
         const serialNumberProperty = services?.DEVICE?.PROPERTIES?.SERIAL_NUMBER;
 
         if (!services?.DEVICE?.SIID || !serialNumberProperty?.PIID) {

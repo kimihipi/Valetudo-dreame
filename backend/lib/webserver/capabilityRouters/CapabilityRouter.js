@@ -46,7 +46,7 @@ class CapabilityRouter {
      * @protected
      * @param {any} req
      * @param {any} res
-     * @param {Error} err
+     * @param {Error & {commandId?: string, statusCode?: number}} err
      */
     sendErrorResponse(req, res, err) {
         if (err instanceof RobotFirmwareError) {

@@ -1914,7 +1914,7 @@ class MatterController {
     /**
      * @private
      * @param {string} profile
-     * @param {"fan"|"water"} type
+     * @param {"fan"|"water"|"route"} type
      * @param {Array<string>} presets
      * @return {string|undefined}
      */
@@ -2465,13 +2465,13 @@ class MatterController {
                     this.resetFilterResource()) : undefined,
                 refreshWaterTank: this.waterTankResourceSupported ? () => this.executeMatterCommand(() =>
                     this.robot.pollState()) : undefined,
-                skipArea: typeof mapSegmentationCapability?.skipSegment === "function" ? areaId =>
+                skipArea: typeof (/** @type {any} */ (mapSegmentationCapability))?.skipSegment === "function" ? areaId =>
                     this.executeMatterCommand(async () => {
                         const segment = this.serviceAreaSegments.get(areaId);
                         if (!segment) {
                             throw new Error("Selected room is no longer available");
                         }
-                        await mapSegmentationCapability.skipSegment(segment);
+                        await (/** @type {any} */ (mapSegmentationCapability)).skipSegment(segment);
                         this.serviceAreaProgress.set(areaId, {
                             areaId: areaId,
                             status: matterModules.ServiceArea.OperationalStatus.Skipped,

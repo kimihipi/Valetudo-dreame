@@ -3,7 +3,7 @@
         "allowJs": true,
         "checkJs": true,
         "module": "commonJS",
-        "target": "es6",
+        "target": "es2020",
         "lib": ["es2022"],
         "moduleResolution": "node",
 "sourceMap": true,
@@ -12,5 +12,11 @@
         "skipLibCheck": true,
         "resolveJsonModule": true
     },
-    "include": ["lib"]
+    "include": ["lib"],
+    "exclude": [
+        // ESM entry point bundled separately by esbuild (util/build_matter_bundle.mjs).
+        // It imports @matter subpaths that require bundler-style resolution and cannot be
+        // type-checked under this CommonJS config; the bundle output carries @ts-nocheck.
+        "lib/matter/MatterRuntime.source.mjs"
+    ]
 }

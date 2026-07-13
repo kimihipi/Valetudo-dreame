@@ -38,6 +38,8 @@ const result = await build({
     platform: "node",
     format: "cjs",
     target: "node22",
+    // The bundle is third-party @matter runtime code; exclude it from our type-checking.
+    banner: {js: "// @ts-nocheck"},
     plugins: [disableUnusedPlatforms],
     treeShaking: true,
     minifySyntax: false,

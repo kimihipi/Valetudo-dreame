@@ -322,7 +322,7 @@ class RobotRouter {
             }),
             (req, res) => {
                 if (this.robot.state.map !== null) {
-                    res.sse.writeLatest(
+                    /** @type {any} */ (res).sse.writeLatest(
                         `event: MapUpdatedV2\ndata: ${this.serializeMapV2(this.robot.state.map, true)}\n\n`
                     );
                 }

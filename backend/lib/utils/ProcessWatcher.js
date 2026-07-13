@@ -105,7 +105,7 @@ class ProcessWatcher {
             this.flapWarned = true;
             Logger.warn(
                 `ProcessWatcher: ${this.name} has exited immediately ${this.consecutiveFailures} times in a row. ` +
-                `Backing off; further restarts will be logged at debug level.`
+                "Backing off; further restarts will be logged at debug level."
             );
         }
 
