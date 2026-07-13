@@ -23,6 +23,7 @@ const stateAttrs = entities.state.attributes;
 
 
 const MIOT_SERVICES = DreameMiotServices["GEN2"];
+const GEN2_STATUS_CHARGING_COMPLETED = 13;
 
 
 
@@ -485,6 +486,17 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
                         switch (elem.piid) {
                             case MIOT_SERVICES.VACUUM_1.PROPERTIES.STATUS.PIID: {
                                 this.ephemeralState.gen2StatusValue = elem.value;
+                                if (elem.value === GEN2_STATUS_CHARGING_COMPLETED) {
+                                    const battery = this.state.getFirstMatchingAttribute({
+                                        attributeClass: stateAttrs.BatteryStateAttribute.name
+                                    });
+                                    if (battery) {
+                                        this.state.upsertFirstMatchingAttribute(new stateAttrs.BatteryStateAttribute({
+                                            level: battery.level,
+                                            flag: stateAttrs.BatteryStateAttribute.FLAG.CHARGED
+                                        }));
+                                    }
+                                }
                                 statusNeedsUpdate = true;
                                 break;
                             }
@@ -735,7 +747,9 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
                             const existingBattery = this.state.getFirstMatchingAttribute({attributeClass: stateAttrs.BatteryStateAttribute.name});
                             if (existingBattery) {
                                 const chargingFlag = elem.value === 1 ?
-                                    stateAttrs.BatteryStateAttribute.FLAG.CHARGING :
+                                    this.ephemeralState.gen2StatusValue === GEN2_STATUS_CHARGING_COMPLETED ?
+                                        stateAttrs.BatteryStateAttribute.FLAG.CHARGED :
+                                        stateAttrs.BatteryStateAttribute.FLAG.CHARGING :
                                     stateAttrs.BatteryStateAttribute.FLAG.DISCHARGING;
                                 this.state.upsertFirstMatchingAttribute(new stateAttrs.BatteryStateAttribute({
                                     level: existingBattery.level,
@@ -912,7 +926,6 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
                     Logger.warn("Unhandled property update", elem);
             }
         }
-
 
         if (statusNeedsUpdate === true) {
             let newState;

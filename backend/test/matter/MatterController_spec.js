@@ -103,6 +103,54 @@ describe("MatterController", function() {
         error.errorStateDetails.should.equal("Main brush blocked (42)");
     });
 
+    it("should retry a transient Matter storage lock during startup", async function() {
+        const controller = createController();
+        let attempts = 0;
+        let waits = 0;
+        const expectedNode = {id: "valetudo"};
+        function ServerNode() {
+            attempts++;
+            this.construction = {};
+            if (attempts < 3) {
+                const error = new Error("Storage is locked by another process (pid 123)");
+                error.name = "StorageLockError";
+                this.construction.ready = Promise.reject(error);
+            } else {
+                Object.assign(this, expectedNode);
+                this.construction.ready = Promise.resolve();
+            }
+        }
+        ServerNode.prototype.close = async () => {};
+        controller.waitForMatterStorageLockRetry = async () => {
+            waits++;
+        };
+
+        const node = await controller.createServerNodeWithLockRetry(ServerNode, {id: "valetudo"});
+
+        node.id.should.equal(expectedNode.id);
+        attempts.should.equal(3);
+        waits.should.equal(2);
+    });
+
+    it("should not retry a non-lock Matter startup failure", async function() {
+        const controller = createController();
+        let attempts = 0;
+        let closes = 0;
+        function ServerNode() {
+            attempts++;
+            this.construction = {ready: Promise.reject(new Error("Invalid Matter storage data"))};
+        }
+        ServerNode.prototype.close = async () => {
+            closes++;
+        };
+
+        await should(controller.createServerNodeWithLockRetry(ServerNode, {})).be.rejectedWith(
+            "Invalid Matter storage data"
+        );
+        attempts.should.equal(1);
+        closes.should.equal(1);
+    });
+
     it("should not infer successful completion from returning to the dock", async function() {
         const controller = createController();
         controller.statisticsCache = {timestamp: Date.now(), data: {time: 123, area: undefined}};

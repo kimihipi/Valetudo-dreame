@@ -401,52 +401,52 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
                 try {
                     const ctx = this.ctxWrapper.getContext();
 
-                this.ctxWrapper.save();
-                this.ctxWrapper.setTransform(1, 0, 0, 1, 0, 0);
-                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                this.ctxWrapper.restore();
+                    this.ctxWrapper.save();
+                    this.ctxWrapper.setTransform(1, 0, 0, 1, 0, 0);
+                    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    this.ctxWrapper.restore();
 
 
-                ctx.imageSmoothingEnabled = false;
+                    ctx.imageSmoothingEnabled = false;
 
-                this.drawableComponents.forEach(c => {
-                    ctx.drawImage(c, 0, 0);
-                });
+                    this.drawableComponents.forEach(c => {
+                        ctx.drawImage(c, 0, 0);
+                    });
 
-                ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingEnabled = true;
 
 
-                /**
-                 * Carries out a drawing routine on the canvas with resetting the scaling / translation of the canvas
-                 * and restoring it afterwards.
-                 * This allows for drawing equally thick lines no matter what the zoomlevel of the canvas currently is.
-                 *
-                 */
-                const transformationMatrixToScreenSpace = this.ctxWrapper.getTransform();
-                this.ctxWrapper.save();
-                this.ctxWrapper.setTransform(1, 0, 0, 1, 0, 0);
+                    /**
+                     * Carries out a drawing routine on the canvas with resetting the scaling / translation of the canvas
+                     * and restoring it afterwards.
+                     * This allows for drawing equally thick lines no matter what the zoomlevel of the canvas currently is.
+                     *
+                     */
+                    const transformationMatrixToScreenSpace = this.ctxWrapper.getTransform();
+                    this.ctxWrapper.save();
+                    this.ctxWrapper.setTransform(1, 0, 0, 1, 0, 0);
 
-                const rotatedDims = this.getCanvasRotatedDims();
+                    const rotatedDims = this.getCanvasRotatedDims();
 
-                this.structureManager.getMapStructures().forEach(s => {
-                    s.draw(
-                        this.ctxWrapper,
-                        transformationMatrixToScreenSpace,
-                        this.currentScaleFactor,
-                        this.structureManager.getPixelSize(),
-                        rotatedDims.rotationRads
-                    );
-                });
+                    this.structureManager.getMapStructures().forEach(s => {
+                        s.draw(
+                            this.ctxWrapper,
+                            transformationMatrixToScreenSpace,
+                            this.currentScaleFactor,
+                            this.structureManager.getPixelSize(),
+                            rotatedDims.rotationRads
+                        );
+                    });
 
-                this.structureManager.getClientStructures().forEach(s => {
-                    s.draw(
-                        this.ctxWrapper,
-                        transformationMatrixToScreenSpace,
-                        this.currentScaleFactor,
-                        this.structureManager.getPixelSize(),
-                        rotatedDims.rotationRads
-                    );
-                });
+                    this.structureManager.getClientStructures().forEach(s => {
+                        s.draw(
+                            this.ctxWrapper,
+                            transformationMatrixToScreenSpace,
+                            this.currentScaleFactor,
+                            this.structureManager.getPixelSize(),
+                            rotatedDims.rotationRads
+                        );
+                    });
 
                     this.ctxWrapper.restore();
                 } finally {

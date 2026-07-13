@@ -39,6 +39,9 @@ let matterModules = null;
 /** @type {any} */
 let matterLoadError = null;
 try {
+    // The generated bundle is a build artifact that may not exist yet during type-checking
+    // (it is produced by util/build_matter_bundle.mjs at build time and is gitignored).
+    // @ts-ignore
     matterModules = require("./MatterRuntime.generated");
 } catch (e) {
     matterLoadError = e;
@@ -62,6 +65,8 @@ const ROOM_DETECTION_INTERVAL_MS = 5_000;
 const FILTER_RESOURCE_POLL_INTERVAL_MS = 300_000;
 const AUXILIARY_REFRESH_INTERVAL_MS = 30_000;
 const MATTER_TRANSACTION_RETRY_MS = 100;
+const MATTER_STORAGE_LOCK_RETRY_MS = 250;
+const MATTER_STORAGE_LOCK_RETRY_ATTEMPTS = 40;
 const TARGETED_SYNC_DELAY_MS = 25;
 const TARGETED_SYNC_MAX_RETRIES = 20;
 const CLEAN_MODE_STORAGE_SCHEMA = 3;
@@ -84,6 +89,12 @@ const IS_SYNCHRONOUS_TRANSACTION_CONFLICT = error =>
     error?.constructor?.name === "SynchronousTransactionConflictError" ||
     (typeof error?.message === "string" && error.message.includes("Cannot lock ") &&
         error.message.includes(" synchronously"));
+const IS_MATTER_STORAGE_LOCK_ERROR = error =>
+    error?.constructor?.name === "StorageLockError" ||
+    (typeof error?.message === "string" && (
+        error.message.includes("Storage is locked by another process") ||
+        error.message.includes("Storage is already locked by this process")
+    ));
 
 class MatterController {
     /**
@@ -438,6 +449,51 @@ class MatterController {
             // best-effort; matter.js will surface a clearer error if the path is unusable
         }
         return location;
+    }
+
+    /**
+     * A previous Valetudo process can still be releasing matter.js's directory lock while its
+     * replacement starts. matter.js already reclaims provably stale lock files, so retrying the
+     * atomic acquisition is safer than deleting a lock that may still have a live owner.
+     *
+     * @private
+     * @param {new (options: object) => any} ServerNode
+     * @param {object} options
+     * @return {Promise<any>}
+     */
+    async createServerNodeWithLockRetry(ServerNode, options) {
+        for (let attempt = 1; ; attempt++) {
+            let node;
+            try {
+                // Keep the instance reference while asynchronous construction runs. The library's
+                // static create() helper throws without returning that reference, which prevents
+                // cleanup when construction fails after acquiring storage.
+                node = new ServerNode(options);
+                await node.construction.ready;
+                return node;
+            } catch (error) {
+                if (node) {
+                    try {
+                        await node.close();
+                    } catch (closeError) {
+                        Logger.debug("Unable to close partially constructed Matter ServerNode", closeError);
+                    }
+                }
+                if (!IS_MATTER_STORAGE_LOCK_ERROR(error) || attempt >= MATTER_STORAGE_LOCK_RETRY_ATTEMPTS) {
+                    throw error;
+                }
+
+                if (attempt === 1) {
+                    Logger.info("Matter storage is still locked; waiting for the previous owner to release it");
+                }
+                await this.waitForMatterStorageLockRetry();
+            }
+        }
+    }
+
+    /** @private */
+    async waitForMatterStorageLockRetry() {
+        await new Promise(resolve => setTimeout(resolve, MATTER_STORAGE_LOCK_RETRY_MS));
     }
 
     /**
@@ -2483,7 +2539,7 @@ class MatterController {
                     }) : undefined
             });
 
-            this.node = await ServerNode.create({
+            this.node = await this.createServerNodeWithLockRetry(ServerNode, {
                 id: NODE_ID,
                 productDescription: {
                     name: identity.deviceName,
