@@ -30,7 +30,7 @@ export interface ActiveCleaningTaskState {
     source: string;
     startedAt: string;
     target: {
-        type: "all" | "segments" | "zones" | "spot";
+        type: "all" | "automatic" | "segments" | "zones" | "spot";
         segmentIds: string[];
         segmentNames: string[];
         currentSegmentId?: string | null;

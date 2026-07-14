@@ -72,6 +72,8 @@ export enum RawMapEntityType {
     Obstacle = "obstacle",
     Path = "path",
     PredictedPath = "predicted_path",
+    MopPath = "mop_path",
+    VacuumAndMopPath = "vacuum_and_mop_path",
     VirtualWall = "virtual_wall",
     NoGoArea = "no_go_area",
     NoMopArea = "no_mop_area",

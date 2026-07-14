@@ -4507,7 +4507,7 @@
         3469,
         3394
       ],
-      "type": "path"
+      "type": "vacuum_and_mop_path"
     },
     {
       "__class": "PathMapEntity",
@@ -4548,7 +4548,7 @@
         3645,
         3405
       ],
-      "type": "path"
+      "type": "vacuum_and_mop_path"
     },
     {
       "__class": "PathMapEntity",
@@ -4593,7 +4593,7 @@
         3692,
         3337
       ],
-      "type": "path"
+      "type": "vacuum_and_mop_path"
     },
     {
       "__class": "PathMapEntity",
@@ -4650,7 +4650,7 @@
         3477,
         3301
       ],
-      "type": "path"
+      "type": "vacuum_and_mop_path"
     },
     {
       "__class": "PathMapEntity",
@@ -5027,7 +5027,7 @@
         3455,
         3378
       ],
-      "type": "path"
+      "type": "vacuum_and_mop_path"
     },
     {
       "__class": "PathMapEntity",
@@ -5572,7 +5572,7 @@
         3445,
         3323
       ],
-      "type": "path"
+      "type": "vacuum_and_mop_path"
     },
     {
       "__class": "PathMapEntity",
@@ -5607,7 +5607,7 @@
         3646,
         3405
       ],
-      "type": "path"
+      "type": "vacuum_and_mop_path"
     },
     {
       "__class": "PathMapEntity",
@@ -5618,7 +5618,7 @@
         3492,
         3403
       ],
-      "type": "path"
+      "type": "vacuum_and_mop_path"
     },
     {
       "__class": "PathMapEntity",
@@ -5657,7 +5657,7 @@
         3625,
         3348
       ],
-      "type": "path"
+      "type": "vacuum_and_mop_path"
     }
   ]
 }

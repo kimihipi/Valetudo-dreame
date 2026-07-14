@@ -20,7 +20,9 @@ class PathMapEntity extends MapEntity {
  */
 PathMapEntity.TYPE = Object.freeze({
     PATH: "path",
-    PREDICTED_PATH: "predicted_path"
+    PREDICTED_PATH: "predicted_path",
+    MOP_PATH: "mop_path",
+    VACUUM_AND_MOP_PATH: "vacuum_and_mop_path"
 });
 
 module.exports = PathMapEntity;

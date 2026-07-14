@@ -186,12 +186,14 @@ describe("CleaningTaskService", function() {
             }
         };
         const service = new CleaningTaskService({robot: robot});
-        service.stageTarget({value: "segments", segmentIds: ["2", "4"], iterations: 2});
+        service.stageTarget({value: "segments", segmentIds: ["2", "4"], iterations: 2, source: "matter"});
 
         const target = service.getTarget();
         const result = await service.startTarget({source: "webui", expectedRevision: target.revision});
 
-        result.target.should.match({value: "segments", segmentIds: ["2", "4"], active: true});
+        result.target.should.match({
+            value: "segments", segmentIds: ["2", "4"], source: "webui", active: true
+        });
         result.target.revision.should.equal(target.revision + 1);
         executed.should.deepEqual({ids: ["2", "4"], options: {iterations: 2, customOrder: true}});
     });

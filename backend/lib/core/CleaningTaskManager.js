@@ -33,6 +33,14 @@ const MID_CYCLE_FLAGS = new Set([
     stateAttrs.StatusStateAttribute.FLAG.AUTO_RECLEANING,
 ]);
 
+// Entity types that represent trace the robot has actually driven (as opposed to PREDICTED_PATH,
+// which is a projected go-to route). Used to detect whether the robot is still laying new path.
+const TRAVELED_PATH_TYPES = [
+    PathMapEntity.TYPE.PATH,
+    PathMapEntity.TYPE.MOP_PATH,
+    PathMapEntity.TYPE.VACUUM_AND_MOP_PATH,
+];
+
 const MAX_HISTORY = 50;
 const TASK_TERMINAL_STATES = ["completed", "cancelled", "stopped", "failed"];
 const ROOM_DWELL_MS = 4_000;
@@ -195,6 +203,7 @@ class CleaningTaskManager {
             [...target.segmentIds] : [];
         const targetType = [
             stateAttrs.CleaningTargetStateAttribute.VALUE.ALL,
+            stateAttrs.CleaningTargetStateAttribute.VALUE.AUTOMATIC,
             stateAttrs.CleaningTargetStateAttribute.VALUE.SEGMENTS,
             stateAttrs.CleaningTargetStateAttribute.VALUE.ZONES
         ].includes(target?.value) ? target.value :
@@ -205,7 +214,10 @@ class CleaningTaskManager {
         this.activeTask = {
             id: crypto.randomUUID(),
             state: "running",
-            source: target?.source ?? "robot",
+            // An active target is published by a Valetudo control surface before it starts the
+            // robot. If cleaning begins without one, it came from the firmware itself (button,
+            // onboard schedule, vendor automation, etc.).
+            source: !target || target.source === "robot" ? "firmware" : target.source,
             startedAt: new Date().toISOString(),
             startedAtMs: Date.now(),
             mapId: target?.mapId ?? this.robot.state.map?.metaData?.id ?? "unknown",
@@ -256,7 +268,7 @@ class CleaningTaskManager {
             return;
         }
         const firmwareTargetType = status.metaData.cleaningTargetType;
-        if (this.activeTask.source === "robot" && this.activeTask.target.type === "all" &&
+        if (this.activeTask.source === "firmware" && this.activeTask.target.type === "all" &&
             ["zones", "segments", "spot"].includes(firmwareTargetType)) {
             this.activeTask.target.type = firmwareTargetType;
         }
@@ -440,7 +452,7 @@ class CleaningTaskManager {
     getCleaningPathPointCount() {
         let count = 0;
         for (const entity of this.robot.state.map?.entities ?? []) {
-            if (entity.type === PathMapEntity.TYPE.PATH && Array.isArray(entity.points)) {
+            if (TRAVELED_PATH_TYPES.includes(entity.type) && Array.isArray(entity.points)) {
                 count += entity.points.length;
             }
         }

@@ -383,9 +383,25 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
                         opacity: hasProgress ? 1 : 0,
                         backgroundColor: `${palette.teal}55`,
                         transition: "opacity 0.3s ease",
+                        "@keyframes shimmer": {
+                            "0%": {transform: "translateX(-100%)"},
+                            "100%": {transform: "translateX(100%)"},
+                        },
                         "& .MuiLinearProgress-bar": {
                             backgroundColor: palette.green,
                             transition: "transform 0.6s linear",
+                            position: "relative",
+                            overflow: "hidden",
+                            "&::after": {
+                                content: "\"\"",
+                                position: "absolute",
+                                inset: 0,
+                                background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)",
+                                animation: taskActive ? "shimmer 1.8s linear infinite" : "none",
+                                "@media (prefers-reduced-motion: reduce)": {
+                                    animation: "none",
+                                },
+                            },
                         },
                     }}
                 />

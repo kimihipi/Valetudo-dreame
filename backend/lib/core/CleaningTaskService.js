@@ -443,6 +443,9 @@ class CleaningTaskService {
     async startDraft(draft, command, execute) {
         const activeTarget = this.robot.setCleaningTarget({
             ...draft,
+            // The draft source describes who selected the target. History needs the control
+            // surface that actually issued Start, which is carried by the command.
+            source: command.source,
             active: true,
             expectedRevision: draft.revision
         });

@@ -103,6 +103,27 @@ describe("CleaningTaskManager", function() {
         manager.shutdown();
     });
 
+    it("should identify a cleaning started without an active Valetudo target as firmware-triggered", async function() {
+        const robot = createRobot();
+        const manager = new CleaningTaskManager({
+            robot: robot,
+            config: {location: path.join(fs.mkdtempSync(path.join(os.tmpdir(), "valetudo-task-source-")),
+                "config.json")}
+        });
+
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
+            value: stateAttrs.StatusStateAttribute.VALUE.CLEANING
+        }));
+        await new Promise(resolve => setImmediate(resolve));
+
+        manager.activeTask.should.not.equal(null);
+        manager.activeTask.source.should.equal("firmware");
+        robot.emitOutcome("completed");
+        await new Promise(resolve => setImmediate(resolve));
+        manager.getHistory()[0].source.should.equal("firmware");
+        manager.shutdown();
+    });
+
     it("should tolerate two-pixel room borders while preferring exact containment", function() {
         const robot = createRobot();
         const position = new PointMapEntity({
@@ -291,7 +312,7 @@ describe("CleaningTaskManager", function() {
         robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({value: "cleaning"}));
         await new Promise(resolve => setImmediate(resolve));
 
-        manager.activeTask.should.match({source: "robot", target: {type: "all", segmentIds: []}});
+        manager.activeTask.should.match({source: "firmware", target: {type: "all", segmentIds: []}});
         manager.shutdown();
     });
 
@@ -313,6 +334,24 @@ describe("CleaningTaskManager", function() {
             manager.activeTask.target.type.should.equal(flag === "spot" ? "spot" : `${flag}s`);
             manager.shutdown();
         }
+    });
+
+    it("should preserve an automatic target in cleaning history", async function() {
+        const robot = createRobot();
+        robot.setCleaningTarget({value: "automatic", segmentIds: [], source: "matter", active: true});
+        const manager = new CleaningTaskManager({
+            robot: robot,
+            config: {location: path.join(fs.mkdtempSync(path.join(os.tmpdir(), "valetudo-task-automatic-")),
+                "config.json")}
+        });
+
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({value: "cleaning"}));
+        await new Promise(resolve => setImmediate(resolve));
+        manager.activeTask.target.type.should.equal("automatic");
+        robot.emitOutcome("completed");
+        await new Promise(resolve => setImmediate(resolve));
+        manager.getHistory()[0].target.type.should.equal("automatic");
+        manager.shutdown();
     });
 
     it("should use a firmware cleaning type preserved in status metadata", async function() {

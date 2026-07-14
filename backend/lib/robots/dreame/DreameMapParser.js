@@ -865,7 +865,10 @@ class DreameMapParser {
                 match.groups.operator === PATH_OPERATORS.MOP_START ||
                 match.groups.operator === PATH_OPERATORS.DUAL_START
             ) {
-                currentUnprocessedPath = [];
+                currentUnprocessedPath = {
+                    operator: match.groups.operator,
+                    points: []
+                };
                 unprocessedPaths.push(currentUnprocessedPath);
 
                 currentPosition.x = parseInt(match.groups.x);
@@ -877,16 +880,16 @@ class DreameMapParser {
                 throw new Error(`Invalid path operator ${match.groups.operator}`);
             }
 
-            currentUnprocessedPath.push({
+            currentUnprocessedPath.points.push({
                 x: currentPosition.x,
                 y: currentPosition.y
             });
         }
 
-        unprocessedPaths.forEach((unprocessedPoints, i) => {
+        unprocessedPaths.forEach((unprocessedPath, i) => {
             let processedPathPoints = [];
 
-            unprocessedPoints.forEach(e => {
+            unprocessedPath.points.forEach(e => {
                 const p = DreameMapParser.CONVERT_TO_VALETUDO_COORDINATES(e.x, e.y);
 
                 processedPathPoints.push(p.x, p.y);
@@ -897,10 +900,23 @@ class DreameMapParser {
                 processedPathPoints.push(parsedHeader.robot_position.x, parsedHeader.robot_position.y);
             }
 
+            let pathType;
+            switch (unprocessedPath.operator) {
+                case PATH_OPERATORS.MOP_START:
+                    pathType = mapEntities.PathMapEntity.TYPE.MOP_PATH;
+                    break;
+                case PATH_OPERATORS.DUAL_START:
+                    pathType = mapEntities.PathMapEntity.TYPE.VACUUM_AND_MOP_PATH;
+                    break;
+                default:
+                    pathType = mapEntities.PathMapEntity.TYPE.PATH;
+                    break;
+            }
+
             paths.push(
                 new mapEntities.PathMapEntity({
                     points: processedPathPoints,
-                    type: mapEntities.PathMapEntity.TYPE.PATH
+                    type: pathType
                 })
             );
         });

@@ -5,7 +5,6 @@ import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import React from "react";
 import {useQueryClient} from "@tanstack/react-query";
 import ManualControl from "../robot/ManualControl";
-import CurrentStatistics from "../controls/CurrentStatistics";
 import {ActionButton} from "./Styled";
 import {ArrowBack as ArrowBackIcon} from "@mui/icons-material";
 import MapEditorPage from "./MapEditorPage";
@@ -150,8 +149,6 @@ const LiveMapPage = (): React.ReactElement => {
         return (
             <Box sx={{ position: "relative", height: "100%", width: "100%", overflow: "auto" }}>
                 <Box sx={{ pt: 8, px: 2, pb: 2 }}>
-                    <CurrentStatistics />
-                    <Box mt={2} />
                     <ActivityHistory />
                 </Box>
                 <ActionButton

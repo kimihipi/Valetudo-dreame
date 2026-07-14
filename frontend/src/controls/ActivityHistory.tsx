@@ -2,10 +2,13 @@ import React from "react";
 import {Box, Button, Divider, Grid2, Typography} from "@mui/material";
 import {
     Adjust as SpotModeIcon,
+    AutoMode as AutomaticModeIcon,
     BatteryChargingFull,
     CropSquare as ZoneModeIcon,
+    CleaningServices as CleaningHistoryIcon,
     Dashboard as SegmentModeIcon,
     Download as DownloadIcon,
+    Equalizer as StatisticsIcon,
     History as HistoryIcon,
     SelectAll as AllModeIcon,
     DeleteOutline as ResetIcon,
@@ -19,6 +22,7 @@ import {
     useActivityHistoryQuery,
     useCleaningHistoryQuery,
     useCleaningHistoryResetMutation,
+    useCurrentStatisticsQuery,
     useTotalStatisticsQuery,
 } from "../api";
 import {useValetudoColorsInverse} from "../hooks/useValetudoColors";
@@ -90,10 +94,36 @@ const ROUTE_ICONS: Record<string, React.ComponentType<{style?: React.CSSProperti
 const TARGET_MODE_ICON_SX = {fontSize: "0.95rem"} as const;
 const TARGET_MODE_ICONS: Record<string, SvgIconComponent> = {
     all: AllModeIcon,
+    automatic: AutomaticModeIcon,
     segments: SegmentModeIcon,
     zones: ZoneModeIcon,
     spot: SpotModeIcon,
 };
+const TARGET_MODE_LABELS: Record<string, string> = {
+    all: "All",
+    automatic: "Automatic",
+    segments: "Segment",
+    zones: "Zone",
+    spot: "Spot",
+};
+const TRIGGER_LABELS: Record<string, string> = {
+    webui: "Web",
+    firmware: "Robot",
+    // History written before firmware was introduced as the canonical source name.
+    robot: "Robot",
+    mqtt: "MQTT",
+    matter: "Matter",
+    timer: "Timer",
+};
+
+const getTriggerLabel = (source: string): string => TRIGGER_LABELS[source] ??
+    source.charAt(0).toUpperCase() + source.slice(1);
+
+// CleaningServices has a larger visual footprint than the other card-header glyphs at the same
+// nominal font size, so render it slightly smaller to keep all three headers visually balanced.
+const CleaningHistoryHeaderIcon: React.FC = () => (
+    <CleaningHistoryIcon sx={{fontSize: "1.75rem"}}/>
+);
 
 // Shows the task's actual duration alongside its task-local estimate when one was available.
 const DurationText = ({actualSeconds, estimatedSeconds}: {actualSeconds: number; estimatedSeconds?: number | null}): React.ReactElement => (
@@ -250,7 +280,16 @@ const ActivityHistory = (): React.ReactElement => {
     const palette = useValetudoColorsInverse();
     const {data: entries = []} = useActivityHistoryQuery();
     const {data: cleaningHistory = []} = useCleaningHistoryQuery();
-    const {data: totals = []} = useTotalStatisticsQuery();
+    const {
+        data: currentStatistics = [],
+        isPending: currentStatisticsPending,
+        isError: currentStatisticsError,
+    } = useCurrentStatisticsQuery();
+    const {
+        data: totals = [],
+        isPending: totalsPending,
+        isError: totalsError,
+    } = useTotalStatisticsQuery();
     const {mutate: resetHistory, isPending: resetting} = useCleaningHistoryResetMutation();
     const [resetDialogOpen, setResetDialogOpen] = React.useState(false);
 
@@ -266,97 +305,148 @@ const ActivityHistory = (): React.ReactElement => {
 
     return (
         <>
-            <ControlsCard icon={HistoryIcon} title="Statistics & Activity History">
-                <Box sx={{mb: 0.5}}><SectionHeader>Recent Activity</SectionHeader></Box>
-                {entries.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary">
-                        No activity recorded yet.
-                    </Typography>
-                ) : (
-                    <Box sx={{maxHeight: "20rem", overflowY: "auto", mx: -0.5, px: 0.5}}>
-                        {entries.map((entry, i) => {
-                            const dateChanged = i > 0 &&
-                                toDateString(entry.timestamp) !== toDateString(entries[i - 1].timestamp);
-                            const showDate = i === 0 || dateChanged;
-                            const duration = entry.robotStatus === "cleaning" && i > 0 ?
-                                new Date(entries[i - 1].timestamp).getTime() - new Date(entry.timestamp).getTime() :
-                                undefined;
-                            return (
-                                <React.Fragment key={entry.timestamp}>
-                                    {showDate ?
-                                        <DateSeparator timestamp={entry.timestamp}/> :
-                                        i > 0 && <Divider/>
-                                    }
-                                    <ActivityEntryRow entry={entry} duration={duration}/>
-                                </React.Fragment>
-                            );
-                        })}
-                    </Box>
-                )}
-                {totals.length > 0 && (
-                    <Box sx={{mt: 1.5}}>
-                        <Divider sx={{mb: 1.25}}/>
-                        <Box sx={{mb: 0.75}}><SectionHeader>Total Statistics</SectionHeader></Box>
-                        <Grid2 container direction="row" spacing={1.5}>
-                            {totals.map(total => (
-                                <Grid2 size="grow" container direction="column" key={total.type} sx={{minWidth: "7rem"}}>
-                                    <Typography variant="subtitle2">
-                                        {getFriendlyStatName(total)}
-                                    </Typography>
-                                    <Typography variant="body2">
-                                        {getHumanReadableStatValue(total)}
-                                    </Typography>
-                                </Grid2>
-                            ))}
-                        </Grid2>
-                    </Box>
-                )}
-                {cleaningHistory.length > 0 && (
-                    <Box sx={{mt: 1.5}}>
-                        <Divider sx={{mb: 1.25}}/>
-                        <Box display="flex" alignItems="center" justifyContent="space-between" gap={1} sx={{mb: 0.5}}>
-                            <SectionHeader>Cleaning History</SectionHeader>
-                            <Box display="flex" gap={0.5}>
-                                <Button size="small" variant="outlined" startIcon={<DownloadIcon/>} onClick={exportHistory}>
-                                Export
-                                </Button>
-                                <Button size="small" color="error" variant="outlined" startIcon={<ResetIcon/>} disabled={resetting}
-                                    onClick={() => setResetDialogOpen(true)}>
-                                Reset
-                                </Button>
-                            </Box>
+            <Grid2 container spacing={2} direction="column">
+                <ControlsCard icon={HistoryIcon} title="Recent Activity">
+                    {entries.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">
+                            No activity recorded yet.
+                        </Typography>
+                    ) : (
+                        <Box sx={{maxHeight: "20rem", overflowY: "auto", mx: -0.5, px: 0.5}}>
+                            {entries.map((entry, i) => {
+                                const dateChanged = i > 0 &&
+                                    toDateString(entry.timestamp) !== toDateString(entries[i - 1].timestamp);
+                                const showDate = i === 0 || dateChanged;
+                                const duration = entry.robotStatus === "cleaning" && i > 0 ?
+                                    new Date(entries[i - 1].timestamp).getTime() - new Date(entry.timestamp).getTime() :
+                                    undefined;
+                                return (
+                                    <React.Fragment key={entry.timestamp}>
+                                        {showDate ?
+                                            <DateSeparator timestamp={entry.timestamp}/> :
+                                            i > 0 && <Divider/>
+                                        }
+                                        <ActivityEntryRow entry={entry} duration={duration}/>
+                                    </React.Fragment>
+                                );
+                            })}
                         </Box>
-                        {cleaningHistory.slice(0, 20).map((record, index) => {
-                            const TargetIcon = TARGET_MODE_ICONS[record.target.type] ?? AllModeIcon;
-                            const title = record.target.segmentNames.join(" → ") ||
-                                (record.target.type === "zones" ? "Zones" :
-                                    record.target.type === "spot" ? "Spot" : "All");
-                            const outcomeLabel = OUTCOME_LABELS[record.outcome] ??
-                                record.outcome.charAt(0).toUpperCase() + record.outcome.slice(1);
-                            return (
-                                <React.Fragment key={record.id}>
-                                    {index > 0 && <Divider/>}
-                                    <Box py={0.75}>
-                                        <Box display="flex" justifyContent="space-between" alignItems="baseline" gap={1}>
-                                            <Box sx={{display: "flex", alignItems: "center", gap: 0.5, minWidth: 0}}>
-                                                <Box sx={{display: "flex", alignItems: "center", flexShrink: 0, color: "text.secondary"}}>
-                                                    <TargetIcon sx={TARGET_MODE_ICON_SX}/>
-                                                </Box>
-                                                <Typography variant="body2" noWrap sx={{fontWeight: 500, minWidth: 0}}>
-                                                    {title}
-                                                    <Typography
-                                                        component="span"
-                                                        variant="caption"
-                                                        sx={{color: getOutcomeColor(record.outcome, palette) ?? "text.secondary"}}
-                                                    >
-                                                        {` — ${outcomeLabel}`}
-                                                    </Typography>
+                    )}
+                </ControlsCard>
+
+                <ControlsCard icon={StatisticsIcon} title="Statistics"
+                    isLoading={currentStatisticsPending || totalsPending}>
+                    {currentStatisticsError || totalsError ? (
+                        <Typography variant="body2" color="error">
+                            Error loading statistics.
+                        </Typography>
+                    ) : (
+                        <Grid2 container>
+                            <Grid2 size={{xs: 12, md: 4}} sx={{pr: {md: 2}, pb: {xs: 1.25, md: 0}}}>
+                                <Box sx={{mb: 0.75}}><SectionHeader>Current</SectionHeader></Box>
+                                {currentStatistics.length > 0 ? (
+                                    <Grid2 container direction="row" spacing={1.5}>
+                                        {currentStatistics.map(stat => (
+                                            <Grid2 size="grow" container direction="column" key={stat.type}
+                                                sx={{minWidth: "5rem"}}>
+                                                <Typography variant="subtitle2">
+                                                    {getFriendlyStatName(stat)}
                                                 </Typography>
+                                                <Typography variant="body2">
+                                                    {getHumanReadableStatValue(stat)}
+                                                </Typography>
+                                            </Grid2>
+                                        ))}
+                                    </Grid2>
+                                ) : (
+                                    <Typography variant="body2" color="text.secondary">
+                                        No current statistics available.
+                                    </Typography>
+                                )}
+                            </Grid2>
+
+                            <Grid2 size={{xs: 12, md: 8}} sx={{
+                                borderTop: {xs: 1, md: 0},
+                                borderLeft: {xs: 0, md: 1},
+                                borderColor: "divider",
+                                pt: {xs: 1.25, md: 0},
+                                pl: {xs: 0, md: 2},
+                            }}>
+                                <Box sx={{mb: 0.75}}><SectionHeader>Total</SectionHeader></Box>
+                                {totals.length > 0 ? (
+                                    <Grid2 container direction="row" spacing={1.5}>
+                                        {totals.map(total => (
+                                            <Grid2 size="grow" container direction="column" key={total.type}
+                                                sx={{minWidth: "5rem"}}>
+                                                <Typography variant="subtitle2">
+                                                    {getFriendlyStatName(total)}
+                                                </Typography>
+                                                <Typography variant="body2">
+                                                    {getHumanReadableStatValue(total)}
+                                                </Typography>
+                                            </Grid2>
+                                        ))}
+                                    </Grid2>
+                                ) : (
+                                    <Typography variant="body2" color="text.secondary">
+                                        No total statistics available.
+                                    </Typography>
+                                )}
+                            </Grid2>
+                        </Grid2>
+                    )}
+                </ControlsCard>
+
+                <ControlsCard icon={CleaningHistoryHeaderIcon} title="Cleaning History">
+                    <Box display="flex" justifyContent="flex-end" gap={0.5} sx={{mb: 0.5}}>
+                        <Button size="small" variant="outlined" startIcon={<DownloadIcon/>}
+                            disabled={cleaningHistory.length === 0} onClick={exportHistory}>
+                            Export
+                        </Button>
+                        <Button size="small" color="error" variant="outlined" startIcon={<ResetIcon/>}
+                            disabled={resetting || cleaningHistory.length === 0}
+                            onClick={() => setResetDialogOpen(true)}>
+                            Reset
+                        </Button>
+                    </Box>
+                    {cleaningHistory.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">
+                            No cleaning history recorded yet.
+                        </Typography>
+                    ) : cleaningHistory.slice(0, 20).map((record, index) => {
+                        const TargetIcon = TARGET_MODE_ICONS[record.target.type] ?? AllModeIcon;
+                        const title = TARGET_MODE_LABELS[record.target.type] ??
+                            `${record.target.type.charAt(0).toUpperCase()}${record.target.type.slice(1)}`;
+                        const outcomeLabel = OUTCOME_LABELS[record.outcome] ??
+                            record.outcome.charAt(0).toUpperCase() + record.outcome.slice(1);
+                        return (
+                            <React.Fragment key={record.id}>
+                                {index > 0 && <Divider/>}
+                                <Box py={0.75}>
+                                    <Box display="flex" justifyContent="space-between" alignItems="baseline" gap={1}>
+                                        <Box sx={{display: "flex", alignItems: "center", gap: 0.5, minWidth: 0}}>
+                                            <Box sx={{display: "flex", alignItems: "center", flexShrink: 0, color: "text.secondary"}}>
+                                                <TargetIcon sx={TARGET_MODE_ICON_SX}/>
                                             </Box>
-                                            <Typography variant="caption" color="text.secondary" sx={{whiteSpace: "nowrap", flexShrink: 0}}>
-                                                <DurationText actualSeconds={record.totalDurationSeconds} estimatedSeconds={record.estimatedDurationSeconds}/>
+                                            <Typography variant="body2" noWrap sx={{fontWeight: 500, minWidth: 0}}>
+                                                {title}
+                                                <Typography
+                                                    component="span"
+                                                    variant="caption"
+                                                    sx={{color: getOutcomeColor(record.outcome, palette) ?? "text.secondary"}}
+                                                >
+                                                    {` — ${outcomeLabel}`}
+                                                </Typography>
                                             </Typography>
                                         </Box>
+                                        <Box sx={{display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0}}>
+                                            <Typography variant="caption" color="text.secondary" sx={{whiteSpace: "nowrap"}}>
+                                                <DurationText actualSeconds={record.totalDurationSeconds}
+                                                    estimatedSeconds={record.estimatedDurationSeconds}/>
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                    <Box display="flex" justifyContent="space-between" alignItems="baseline" gap={1}>
                                         <Typography
                                             variant="caption"
                                             color="text.secondary"
@@ -364,23 +454,26 @@ const ActivityHistory = (): React.ReactElement => {
                                         >
                                             {formatHistoryDate(record.startedAt)} · {formatHistoryTime(record.startedAt)}
                                         </Typography>
-                                        <CleaningProfileDetails record={record} palette={palette}/>
-                                        {record.rooms.length > 0 && (
-                                            <Box sx={{display: "flex", flexWrap: "wrap", columnGap: 1, rowGap: 0}}>
-                                                {record.rooms.map(room => (
-                                                    <Typography key={room.segmentId} variant="caption" color="text.disabled">
-                                                        {room.name}{room.visits > 1 ? ` ×${room.visits}` : ""}
-                                                    </Typography>
-                                                ))}
-                                            </Box>
-                                        )}
+                                        <Typography variant="caption" color="text.disabled" sx={{whiteSpace: "nowrap"}}>
+                                            {getTriggerLabel(record.source)}
+                                        </Typography>
                                     </Box>
-                                </React.Fragment>
-                            );
-                        })}
-                    </Box>
-                )}
-            </ControlsCard>
+                                    <CleaningProfileDetails record={record} palette={palette}/>
+                                    {record.rooms.length > 0 && (
+                                        <Box sx={{display: "flex", flexWrap: "wrap", columnGap: 1, rowGap: 0}}>
+                                            {record.rooms.map(room => (
+                                                <Typography key={room.segmentId} variant="caption" color="text.disabled">
+                                                    {room.name}{room.visits > 1 ? ` ×${room.visits}` : ""}
+                                                </Typography>
+                                            ))}
+                                        </Box>
+                                    )}
+                                </Box>
+                            </React.Fragment>
+                        );
+                    })}
+                </ControlsCard>
+            </Grid2>
             <ConfirmationDialog
                 title="Reset Cleaning History?"
                 text="This clears the saved cleaning history."
