@@ -24,6 +24,7 @@ const stateAttrs = entities.state.attributes;
 
 const MIOT_SERVICES = DreameMiotServices["GEN2"];
 const GEN2_STATUS_CHARGING_COMPLETED = 13;
+const CLEANUP_OUTCOME_GRACE_MS = 2_000;
 
 
 
@@ -58,15 +59,55 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
 
         /** @type {Array<{siid: number, piid: number}>} */
         this.statePropertiesToPoll = this.getStatePropertiesToPoll();
+        this.statePropertiesToPoll.push(
+            {
+                siid: MIOT_SERVICES.VACUUM_2.SIID,
+                piid: MIOT_SERVICES.VACUUM_2.PROPERTIES.CLEANING_PAUSED.PIID
+            },
+            {
+                siid: MIOT_SERVICES.VACUUM_2.SIID,
+                piid: MIOT_SERVICES.VACUUM_2.PROPERTIES.CLEANING_TIME.PIID
+            },
+            {
+                siid: MIOT_SERVICES.VACUUM_2.SIID,
+                piid: MIOT_SERVICES.VACUUM_2.PROPERTIES.CLEANING_PROGRESS.PIID
+            }
+        );
+        if (this.statePropertiesToPoll.some(property =>
+            property.siid === MIOT_SERVICES.VACUUM_2.SIID &&
+            property.piid === MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DOCK_STATUS.PIID
+        )) {
+            this.statePropertiesToPoll.push(
+                {
+                    siid: MIOT_SERVICES.VACUUM_2.SIID,
+                    piid: MIOT_SERVICES.VACUUM_2.PROPERTIES.LOW_WATER_WARNING.PIID
+                },
+                {
+                    siid: MIOT_SERVICES.VACUUM_2.SIID,
+                    piid: MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DRYING_TIME.PIID
+                },
+                {
+                    siid: MIOT_SERVICES.VACUUM_2.SIID,
+                    piid: MIOT_SERVICES.VACUUM_2.PROPERTIES.DRYING_PROGRESS.PIID
+                }
+            );
+        }
 
         this.ephemeralState = {
             mode: 0, //Idle
             gen2StatusValue: undefined,
             taskStatus: undefined,
+            cleanupTaskActive: false,
+            cleanupOutcomeExpectedUntil: 0,
             isCharging: false,
             errorCode: "0",
+            cleaningPaused: undefined,
+            cleaningProgress: undefined,
+            cleaningElapsedSeconds: undefined,
             mopDockState: undefined, // Might not be set depending on model
             autoEmptyDockState: undefined, // Might also not be set depending on model
+            dryingProgress: undefined,
+            mopDryingTimeHours: undefined,
             cleanGeniusSmartHost: 0,
             cleanGeniusMode: 2 // default: vacuum_and_mop
         };
@@ -358,9 +399,24 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
                 }
                 break;
             case "event_occured": {
-                // This is sent by the robot after a cleanup has finished.
-                // It will contain the parameters of that past cleanup
-                // Therefore, we ignore it in our current status
+                const outcome = DreameGen2ValetudoRobot.PARSE_CLEANUP_OUTCOME(msg.params);
+                if (outcome !== undefined && this.isCleanupOutcomeExpected()) {
+                    this.ephemeralState.cleanupTaskActive = false;
+                    this.ephemeralState.cleanupOutcomeExpectedUntil = 0;
+                    const command = this.state.getFirstMatchingAttributeByConstructor(
+                        stateAttrs.CleaningCommandStateAttribute
+                    );
+                    const Command = stateAttrs.CleaningCommandStateAttribute;
+                    const commandOwnsOutcome = [Command.COMMAND.STOP, Command.COMMAND.HOME].includes(command?.command) &&
+                        [Command.STATE.PENDING, Command.STATE.ACCEPTED].includes(command?.state);
+                    if (!commandOwnsOutcome) {
+                        this.emitOperationOutcome(outcome);
+                    }
+                } else if (outcome !== undefined) {
+                    Logger.debug("Ignoring unexpected Dreame cleanup event");
+                } else {
+                    Logger.debug("Unable to classify Dreame cleanup event");
+                }
 
                 this.sendCloud({id: msg.id, "result":"ok"}).catch((err) => {
                     Logger.warn("Error while sending cloud ack", err);
@@ -390,6 +446,107 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
         }
 
         return false;
+    }
+
+    isCleanupOutcomeExpected() {
+        return this.ephemeralState.cleanupTaskActive === true ||
+            this.ephemeralState.cleanupOutcomeExpectedUntil >= Date.now();
+    }
+
+    updateCleanupTaskStatus(taskStatusValue) {
+        const taskStatus = DreameGen2ValetudoRobot.TASK_STATUS_MAP[taskStatusValue];
+        if ([1, 2, 3, 4].includes(taskStatusValue)) {
+            this.ephemeralState.cleanupTaskActive = true;
+            this.ephemeralState.cleanupOutcomeExpectedUntil = 0;
+        } else if (taskStatusValue === 0 && this.ephemeralState.cleanupTaskActive) {
+            this.ephemeralState.cleanupTaskActive = false;
+            this.ephemeralState.cleanupOutcomeExpectedUntil = Date.now() + CLEANUP_OUTCOME_GRACE_MS;
+        } else if (taskStatus?.cleaning !== true) {
+            this.ephemeralState.cleanupTaskActive = false;
+            this.ephemeralState.cleanupOutcomeExpectedUntil = 0;
+        }
+    }
+
+    /**
+     * Parse only the terminal result from a Dreame cleanup event. Other cleanup-record fields
+     * intentionally remain untouched until their local payloads and persistence model are known.
+     *
+     * @param {object} params
+     * @returns {"completed"|"cancelled"|"stopped"|"failed"|undefined}
+     */
+    static PARSE_CLEANUP_OUTCOME(params) {
+        if (params?.siid !== MIOT_SERVICES.VACUUM_2.SIID || !Array.isArray(params.arguments)) {
+            return undefined;
+        }
+
+        const statusProperty = params.arguments.find(argument =>
+            argument.piid === MIOT_SERVICES.VACUUM_2.PROPERTIES.CLEAN_LOG_STATUS.PIID);
+        if (statusProperty === undefined) {
+            return undefined;
+        }
+
+        const rawStatus = statusProperty.value;
+        if (!Number.isInteger(rawStatus) &&
+            !(typeof rawStatus === "string" && /^[0-3]$/.test(rawStatus))) {
+            return undefined;
+        }
+        const status = Number(rawStatus);
+        if (status === 1) {
+            return "completed";
+        }
+        if (status === 2) {
+            return "cancelled";
+        }
+        if (status === 3) {
+            return "failed";
+        }
+        if (status !== 0) {
+            return undefined;
+        }
+
+        const properties = params.arguments.find(argument =>
+            argument.piid === MIOT_SERVICES.VACUUM_2.PROPERTIES.ADDITIONAL_CLEANUP_PROPERTIES.PIID)?.value;
+        const abnormalEnd = DreameGen2ValetudoRobot.PARSE_ABNORMAL_END(properties);
+
+        return abnormalEnd === undefined ? undefined : abnormalEnd ? "failed" : "completed";
+    }
+
+    /**
+     * @param {object|string|undefined} value
+     * @returns {boolean|undefined}
+     */
+    static PARSE_ABNORMAL_END(value) {
+        if (value === undefined) {
+            return false;
+        }
+        if (value === null || value === "") {
+            return undefined;
+        }
+
+        try {
+            const properties = typeof value === "string" ? JSON.parse(value) : value;
+            if (typeof properties !== "object" || properties === null || Array.isArray(properties)) {
+                return undefined;
+            }
+            if (properties.abnormal_end === undefined) {
+                return false;
+            }
+            if (properties.abnormal_end === null || properties.abnormal_end === "") {
+                return undefined;
+            }
+
+            const parsed = typeof properties.abnormal_end === "string" ?
+                JSON.parse(properties.abnormal_end) : properties.abnormal_end;
+            const reason = Array.isArray(parsed) ? parsed[0] : parsed;
+            if (!Number.isInteger(reason) &&
+                !(typeof reason === "string" && /^-?\d+$/.test(reason))) {
+                return undefined;
+            }
+
+            return Number(reason) !== 0;
+        } catch (e) {
+            return undefined;
+        }
     }
 
     get supportsExtendedStatus() {
@@ -478,6 +635,7 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
 
         let statusNeedsUpdate = false;
         let dockStatusNeedsUpdate = false;
+        let dockProgressNeedsUpdate = false;
 
         for (const elem of data) {
             switch (elem.siid) {
@@ -520,9 +678,41 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
                             break;
                         }
                         case MIOT_SERVICES.VACUUM_2.PROPERTIES.TASK_STATUS.PIID: {
+                            const previousTaskStatus = DreameGen2ValetudoRobot.TASK_STATUS_MAP[
+                                this.ephemeralState.taskStatus
+                            ];
+                            const nextTaskStatus = DreameGen2ValetudoRobot.TASK_STATUS_MAP[elem.value];
+                            if (nextTaskStatus?.cleaning === true && previousTaskStatus?.cleaning !== true) {
+                                this.ephemeralState.cleaningProgress = undefined;
+                                this.ephemeralState.cleaningElapsedSeconds = undefined;
+                            } else if (nextTaskStatus?.cleaning === false) {
+                                this.ephemeralState.cleaningPaused = false;
+                            }
+                            this.updateCleanupTaskStatus(elem.value);
                             this.ephemeralState.taskStatus = elem.value;
 
                             statusNeedsUpdate = true;
+                            break;
+                        }
+                        case MIOT_SERVICES.VACUUM_2.PROPERTIES.CLEANING_PAUSED.PIID: {
+                            if (elem.value === 0 || elem.value === 1) {
+                                this.ephemeralState.cleaningPaused = elem.value === 1;
+                                statusNeedsUpdate = true;
+                            }
+                            break;
+                        }
+                        case MIOT_SERVICES.VACUUM_2.PROPERTIES.CLEANING_TIME.PIID: {
+                            if (Number.isFinite(elem.value) && elem.value >= 0) {
+                                this.ephemeralState.cleaningElapsedSeconds = elem.value * 60;
+                                statusNeedsUpdate = true;
+                            }
+                            break;
+                        }
+                        case MIOT_SERVICES.VACUUM_2.PROPERTIES.CLEANING_PROGRESS.PIID: {
+                            if (Number.isFinite(elem.value) && elem.value >= 0 && elem.value <= 100) {
+                                this.ephemeralState.cleaningProgress = elem.value;
+                                statusNeedsUpdate = true;
+                            }
                             break;
                         }
                         case MIOT_SERVICES.VACUUM_2.PROPERTIES.FAN_SPEED.PIID: {
@@ -591,10 +781,48 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
 
                             break;
                         }
+                        case MIOT_SERVICES.VACUUM_2.PROPERTIES.LOW_WATER_WARNING.PIID: {
+                            const supportedDockComponents = this.getModelDetails().supportedDockComponents;
+                            if (Number.isInteger(elem.value) && supportedDockComponents.includes(
+                                stateAttrs.DockComponentStateAttribute.TYPE.WATER_TANK_CLEAN
+                            )) {
+                                let value = stateAttrs.DockComponentStateAttribute.VALUE.UNKNOWN;
+                                if (elem.value === 0 || elem.value === 1) {
+                                    value = stateAttrs.DockComponentStateAttribute.VALUE.OK;
+                                } else if (elem.value >= 2 && elem.value <= 5) {
+                                    value = stateAttrs.DockComponentStateAttribute.VALUE.EMPTY;
+                                } else if (elem.value === 6) {
+                                    value = stateAttrs.DockComponentStateAttribute.VALUE.MISSING;
+                                }
+                                this.state.upsertFirstMatchingAttribute(new stateAttrs.DockComponentStateAttribute({
+                                    type: stateAttrs.DockComponentStateAttribute.TYPE.WATER_TANK_CLEAN,
+                                    value: value,
+                                    metaData: {rawValue: elem.value}
+                                }));
+                            }
+                            break;
+                        }
                         case MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DOCK_STATUS.PIID: {
+                            if (elem.value !== 2 && this.ephemeralState.mopDockState === 2) {
+                                this.ephemeralState.dryingProgress = undefined;
+                            }
                             this.ephemeralState.mopDockState = elem.value;
                             dockStatusNeedsUpdate = true;
 
+                            break;
+                        }
+                        case MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DRYING_TIME.PIID: {
+                            if (Number.isFinite(elem.value) && elem.value > 0) {
+                                this.ephemeralState.mopDryingTimeHours = elem.value;
+                                dockProgressNeedsUpdate = true;
+                            }
+                            break;
+                        }
+                        case MIOT_SERVICES.VACUUM_2.PROPERTIES.DRYING_PROGRESS.PIID: {
+                            if (Number.isFinite(elem.value) && elem.value >= 0 && elem.value <= 100) {
+                                this.ephemeralState.dryingProgress = elem.value;
+                                dockProgressNeedsUpdate = true;
+                            }
                             break;
                         }
                         case MIOT_SERVICES.VACUUM_2.PROPERTIES.MOP_DOCK_SETTINGS.PIID: {
@@ -964,8 +1192,41 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
                     statusFlag = DreameValetudoRobot.STATUS_MAP[this.ephemeralState.mode]?.flag;
                 }
 
-                if (statusValue === stateAttrs.StatusStateAttribute.VALUE.DOCKED && this.ephemeralState.taskStatus !== 0) {
+                const taskStatus = DreameGen2ValetudoRobot.TASK_STATUS_MAP[this.ephemeralState.taskStatus];
+                if (this.ephemeralState.taskStatus !== undefined) {
+                    statusMetaData.taskStatus = taskStatus?.name ?? "unknown";
+                    statusMetaData.taskStatusCode = this.ephemeralState.taskStatus;
+                    if (taskStatus?.target !== undefined) {
+                        statusMetaData.cleaningTargetType = taskStatus.target;
+                    }
+                }
+                const cleanupOutcomeGraceMs = this.ephemeralState.cleanupOutcomeExpectedUntil - Date.now();
+                if (cleanupOutcomeGraceMs > 0) {
+                    statusMetaData.operationOutcomeGraceMs = cleanupOutcomeGraceMs;
+                    statusMetaData.operationOutcomeFallback = "completed";
+                }
+                if (this.ephemeralState.cleaningPaused !== undefined) {
+                    statusMetaData.cleaningPaused = this.ephemeralState.cleaningPaused;
+                }
+                if (this.ephemeralState.cleaningProgress !== undefined) {
+                    statusMetaData.completedPercent = this.ephemeralState.cleaningProgress;
+                }
+                if (this.ephemeralState.cleaningElapsedSeconds !== undefined) {
+                    statusMetaData.cleaningElapsedSeconds = this.ephemeralState.cleaningElapsedSeconds;
+                }
+
+                if (statusValue === stateAttrs.StatusStateAttribute.VALUE.CLEANING && taskStatus?.flag !== undefined) {
+                    statusFlag = taskStatus.flag;
+                }
+
+                if (statusValue === stateAttrs.StatusStateAttribute.VALUE.DOCKED && taskStatus?.cleaning === true) {
                     // Robot has a pending task but is charging due to low battery and will resume when battery >= 80%
+                    statusFlag = stateAttrs.StatusStateAttribute.FLAG.RESUMABLE;
+                } else if (
+                    this.ephemeralState.cleaningPaused === true &&
+                    (taskStatus === undefined || taskStatus.cleaning === true) &&
+                    [stateAttrs.StatusStateAttribute.VALUE.DOCKED, stateAttrs.StatusStateAttribute.VALUE.PAUSED].includes(statusValue)
+                ) {
                     statusFlag = stateAttrs.StatusStateAttribute.FLAG.RESUMABLE;
                 } else if (
                     statusValue === stateAttrs.StatusStateAttribute.VALUE.IDLE &&
@@ -1007,18 +1268,44 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
             }
         }
 
-        if (dockStatusNeedsUpdate === true) {
-            const mappedMopDockState = DreameValetudoRobot.MOP_DOCK_STATUS_MAP[this.ephemeralState.mopDockState];
-            const mappedAutoEmptyDockState = DreameValetudoRobot.AUTO_EMPTY_DOCK_STATUS_MAP[this.ephemeralState.autoEmptyDockState];
+        if (dockStatusNeedsUpdate === true || dockProgressNeedsUpdate === true) {
+            let fullDockState;
+            if (dockStatusNeedsUpdate) {
+                const mappedMopDockState = DreameValetudoRobot.MOP_DOCK_STATUS_MAP[this.ephemeralState.mopDockState];
+                const mappedAutoEmptyDockState = DreameValetudoRobot.AUTO_EMPTY_DOCK_STATUS_MAP[
+                    this.ephemeralState.autoEmptyDockState
+                ];
 
-            let fullDockState = mappedMopDockState ?? stateAttrs.DockStatusStateAttribute.VALUE.IDLE;
-            if (mappedAutoEmptyDockState && mappedAutoEmptyDockState !== stateAttrs.DockStatusStateAttribute.VALUE.IDLE) {
-                fullDockState = mappedAutoEmptyDockState;
+                fullDockState = mappedMopDockState ?? stateAttrs.DockStatusStateAttribute.VALUE.IDLE;
+                if (mappedAutoEmptyDockState && mappedAutoEmptyDockState !== stateAttrs.DockStatusStateAttribute.VALUE.IDLE) {
+                    fullDockState = mappedAutoEmptyDockState;
+                }
+            } else {
+                fullDockState = this.state.getFirstMatchingAttributeByConstructor(
+                    stateAttrs.DockStatusStateAttribute
+                )?.value;
             }
 
-            this.state.upsertFirstMatchingAttribute(new stateAttrs.DockStatusStateAttribute({
-                value: fullDockState
-            }));
+            const dockMetaData = {};
+            if (
+                fullDockState === stateAttrs.DockStatusStateAttribute.VALUE.DRYING &&
+                this.ephemeralState.dryingProgress !== undefined
+            ) {
+                dockMetaData.percent = this.ephemeralState.dryingProgress;
+                if (this.ephemeralState.mopDryingTimeHours !== undefined) {
+                    dockMetaData.remainingSeconds = Math.max(0, Math.round(
+                        this.ephemeralState.mopDryingTimeHours * 60 * 60 *
+                        (1 - this.ephemeralState.dryingProgress / 100)
+                    ));
+                }
+            }
+
+            if (dockStatusNeedsUpdate || fullDockState === stateAttrs.DockStatusStateAttribute.VALUE.DRYING) {
+                this.state.upsertFirstMatchingAttribute(new stateAttrs.DockStatusStateAttribute({
+                    value: fullDockState,
+                    metaData: dockMetaData
+                }));
+            }
         }
 
 
@@ -1115,6 +1402,31 @@ DreameGen2ValetudoRobot.GEN2_STATUS_MAP = Object.freeze({
     106: { value: stateAttrs.StatusStateAttribute.VALUE.PAUSED, flag: stateAttrs.StatusStateAttribute.FLAG.RESUMABLE },                // CHANGING_MOP_PAUSED
     107: { value: stateAttrs.StatusStateAttribute.VALUE.CLEANING, flag: stateAttrs.StatusStateAttribute.FLAG.VACUUMING },              // FLOOR_MAINTAINING
     108: { value: stateAttrs.StatusStateAttribute.VALUE.PAUSED, flag: stateAttrs.StatusStateAttribute.FLAG.RESUMABLE },                // FLOOR_MAINTAINING_PAUSED
+});
+
+DreameGen2ValetudoRobot.TASK_STATUS_MAP = Object.freeze({
+    0: {name: "completed", cleaning: false},
+    1: {name: "auto_cleaning", cleaning: true, target: "all"},
+    2: {name: "zone_cleaning", cleaning: true, target: "zones", flag: stateAttrs.StatusStateAttribute.FLAG.ZONE},
+    3: {name: "segment_cleaning", cleaning: true, target: "segments", flag: stateAttrs.StatusStateAttribute.FLAG.SEGMENT},
+    4: {name: "spot_cleaning", cleaning: true, target: "spot", flag: stateAttrs.StatusStateAttribute.FLAG.SPOT},
+    5: {name: "fast_mapping", cleaning: false},
+    6: {name: "auto_cleaning_paused", cleaning: true, target: "all"},
+    7: {name: "zone_cleaning_paused", cleaning: true, target: "zones"},
+    8: {name: "segment_cleaning_paused", cleaning: true, target: "segments"},
+    9: {name: "spot_cleaning_paused", cleaning: true, target: "spot"},
+    10: {name: "map_cleaning_paused", cleaning: false},
+    11: {name: "docking_paused", cleaning: false},
+    12: {name: "mopping_paused", cleaning: true, target: "all"},
+    13: {name: "segment_mopping_paused", cleaning: true, target: "segments"},
+    14: {name: "zone_mopping_paused", cleaning: true, target: "zones"},
+    15: {name: "auto_mopping_paused", cleaning: true, target: "all"},
+    16: {name: "auto_docking_paused", cleaning: true, target: "all"},
+    17: {name: "segment_docking_paused", cleaning: true, target: "segments"},
+    18: {name: "zone_docking_paused", cleaning: true, target: "zones"},
+    31: {name: "auto_cleaning_washing_paused", cleaning: true, target: "all"},
+    32: {name: "area_cleaning_washing_paused", cleaning: true, target: "segments"},
+    33: {name: "custom_cleaning_washing_paused", cleaning: true, target: "all"}
 });
 
 DreameGen2ValetudoRobot.OPERATION_MODES = Object.freeze({

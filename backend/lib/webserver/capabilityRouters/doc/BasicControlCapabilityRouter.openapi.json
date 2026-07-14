@@ -21,11 +21,6 @@
                     "pause",
                     "home"
                   ]
-                },
-                "targetRevision": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "description": "Optional cleaning-target revision required when starting"
                 }
               }
             },

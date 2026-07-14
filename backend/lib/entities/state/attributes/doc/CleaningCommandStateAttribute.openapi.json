@@ -9,7 +9,7 @@
             "required": ["id", "command", "state", "source", "targetRevision", "createdAt", "updatedAt", "error", "revision"],
             "properties": {
               "id": {"type": "string", "format": "uuid"},
-              "command": {"type": "string", "enum": ["home", "start_all", "start_segments"]},
+              "command": {"type": "string", "enum": ["home", "pause", "resume", "start_all", "start_segments", "start_zones", "stop"]},
               "state": {"type": "string", "enum": ["pending", "accepted", "verified", "failed", "uncertain"]},
               "source": {"type": "string"},
               "targetRevision": {"type": "integer", "minimum": 0, "nullable": true},

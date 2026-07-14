@@ -786,9 +786,14 @@ export const resetMatterCommissioning = async (): Promise<void> => {
 };
 
 export const sendCleaningTarget = async (
-    target: Pick<CleaningTargetState, "value" | "segmentIds">
+    target: Pick<CleaningTargetState, "value" | "segmentIds"> &
+        Partial<Pick<CleaningTargetState, "zones" | "iterations">> & {expectedRevision?: number}
 ): Promise<CleaningTargetState> => {
     return valetudoAPI.put<CleaningTargetState>("/robot/state/cleaning_target", target).then(({data}) => data);
+};
+
+export const startCleaningTarget = async (targetRevision: number): Promise<void> => {
+    await valetudoAPI.put("/robot/state/cleaning_target/start", {targetRevision: targetRevision});
 };
 
 export const fetchHTTPBasicAuthConfiguration = async (): Promise<HTTPBasicAuthConfiguration> => {

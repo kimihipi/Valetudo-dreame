@@ -52,7 +52,6 @@ const StatsOverlayWidget = ({onClick}: {onClick: () => void}): React.ReactElemen
 
 
 export type LiveMapMode = "segments" | "zones" | "goto" | "none" | "all" | "automatic";
-const LIVE_MAP_MODE_LOCAL_STORAGE_KEY = "live-map-mode";
 
 export const useLiveMapMode = create<{
     mode: LiveMapMode;
@@ -141,7 +140,8 @@ const LiveMapModeSwitcherWithAutomatic: React.FunctionComponent<{
 interface LiveMapProps extends MapProps {
     cleaningTarget?: CleaningTargetState,
     onCleaningTargetChange?: (
-        target: Pick<CleaningTargetState, "value" | "segmentIds">
+        target: Pick<CleaningTargetState, "value" | "segmentIds"> &
+            Partial<Pick<CleaningTargetState, "zones" | "iterations">> & {expectedRevision?: number}
     ) => Promise<CleaningTargetState>,
     supportedCapabilities: {
         [Capability.MapSegmentation]: boolean,
@@ -157,7 +157,8 @@ interface LiveMapProps extends MapProps {
 interface LiveMapState extends MapState {
     mode: LiveMapMode,
     zones: Array<ZoneClientStructure>,
-    goToTarget: GoToTargetClientStructure | undefined
+    goToTarget: GoToTargetClientStructure | undefined,
+    iterations: number
 }
 
 class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
@@ -165,7 +166,10 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
     private _cleanOrderActive: boolean;
     private appliedCleaningTargetRevision = -1;
     private cleaningTargetSyncTimer: ReturnType<typeof setTimeout> | null = null;
+    private cleaningTargetSyncQueue: Promise<void> = Promise.resolve();
     private lastCleaningTargetSignature: string | null = null;
+    private lastAcknowledgedCleaningTargetRevision: number | null = null;
+    private pendingCleaningTargetSignature: string | null = null;
 
     constructor(props: LiveMapProps) {
         super(props);
@@ -186,17 +190,7 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
             this.supportedModes.push("automatic");
         }
 
-        let modeIdxToUse = 0;
-        try {
-            const previousMode = window.localStorage.getItem(LIVE_MAP_MODE_LOCAL_STORAGE_KEY);
-
-            modeIdxToUse = Math.max(
-                this.supportedModes.findIndex(e => e === previousMode),
-                0 //default to the first if not defined or not supported
-            );
-        } catch (e) {
-            /* users with non-working local storage will have to live with the defaults */
-        }
+        const modeIdxToUse = 0;
 
         this.state = {
             mode: this.supportedModes[modeIdxToUse] ?? "none",
@@ -207,7 +201,8 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
             dialogBody: "This should never be visible",
 
             zones: [],
-            goToTarget: undefined
+            goToTarget: undefined,
+            iterations: 1
         };
 
         this._cleanOrderActive = this.state.mode === "all" || this.state.mode === "automatic";
@@ -216,18 +211,39 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
 
     protected updateState() : void {
         this.applySelectedSegmentIdsToLabels(this.state.selectedSegmentIds);
-
+        const zones = this.structureManager.getClientStructures().filter(s => {
+            return s.type === ZoneClientStructure.TYPE;
+        }) as Array<ZoneClientStructure>;
+        const goToTarget = this.structureManager.getClientStructures().find(s => {
+            return s.type === GoToTargetClientStructure.TYPE;
+        }) as GoToTargetClientStructure | undefined;
         this.setState({
             selectedSegmentIds: this.state.selectedSegmentIds,
-            zones: this.structureManager.getClientStructures().filter(s => {
-                return s.type === ZoneClientStructure.TYPE;
-            }) as Array<ZoneClientStructure>,
-            goToTarget: this.structureManager.getClientStructures().find(s => {
-                return s.type === GoToTargetClientStructure.TYPE;
-            }) as GoToTargetClientStructure | undefined
+            zones: zones,
+            goToTarget: goToTarget
         });
 
+        if (this.state.mode === "zones") {
+            this.queueCleaningTargetSync({
+                value: "zones",
+                segmentIds: [],
+                zones: this.getZonesForDraft(zones),
+                iterations: this.state.iterations
+            });
+        }
+
         this.updateCleanOrderLabels();
+    }
+
+    private getZonesForDraft(zones = this.state.zones): CleaningTargetState["zones"] {
+        return zones.map(zone => ({
+            points: {
+                pA: this.structureManager.convertPixelCoordinatesToCMSpace({x: zone.x0, y: zone.y0}),
+                pB: this.structureManager.convertPixelCoordinatesToCMSpace({x: zone.x1, y: zone.y1}),
+                pC: this.structureManager.convertPixelCoordinatesToCMSpace({x: zone.x2, y: zone.y2}),
+                pD: this.structureManager.convertPixelCoordinatesToCMSpace({x: zone.x3, y: zone.y3})
+            }
+        }));
     }
 
     private applySelectedSegmentIdsToLabels(segmentIds: string[]): void {
@@ -303,8 +319,10 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
                             this.applySelectedSegmentIdsToLabels(selectedSegmentIds);
                             this.redrawLayers();
                             this.queueCleaningTargetSync({
-                                value: selectedSegmentIds.length > 0 ? "segments" : "none",
-                                segmentIds: selectedSegmentIds
+                                value: "segments",
+                                segmentIds: selectedSegmentIds,
+                                zones: [],
+                                iterations: this.state.iterations
                             });
                         });
 
@@ -345,23 +363,12 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
 
         if (
             this.props.cleaningTarget !== undefined &&
-            this.props.cleaningTarget.revision !== this.appliedCleaningTargetRevision
+            this.props.cleaningTarget.revision > this.appliedCleaningTargetRevision
         ) {
             this.applyCleaningTarget(this.props.cleaningTarget);
         }
 
-        const cleaningInProgress = this.props.cleaningTarget?.active === true;
-        if (
-            !cleaningInProgress &&
-            (this.state.mode === "segments" ||
-             this.state.selectedSegmentIds.length > 0 ||
-             this.state.zones.length > 0 ||
-             this.state.goToTarget !== undefined)
-        ) {
-            usePendingMapAction.setState({hasPendingMapAction: true});
-        } else {
-            usePendingMapAction.setState({hasPendingMapAction: false});
-        }
+        this.publishPendingMapAction();
     }
 
     componentDidMount(): void {
@@ -374,10 +381,39 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
         if (this.props.cleaningTarget) {
             this.applyCleaningTarget(this.props.cleaningTarget);
         }
+        this.publishPendingMapAction();
     }
 
+    private publishPendingMapAction(): void {
+        const cleaningInProgress = this.props.cleaningTarget?.active === true;
+        const type = !cleaningInProgress && ["segments", "zones", "goto"].includes(this.state.mode) ?
+            this.state.mode as "segments" | "zones" | "goto" : null;
+        const goToTarget = type === "goto" && this.state.goToTarget ?
+            this.structureManager.convertPixelCoordinatesToCMSpace({
+                x: this.state.goToTarget.x0,
+                y: this.state.goToTarget.y0
+            }) : null;
+        usePendingMapAction.setState({
+            hasPendingMapAction: type !== null,
+            type: type,
+            selectionCount: type === "segments" ? this.state.selectedSegmentIds.length :
+                type === "zones" ? this.state.zones.length : goToTarget ? 1 : 0,
+            goToTarget: goToTarget,
+            ...(type === "goto" ? {draftReady: goToTarget !== null} : {}),
+            clearAction: type === "goto" && goToTarget ? this.clearGoToTarget : null
+        });
+    }
+
+    private clearGoToTarget = (): void => {
+        this.structureManager.getClientStructures().filter(s => s.type === GoToTargetClientStructure.TYPE)
+            .forEach(s => this.structureManager.removeClientStructure(s));
+        this.updateState();
+        this.draw();
+    };
+
     private queueCleaningTargetSync(
-        target: Pick<CleaningTargetState, "value" | "segmentIds">,
+        target: Pick<CleaningTargetState, "value" | "segmentIds"> &
+            Partial<Pick<CleaningTargetState, "zones" | "iterations">>,
         force = false
     ): void {
         const signature = JSON.stringify(target);
@@ -387,18 +423,45 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
         if (this.cleaningTargetSyncTimer !== null) {
             clearTimeout(this.cleaningTargetSyncTimer);
         }
+        this.pendingCleaningTargetSignature = signature;
+        usePendingMapAction.setState({draftReady: false, targetRevision: null});
         this.cleaningTargetSyncTimer = setTimeout(() => {
             this.cleaningTargetSyncTimer = null;
-            this.props.onCleaningTargetChange?.(target).then(acknowledgedTarget => {
-                this.lastCleaningTargetSignature = JSON.stringify({
-                    value: acknowledgedTarget.value,
-                    segmentIds: acknowledgedTarget.segmentIds
-                });
-            }).catch(() => {
-                if (this.props.cleaningTarget) {
-                    this.applyCleaningTarget(this.props.cleaningTarget);
+            const sync = async (): Promise<void> => {
+                try {
+                    const acknowledgedTarget = await this.props.onCleaningTargetChange?.({
+                        ...target,
+                        ...(this.lastAcknowledgedCleaningTargetRevision !== null ?
+                            {expectedRevision: this.lastAcknowledgedCleaningTargetRevision} : {})
+                    });
+                    if (!acknowledgedTarget) {
+                        return;
+                    }
+                    this.lastAcknowledgedCleaningTargetRevision = acknowledgedTarget.revision;
+                    this.lastCleaningTargetSignature = JSON.stringify({
+                        value: acknowledgedTarget.value,
+                        segmentIds: acknowledgedTarget.segmentIds,
+                        zones: acknowledgedTarget.zones,
+                        iterations: acknowledgedTarget.iterations
+                    });
+                    if (this.pendingCleaningTargetSignature === signature) {
+                        usePendingMapAction.setState({
+                            draftReady: true,
+                            targetRevision: acknowledgedTarget.revision
+                        });
+                        this.pendingCleaningTargetSignature = null;
+                    }
+                } catch (e) {
+                    if (this.pendingCleaningTargetSignature === signature) {
+                        usePendingMapAction.setState({draftReady: false, targetRevision: null});
+                        this.pendingCleaningTargetSignature = null;
+                    }
+                    if (this.props.cleaningTarget) {
+                        this.applyCleaningTarget(this.props.cleaningTarget);
+                    }
                 }
-            });
+            };
+            this.cleaningTargetSyncQueue = this.cleaningTargetSyncQueue.then(sync, sync);
         }, 100);
     }
 
@@ -407,14 +470,28 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
      * @param {CleaningTargetState|undefined} target ordered target published by the backend
      */
     private applyCleaningTarget(target: CleaningTargetState | undefined): void {
-        if (!target || !["none", "all", "segments", "automatic"].includes(target.value) ||
+        if (!target || !["none", "all", "segments", "zones", "automatic"].includes(target.value) ||
             (target.value === "segments" && !this.supportedModes.includes("segments")) ||
+            (target.value === "zones" && !this.supportedModes.includes("zones")) ||
             (target.value === "automatic" && !this.supportedModes.includes("automatic"))) {
+            return;
+        }
+        const targetSignature = JSON.stringify({
+            value: target.value,
+            segmentIds: target.segmentIds,
+            zones: target.zones,
+            iterations: target.iterations
+        });
+        if (this.pendingCleaningTargetSignature !== null &&
+            targetSignature !== this.pendingCleaningTargetSignature && !target.active) {
+            this.appliedCleaningTargetRevision = target.revision;
+            this.lastAcknowledgedCleaningTargetRevision = target.revision;
             return;
         }
 
         const mode: LiveMapMode = target.value === "segments" ? "segments" :
-            target.value === "all" ? "all" : target.value === "automatic" ? "automatic" : this.state.mode;
+            target.value === "zones" ? "zones" : target.value === "all" ? "all" :
+                target.value === "automatic" ? "automatic" : this.state.mode;
         const segmentIds = target.value === "segments" ? target.segmentIds : [];
         const segmentLabels = this.structureManager.getMapStructures().filter(s =>
             s.type === SegmentLabelMapStructure.TYPE
@@ -426,16 +503,40 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
         }
 
         this.appliedCleaningTargetRevision = target.revision;
-        this.lastCleaningTargetSignature = JSON.stringify({value: target.value, segmentIds: target.segmentIds});
+        this.lastAcknowledgedCleaningTargetRevision = target.revision;
+        this.lastCleaningTargetSignature = targetSignature;
+        this.pendingCleaningTargetSignature = null;
+        usePendingMapAction.setState({draftReady: true, targetRevision: target.revision});
         this._cleanOrderActive = mode === "all" || mode === "automatic";
         // Whole-home/automatic modes show firmware clean order. Segment mode
         // must clear those badges so only the selected target's ordered IDs
         // receive numbered badges.
         this.updateCleanOrderLabels();
         this.mapLayerManager.setAlwaysDimUnselectedSegments(mode === "segments");
-        this.setState({mode: mode, selectedSegmentIds: segmentIds}, () => {
+        if (target.value === "zones") {
+            this.structureManager.getClientStructures().filter(s => s.type === ZoneClientStructure.TYPE)
+                .forEach(s => this.structureManager.removeClientStructure(s));
+            target.zones.forEach(zone => {
+                const pA = this.structureManager.convertCMCoordinatesToPixelSpace(zone.points.pA);
+                const pB = this.structureManager.convertCMCoordinatesToPixelSpace(zone.points.pB);
+                const pC = this.structureManager.convertCMCoordinatesToPixelSpace(zone.points.pC);
+                const pD = this.structureManager.convertCMCoordinatesToPixelSpace(zone.points.pD);
+                this.structureManager.addClientStructure(new ZoneClientStructure(
+                    pA.x, pA.y, pB.x, pB.y, pC.x, pC.y, pD.x, pD.y, true
+                ));
+            });
+        }
+        const zones = this.structureManager.getClientStructures()
+            .filter(s => s.type === ZoneClientStructure.TYPE) as Array<ZoneClientStructure>;
+        this.setState({
+            mode: mode,
+            selectedSegmentIds: segmentIds,
+            zones: zones,
+            iterations: target.iterations ?? 1
+        }, () => {
             this.applySelectedSegmentIdsToLabels(segmentIds);
             this.redrawLayers();
+            this.publishPendingMapAction();
         });
         if (target.value !== "none") {
             useLiveMapMode.setState({mode: mode});
@@ -448,6 +549,15 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
             this.cleaningTargetSyncTimer = null;
         }
         useLiveMapMode.setState({setMode: null});
+        usePendingMapAction.setState({
+            hasPendingMapAction: false,
+            type: null,
+            selectionCount: 0,
+            goToTarget: null,
+            draftReady: false,
+            targetRevision: null,
+            clearAction: null
+        });
         super.componentWillUnmount();
     }
 
@@ -471,22 +581,19 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
             }
         });
 
-        this.setState({mode: newMode, selectedSegmentIds: []}, () => {
+        this.setState({mode: newMode, selectedSegmentIds: [], zones: [], goToTarget: undefined, iterations: 1}, () => {
             this.applySelectedSegmentIdsToLabels([]);
             this.updateState();
             this.redrawLayers();
         });
         useLiveMapMode.setState({mode: newMode});
 
-        try {
-            window.localStorage.setItem(LIVE_MAP_MODE_LOCAL_STORAGE_KEY, newMode);
-        } catch (e) {
-            /* intentional */
-        }
         this.queueCleaningTargetSync({
             value: newMode === "all" ? "all" : newMode === "automatic" ? "automatic" :
-                newMode === "segments" ? "segments" : "none",
-            segmentIds: []
+                newMode === "segments" ? "segments" : newMode === "zones" ? "zones" : "none",
+            segmentIds: [],
+            zones: [],
+            iterations: 1
         }, true);
     };
 
@@ -513,12 +620,25 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
 
                                 <SegmentActions
                                     segments={this.state.selectedSegmentIds}
+                                    iterationCount={this.state.iterations}
+                                    onIterationChange={iterations => {
+                                        this.setState({iterations: iterations});
+                                        this.queueCleaningTargetSync({
+                                            value: "segments",
+                                            segmentIds: this.state.selectedSegmentIds,
+                                            zones: [],
+                                            iterations: iterations
+                                        });
+                                    }}
                                     onClear={() => {
                                         this.setState({selectedSegmentIds: []}, () => {
                                             this.applySelectedSegmentIdsToLabels([]);
                                             this.redrawLayers();
                                         });
-                                        this.queueCleaningTargetSync({value: "segments", segmentIds: []});
+                                        this.queueCleaningTargetSync({
+                                            value: "segments", segmentIds: [], zones: [],
+                                            iterations: this.state.iterations
+                                        });
                                     }}
                                 />
                             }
@@ -527,9 +647,16 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
 
                                 <ZoneActions
                                     zones={this.state.zones}
-                                    convertPixelCoordinatesToCMSpace={(coordinates => {
-                                        return this.structureManager.convertPixelCoordinatesToCMSpace(coordinates);
-                                    })}
+                                    iterationCount={this.state.iterations}
+                                    onIterationChange={iterations => {
+                                        this.setState({iterations: iterations});
+                                        this.queueCleaningTargetSync({
+                                            value: "zones",
+                                            segmentIds: [],
+                                            zones: this.getZonesForDraft(),
+                                            iterations: iterations
+                                        });
+                                    }}
                                     onClear={() => {
                                         this.structureManager.getClientStructures().forEach(s => {
                                             if (s.type === ZoneClientStructure.TYPE) {
@@ -580,19 +707,7 @@ class LiveMap extends BaseMap<LiveMapProps, LiveMapState> {
 
                                 <GoToActions
                                     goToTarget={this.state.goToTarget}
-                                    convertPixelCoordinatesToCMSpace={(coordinates => {
-                                        return this.structureManager.convertPixelCoordinatesToCMSpace(coordinates);
-                                    })}
-                                    onClear={() => {
-                                        this.structureManager.getClientStructures().forEach(s => {
-                                            if (s.type === GoToTargetClientStructure.TYPE) {
-                                                this.structureManager.removeClientStructure(s);
-                                            }
-                                        });
-                                        this.updateState();
-
-                                        this.draw();
-                                    }}
+                                    onClear={this.clearGoToTarget}
                                 />
                             }
                         </Box>

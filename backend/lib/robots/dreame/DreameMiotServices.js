@@ -294,6 +294,9 @@ module.exports = {
                 CARPET_MODE: {
                     PIID: 12
                 },
+                CLEAN_LOG_STATUS: {
+                    PIID: 13
+                },
                 MANUAL_CONTROL: {
                     PIID: 15
                 },
@@ -349,6 +352,9 @@ module.exports = {
                 MOP_DRYING_TIME: {
                     PIID: 40
                 },
+                LOW_WATER_WARNING: {
+                    PIID: 41
+                },
                 MOP_DETACH: {
                     PIID: 45
                 },
@@ -360,6 +366,15 @@ module.exports = {
                 },
                 MISC_TUNABLES: {
                     PIID: 50
+                },
+                CLEANING_PAUSED: {
+                    PIID: 17
+                },
+                CLEANING_PROGRESS: {
+                    PIID: 63
+                },
+                DRYING_PROGRESS: {
+                    PIID: 64
                 }
             },
             ACTIONS: {

@@ -47,15 +47,7 @@ describe("MatterController", function() {
         controller.lastDockActivity = null;
         controller.pendingOperationOutcome = null;
         controller.pendingMatterOperationCompletion = null;
-        controller.estimation = {
-            cleaningRates: {},
-            washingDuration: {value: 0, samples: 0},
-            chargingRate: {value: 0, samples: 0}
-        };
-        controller.statisticsCache = {timestamp: 0, data: null};
         controller.phaseEstimate = {phase: null, startedAt: null, total: null};
-        controller.chargingSample = null;
-        controller.currentCleaningRate = null;
         controller.cleanModeMatterModeToPreset = new Map();
         controller.lastServiceAreaTopologyHash = null;
         controller.lastServiceAreaTopologyCheck = 0;
@@ -64,8 +56,6 @@ describe("MatterController", function() {
         controller.lastPublishedRvcState = null;
         controller.lastPublishedBatteryState = null;
         controller.lastPublishedTaskProjection = null;
-        controller.mapSegmentCache = {version: null, dirty: true, bySegmentId: new Map(), byAreaId: new Map()};
-        controller.lastRoomDetectionAt = 0;
         controller.robotStateSyncTimer = null;
         controller.robotStateSyncDueAt = 0;
         controller.robotStateSyncRunning = false;
@@ -153,12 +143,12 @@ describe("MatterController", function() {
 
     it("should not infer successful completion from returning to the dock", async function() {
         const controller = createController();
-        controller.statisticsCache = {timestamp: Date.now(), data: {time: 123, area: undefined}};
 
         controller.robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
             value: stateAttrs.StatusStateAttribute.VALUE.CLEANING
         }));
         should(await controller.updateOperationLifecycle()).equal(null);
+        controller.matterOperation.startedAt -= 123000;
 
         controller.robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
             value: stateAttrs.StatusStateAttribute.VALUE.RETURNING
@@ -574,6 +564,29 @@ describe("MatterController", function() {
         ).should.match({command: "start_segments", source: "matter"});
     });
 
+    it("should disable firmware automatic control when Matter selects a manual target", async function() {
+        const controller = createController();
+        const selectedPresets = [];
+        controller.serviceAreaSegments = new Map([[2, {id: "2", name: "Kitchen"}]]);
+        controller.robot.state.map = {
+            layers: [{type: MapLayer.TYPE.SEGMENT, metaData: {segmentId: "2"}}]
+        };
+        controller.robot.state.upsertFirstMatchingAttribute(new stateAttrs.PresetSelectionStateAttribute({
+            type: stateAttrs.PresetSelectionStateAttribute.TYPE.AUTOMATIC_CONTROL,
+            value: "routine"
+        }));
+        controller.robot.capabilities.AutomaticControlCapability = {
+            selectPreset: async preset => selectedPresets.push(preset)
+        };
+
+        await controller.handleMatterAreaSelection([2]);
+
+        selectedPresets.should.deepEqual(["off"]);
+        controller.robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.CleaningTargetStateAttribute
+        ).should.match({value: "segments", segmentIds: ["2"], source: "matter", active: false});
+    });
+
     it("should reject Matter Start for an incomplete empty segment draft", async function() {
         const controller = createController();
         controller.robot.capabilities.MapSegmentationCapability = {
@@ -735,26 +748,6 @@ describe("MatterController", function() {
         error.errorStateDetails.should.equal("Dirty-water tank full");
     });
 
-    it("should find the selected Matter room containing the robot", function() {
-        const controller = createController();
-        controller.serviceAreaSegments = new Map([[4, {id: "4", name: "Bedroom"}]]);
-        controller.rvcEndpoint = {state: {serviceArea: {selectedAreas: [4]}}};
-        controller.robot.state.map = {
-            pixelSize: 5,
-            entities: [new PointMapEntity({
-                type: PointMapEntity.TYPE.ROBOT_POSITION,
-                points: [50, 50]
-            })],
-            layers: [new MapLayer({
-                type: MapLayer.TYPE.SEGMENT,
-                pixels: [10, 10, 11, 10],
-                metaData: {segmentId: "4"}
-            })]
-        };
-
-        controller.detectCurrentServiceAreaFallback().should.equal(4);
-    });
-
     it("should project shared task room progress into Matter Service Area", function() {
         const controller = createController();
         controller.serviceAreaSegments = new Map([[2, {id: "2"}], [4, {id: "4"}]]);
@@ -800,51 +793,7 @@ describe("MatterController", function() {
         queuedOptions.should.deepEqual({rvc: true, serviceAreas: true, immediate: true});
     });
 
-    it("should preserve elapsed room progress when a robot re-enters a room", function() {
-        const controller = createController();
-        controller.serviceAreaSegments = new Map([
-            [1, {id: "1", name: "Kitchen"}],
-            [2, {id: "2", name: "Hall"}]
-        ]);
-        controller.rvcEndpoint = {state: {serviceArea: {selectedAreas: [1, 2]}}};
-        controller.robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
-            value: stateAttrs.StatusStateAttribute.VALUE.CLEANING
-        }));
-        const position = new PointMapEntity({
-            type: PointMapEntity.TYPE.ROBOT_POSITION,
-            points: [50, 50]
-        });
-        controller.robot.state.map = {
-            pixelSize: 5,
-            entities: [position],
-            layers: [
-                new MapLayer({
-                    type: MapLayer.TYPE.SEGMENT,
-                    pixels: [10, 10, 11, 10],
-                    metaData: {segmentId: "1"}
-                }),
-                new MapLayer({
-                    type: MapLayer.TYPE.SEGMENT,
-                    pixels: [20, 10, 21, 10],
-                    metaData: {segmentId: "2"}
-                })
-            ]
-        };
-
-        controller.updateServiceAreaProgress(null);
-        controller.serviceAreaProgress.get(1).status.should.equal(1);
-        position.points = [100, 50];
-        controller.lastRoomDetectionAt = 0;
-        controller.updateServiceAreaProgress(null);
-        controller.serviceAreaProgress.get(1).status.should.equal(3);
-        position.points = [50, 50];
-        controller.lastRoomDetectionAt = 0;
-        controller.updateServiceAreaProgress(null);
-        controller.serviceAreaProgress.get(1).status.should.equal(1);
-        controller.serviceAreaProgress.get(1).elapsedSeconds.should.be.aboveOrEqual(0);
-    });
-
-    it("should track the only room during whole-home cleaning without a robot position", function() {
+    it("should leave room progress pending without a shared cleaning task", function() {
         const controller = createController();
         controller.serviceAreaSegments = new Map([[7, {id: "7", name: "Bedroom"}]]);
         controller.rvcEndpoint = {state: {serviceArea: {selectedAreas: []}}};
@@ -852,12 +801,10 @@ describe("MatterController", function() {
         controller.robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
             value: stateAttrs.StatusStateAttribute.VALUE.CLEANING
         }));
-        controller.robot.state.map = {pixelSize: 5, entities: [], layers: []};
-
         controller.updateServiceAreaProgress(null);
 
-        controller.currentServiceArea.should.equal(7);
-        controller.serviceAreaProgress.get(7).status.should.equal(1);
+        should(controller.currentServiceArea).equal(null);
+        controller.serviceAreaProgress.get(7).status.should.equal(0);
     });
 
     it("should interpret an empty Matter room selection as all rooms while cleaning", function() {
@@ -874,74 +821,19 @@ describe("MatterController", function() {
         controller.getTrackedServiceAreaIds().should.deepEqual([1, 2]);
     });
 
-    it("should estimate selected-room cleaning time from learned map-area rate", async function() {
+    it("should use the shared task countdown", function() {
         const controller = createController();
-        controller.estimation.cleaningRates.default = {value: 0.01, samples: 2};
         controller.serviceAreaSegments = new Map([[1, {id: "1", name: "Kitchen"}]]);
         controller.rvcEndpoint = {state: {serviceArea: {selectedAreas: [1]}}};
-        controller.robot.state.map = {
-            pixelSize: 5,
-            entities: [],
-            layers: [new MapLayer({
-                type: MapLayer.TYPE.SEGMENT,
-                pixels: [10, 10, 11, 10],
-                metaData: {segmentId: "1", area: 10000}
-            })]
-        };
+        controller.robot.state.upsertFirstMatchingAttribute(new stateAttrs.ActiveCleaningTaskStateAttribute({
+            id: "task-1",
+            state: "running",
+            progress: {estimatedRemainingSeconds: 100}
+        }));
 
-        (await controller.getMatterCountdown(0)).should.equal(100);
-        controller.currentCleaningRate.should.equal(0.01);
-    });
-
-    it("should persist one charging-rate estimate only after charging completes", function() {
-        const controller = createController();
-        const persisted = [];
-        controller.config = {
-            set: (key, value) => persisted.push({key: key, value: value})
-        };
-        controller.estimation.chargingRate = {value: 0.01, samples: 2};
-        let now = 1000000;
-        const originalNow = Date.now;
-        Date.now = () => now;
-
-        try {
-            controller.robot.state.upsertFirstMatchingAttribute(new stateAttrs.BatteryStateAttribute({
-                level: 20,
-                flag: stateAttrs.BatteryStateAttribute.FLAG.CHARGING
-            }));
-            controller.getMatterCountdown(2);
-
-            now += 300000;
-            controller.robot.state.upsertFirstMatchingAttribute(new stateAttrs.BatteryStateAttribute({
-                level: 24,
-                flag: stateAttrs.BatteryStateAttribute.FLAG.CHARGING
-            }));
-            controller.getMatterCountdown(2).should.equal(5700);
-
-            now += 300000;
-            controller.robot.state.upsertFirstMatchingAttribute(new stateAttrs.BatteryStateAttribute({
-                level: 29,
-                flag: stateAttrs.BatteryStateAttribute.FLAG.CHARGING
-            }));
-            controller.getMatterCountdown(2).should.equal(4733);
-
-            persisted.should.be.empty();
-            controller.estimation.chargingRate.should.deepEqual({value: 0.01, samples: 2});
-
-            controller.robot.state.upsertFirstMatchingAttribute(new stateAttrs.BatteryStateAttribute({
-                level: 29,
-                flag: stateAttrs.BatteryStateAttribute.FLAG.CHARGED
-            }));
-            should(controller.getMatterCountdown(null)).equal(null);
-
-            persisted.should.have.length(1);
-            persisted[0].key.should.equal("matterEstimation");
-            persisted[0].value.chargingRate.samples.should.equal(3);
-            persisted[0].value.chargingRate.value.should.be.approximately(0.011, 0.000001);
-            should(controller.chargingSample).equal(null);
-        } finally {
-            Date.now = originalNow;
-        }
+        controller.getMatterCountdown(0).should.equal(100);
+        should(controller.getMatterCountdown(2)).equal(null);
+        should(controller.getMatterCountdown(3)).equal(null);
     });
 
     it("should defer state synchronization until a Matter command has returned", async function() {
@@ -1162,24 +1054,6 @@ describe("MatterController", function() {
         [...controller.serviceAreaSegments.keys()].should.deepEqual([1, 2, 3]);
     });
 
-    it("should cache map segment layers and calculated areas", function() {
-        const controller = createController();
-        controller.serviceAreaSegments = new Map([[4, {id: "4", name: "Bedroom"}]]);
-        controller.robot.state.map = {
-            pixelSize: 5,
-            entities: [],
-            layers: [new MapLayer({
-                type: MapLayer.TYPE.SEGMENT,
-                pixels: [10, 10, 11, 10],
-                metaData: {segmentId: "4", area: 12345}
-            })]
-        };
-
-        controller.getAreaForServiceArea(4).should.equal(12345);
-        controller.mapSegmentCache.byAreaId.get(4).layer.should.equal(controller.robot.state.map.layers[0]);
-        controller.mapSegmentCache.dirty.should.equal(false);
-    });
-
     it("should version map topology independently from robot position changes", function() {
         const controller = createController();
         const position = new PointMapEntity({
@@ -1201,28 +1075,6 @@ describe("MatterController", function() {
         controller.getMapTopologyVersion().should.equal(initialVersion);
         controller.robot.state.map.layers[0].metaData.name = "Office";
         controller.getMapTopologyVersion().should.not.equal(initialVersion);
-    });
-
-    it("should reuse cached room geometry across equivalent live map objects", function() {
-        const controller = createController();
-        controller.serviceAreaSegments = new Map([[1, {id: "1", name: "Bedroom"}]]);
-        const createMap = () => ({
-            pixelSize: 5,
-            metaData: {id: "map-1", version: 2},
-            entities: [],
-            layers: [new MapLayer({
-                type: MapLayer.TYPE.SEGMENT,
-                pixels: [10, 10, 11, 10],
-                metaData: {segmentId: "1", name: "Bedroom"}
-            })]
-        });
-        controller.robot.state.map = createMap();
-        controller.rebuildMapSegmentCache();
-        const cachedLayer = controller.mapSegmentCache.byAreaId.get(1).layer;
-        controller.robot.state.map = createMap();
-        controller.rebuildMapSegmentCache();
-
-        controller.mapSegmentCache.byAreaId.get(1).layer.should.equal(cachedLayer);
     });
 
     it("should not open a Matter transaction when published RVC state is unchanged", async function() {

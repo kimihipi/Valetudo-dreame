@@ -213,6 +213,32 @@
       }
     }
   },
+  "/api/v2/robot/state/cleaning_target/start": {
+    "put": {
+      "tags": ["Robot"],
+      "summary": "Start the exact staged cleaning target revision",
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["targetRevision"],
+              "properties": {
+                "targetRevision": {"type": "integer", "minimum": 0}
+              }
+            }
+          }
+        }
+      },
+      "responses": {
+        "200": {"description": "Staged target started"},
+        "400": {"description": "Invalid or incomplete target"},
+        "409": {"description": "Target revision changed before start"}
+      }
+    }
+  },
   "/api/v2/robot/state/map": {
     "get": {
       "tags": [
@@ -284,15 +310,8 @@
     },
     "delete": {
       "tags": ["Robot"],
-      "summary": "Clear cleaning history and learned room estimates",
+      "summary": "Clear cleaning history",
       "responses": {"200": {"$ref": "#/components/responses/200"}}
-    }
-  },
-  "/api/v2/robot/cleaningEstimates": {
-    "get": {
-      "tags": ["Robot"],
-      "summary": "Get learned per-room cleaning estimates",
-      "responses": {"200": {"description": "Ok", "content": {"application/json": {"schema": {"type": "object"}}}}}
     }
   },
   "/api/v2/robot/state/map/sse": {

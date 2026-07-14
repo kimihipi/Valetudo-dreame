@@ -18,7 +18,7 @@ const ValetudoDataPoint = require("../entities/core/ValetudoDataPoint");
 // passes of vacuum_then_mop, or between carpet-first phases). The firmware briefly reports
 // task_status = COMPLETED during these, so without this list an intermediate empty/refill dock
 // would be misread as the end of the task, splitting one run into several history records and
-// resetting room positioning and estimates. RESUMABLE is handled separately.
+// resetting room positioning. RESUMABLE is handled separately.
 const MID_CYCLE_FLAGS = new Set([
     stateAttrs.StatusStateAttribute.FLAG.EMPTYING,
     stateAttrs.StatusStateAttribute.FLAG.TO_EMPTY,
@@ -33,7 +33,7 @@ const MID_CYCLE_FLAGS = new Set([
     stateAttrs.StatusStateAttribute.FLAG.AUTO_RECLEANING,
 ]);
 
-const MAX_HISTORY = 100;
+const MAX_HISTORY = 50;
 const TASK_TERMINAL_STATES = ["completed", "cancelled", "stopped", "failed"];
 const ROOM_DWELL_MS = 4_000;
 const SAVE_DEBOUNCE_MS = 2_000;
@@ -41,20 +41,12 @@ const ESTIMATE_REFRESH_MS = 15_000;
 const STATISTICS_TIMEOUT_MS = 5_000;
 const TERMINAL_OUTCOME_GRACE_MS = 2_000;
 const ROOM_DETECTION_INTERVAL_MS = 1_000;
-const MAX_ESTIMATES = 500;
-const MAX_ESTIMATE_MAPS = 5;
-const DREAME_COVERAGE_RATES_M2_PER_MINUTE = Object.freeze({
-    routine: 0.9,
-    quick: 0.9,
-    intensive: 0.6,
-    deep: 0.6
-});
-// Some operation modes traverse the full floor area more than once (e.g. vacuum_then_mop
-// runs a vacuum pass followed by a separate mop pass), so the cold-start baseline must
-// account for the extra pass. Learned estimates are already keyed by operationMode and
-// override this once a run completes.
-const DREAME_OPERATION_MODE_PASS_FACTORS = Object.freeze({
-    [stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_THEN_MOP]: 2
+const ROOM_BOUNDARY_TOLERANCE_PIXELS = 2;
+const DEFAULT_COVERAGE_RATE_M2_PER_MINUTE = 1;
+const FIRMWARE_TARGET_TYPES = Object.freeze({
+    [stateAttrs.StatusStateAttribute.FLAG.ZONE]: "zones",
+    [stateAttrs.StatusStateAttribute.FLAG.SEGMENT]: "segments",
+    [stateAttrs.StatusStateAttribute.FLAG.SPOT]: "spot"
 });
 
 class CleaningTaskManager {
@@ -72,16 +64,12 @@ class CleaningTaskManager {
         this.lastRoomDetectionAt = 0;
         this.lastDetectedPositionKey = null;
         this.lastDetectedSegment = null;
-        this.lastDraftReconcileKey = null;
         this.saveTimer = null;
         this.publishTimer = null;
         this.estimateRefreshMs = options.estimateRefreshMs ?? ESTIMATE_REFRESH_MS;
         this.statisticsTimeoutMs = options.statisticsTimeoutMs ?? STATISTICS_TIMEOUT_MS;
         this.terminalOutcomeGraceMs = options.terminalOutcomeGraceMs ?? TERMINAL_OUTCOME_GRACE_MS;
         this.history = [];
-        this.estimates = {};
-        this.estimateSequence = 0;
-        this.lastTaskPayload = null;
         this.transitionCommandId = null;
         this.preTransitionState = null;
         this.terminalStatusTimer = null;
@@ -118,32 +106,11 @@ class CleaningTaskManager {
             const stored = JSON.parse(fs.readFileSync(this.storagePath, "utf8"));
             if (stored?.version === 1) {
                 this.history = Array.isArray(stored.history) ? stored.history.slice(0, MAX_HISTORY) : [];
-                this.estimates = stored.estimates && typeof stored.estimates === "object" ? stored.estimates : {};
-                this.estimateSequence = Object.values(this.estimates).reduce((latest, estimate) =>
-                    Math.max(latest, estimate.updatedAt ?? 0), 0);
-                this.pruneEstimates();
-                if (stored.lastTask && TASK_TERMINAL_STATES.includes(stored.lastTask.state)) {
-                    this.restoreLastTask(stored.lastTask);
-                }
             }
         } catch (e) {
             if (e?.code !== "ENOENT") {
                 Logger.warn("Unable to load cleaning history", e);
             }
-        }
-    }
-
-    // Re-publish the last terminal task summary on startup so the UI keeps showing the previous
-    // run's target/room progress/total time after a reboot (Valetudo runs on the robot, so a daily
-    // robot reboot wipes the in-memory state attribute). activeTask stays null, so a fresh run that
-    // reports CLEANING still starts a new task and overwrites this.
-    restoreLastTask(payload) {
-        try {
-            this.revision = payload.revision ?? 0;
-            this.lastTaskPayload = payload;
-            this.robot.state.upsertFirstMatchingAttribute(new stateAttrs.ActiveCleaningTaskStateAttribute(payload));
-        } catch (e) {
-            Logger.warn("Unable to restore last cleaning task", e);
         }
     }
 
@@ -165,9 +132,7 @@ class CleaningTaskManager {
             const temporary = this.storagePath + ".tmp";
             fs.writeFileSync(temporary, JSON.stringify({
                 version: 1,
-                history: this.history,
-                estimates: this.estimates,
-                lastTask: this.lastTaskPayload
+                history: this.history
             }));
             fs.renameSync(temporary, this.storagePath);
         } catch (e) {
@@ -228,6 +193,12 @@ class CleaningTaskManager {
         this.lastPathPointCount = this.getCleaningPathPointCount();
         const segmentIds = target?.value === stateAttrs.CleaningTargetStateAttribute.VALUE.SEGMENTS ?
             [...target.segmentIds] : [];
+        const targetType = [
+            stateAttrs.CleaningTargetStateAttribute.VALUE.ALL,
+            stateAttrs.CleaningTargetStateAttribute.VALUE.SEGMENTS,
+            stateAttrs.CleaningTargetStateAttribute.VALUE.ZONES
+        ].includes(target?.value) ? target.value :
+            FIRMWARE_TARGET_TYPES[status.flag] ?? status.metaData.cleaningTargetType ?? "all";
         const trackedSegmentIds = segmentIds.length > 0 ? [...segmentIds] : (this.robot.state.map?.layers ?? [])
             .filter(layer => layer.type === MapLayer.TYPE.SEGMENT && !layer.metaData.hidden)
             .map(layer => String(layer.metaData.segmentId));
@@ -241,7 +212,7 @@ class CleaningTaskManager {
             pausedAt: null,
             pausedMs: 0,
             target: {
-                type: segmentIds.length > 0 ? "segments" : "all",
+                type: targetType,
                 segmentIds: segmentIds,
                 segmentNames: segmentIds.map(id => this.getSegmentName(id))
             },
@@ -254,6 +225,7 @@ class CleaningTaskManager {
                 iterations: target?.iterations ?? 1
             },
             rooms: {},
+            completedSegmentIds: [],
             currentSegmentId: null,
             // Non-sequential jobs revisit rooms instead of finishing them one at a time, so the
             // "left the room => room done" heuristic under-counts remaining time and over-counts
@@ -261,6 +233,7 @@ class CleaningTaskManager {
             // (a firmware setting we can't cheaply read here) is detected empirically on first revisit.
             nonSequential: (target?.profile?.operationMode ?? operationMode) ===
                 stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_THEN_MOP,
+            estimatedDurationSeconds: null,
             outcome: null,
             statusFlag: status.flag
         };
@@ -282,6 +255,11 @@ class CleaningTaskManager {
         if (this.finishing) {
             return;
         }
+        const firmwareTargetType = status.metaData.cleaningTargetType;
+        if (this.activeTask.source === "robot" && this.activeTask.target.type === "all" &&
+            ["zones", "segments", "spot"].includes(firmwareTargetType)) {
+            this.activeTask.target.type = firmwareTargetType;
+        }
         if (["stopping", "cancelling"].includes(this.activeTask.state)) {
             // The command service owns this transition and publishes a terminal outcome only
             // after firmware verification. Do not race it with status-based inference.
@@ -292,7 +270,6 @@ class CleaningTaskManager {
             if (this.activeTask.pausedAt === null) {
                 this.activeTask.pausedAt = Date.now();
             }
-            this.closeCurrentRoom();
             this.activeTask.state = "error";
             this.publish();
             return;
@@ -302,7 +279,6 @@ class CleaningTaskManager {
             if (this.activeTask.pausedAt === null) {
                 this.activeTask.pausedAt = Date.now();
             }
-            this.closeCurrentRoom();
             this.activeTask.state = "paused";
             this.publish();
             return;
@@ -313,17 +289,12 @@ class CleaningTaskManager {
         }
         if (status.value === stateAttrs.StatusStateAttribute.VALUE.RETURNING) {
             this.clearTerminalStatusTimer();
-            this.closeCurrentRoom();
             this.activeTask.state = "returning";
             this.publish();
             return;
         }
         if (active) {
             this.clearTerminalStatusTimer();
-            const room = this.activeTask.rooms[this.activeTask.currentSegmentId];
-            if (room && !room.startedAtMs) {
-                room.startedAtMs = Date.now();
-            }
             this.activeTask.state = "running";
             this.publish();
             return;
@@ -334,7 +305,6 @@ class CleaningTaskManager {
         if (status.value !== stateAttrs.StatusStateAttribute.VALUE.ERROR &&
             (status.flag === stateAttrs.StatusStateAttribute.FLAG.RESUMABLE || MID_CYCLE_FLAGS.has(status.flag))) {
             this.clearTerminalStatusTimer();
-            this.closeCurrentRoom();
             if (status.flag === stateAttrs.StatusStateAttribute.FLAG.RESUMABLE) {
                 if (this.activeTask.pausedAt === null) {
                     this.activeTask.pausedAt = Date.now();
@@ -350,22 +320,29 @@ class CleaningTaskManager {
             this.finishTask(outcome);
             return;
         }
-        this.scheduleUnconfirmedTerminalStatus();
+        const vendorGraceMs = status.metaData.operationOutcomeGraceMs;
+        if (Number.isFinite(vendorGraceMs)) {
+            this.clearTerminalStatusTimer();
+        }
+        const vendorFallbackOutcome = TASK_TERMINAL_STATES.includes(status.metaData.operationOutcomeFallback) ?
+            status.metaData.operationOutcomeFallback : "stopped";
+        this.scheduleUnconfirmedTerminalStatus(vendorGraceMs, vendorFallbackOutcome);
     }
 
-    scheduleUnconfirmedTerminalStatus() {
+    scheduleUnconfirmedTerminalStatus(vendorGraceMs, fallbackOutcome = "stopped") {
         if (this.terminalStatusTimer !== null || !this.activeTask) {
             return;
         }
+        const graceMs = Number.isFinite(vendorGraceMs) ? Math.max(0, vendorGraceMs) : this.terminalOutcomeGraceMs;
         const taskId = this.activeTask.id;
         this.terminalStatusTimer = setTimeout(() => {
             this.terminalStatusTimer = null;
             if (this.activeTask?.id === taskId && !this.finishing) {
                 // Idle/Docked confirms that the task ended, but not that it succeeded. Give a
                 // vendor task-result event a short opportunity to provide the authoritative reason.
-                this.finishTask("stopped");
+                this.finishTask(fallbackOutcome);
             }
-        }, this.terminalOutcomeGraceMs);
+        }, graceMs);
         this.terminalStatusTimer.unref?.();
     }
 
@@ -429,13 +406,20 @@ class CleaningTaskManager {
         if (positionKey === this.lastDetectedPositionKey) {
             return this.lastDetectedSegment;
         }
-        for (const layer of layers) {
-            const runs = layer.compressedPixels ?? [];
-            for (let i = 0; i < runs.length; i += 3) {
-                if (runs[i + 1] === y && x >= runs[i] && x < runs[i] + runs[i + 2]) {
-                    this.lastDetectedPositionKey = positionKey;
-                    this.lastDetectedSegment = String(layer.metaData.segmentId);
-                    return this.lastDetectedSegment;
+        // Prefer an exact match across every room before applying tolerance. This avoids assigning
+        // a point inside one room to an earlier adjacent room whose pixels are merely nearby.
+        for (let radius = 0; radius <= ROOM_BOUNDARY_TOLERANCE_PIXELS; radius++) {
+            for (const layer of layers) {
+                const runs = layer.compressedPixels ?? [];
+                for (let i = 0; i < runs.length; i += 3) {
+                    const start = runs[i];
+                    const row = runs[i + 1];
+                    const count = runs[i + 2];
+                    if (Math.abs(row - y) <= radius && x + radius >= start && x - radius < start + count) {
+                        this.lastDetectedPositionKey = positionKey;
+                        this.lastDetectedSegment = String(layer.metaData.segmentId);
+                        return this.lastDetectedSegment;
+                    }
                 }
             }
         }
@@ -477,7 +461,6 @@ class CleaningTaskManager {
     }
 
     handleMapUpdate(immediate = false) {
-        this.reconcileDraftCleaningTarget();
         if (!this.activeTask || !["running", "paused"].includes(this.activeTask.state)) {
             return;
         }
@@ -513,104 +496,25 @@ class CleaningTaskManager {
             }
             return;
         }
-        this.closeCurrentRoom();
+        if (this.activeTask.currentSegmentId !== null &&
+            !this.activeTask.completedSegmentIds.includes(this.activeTask.currentSegmentId)) {
+            this.activeTask.completedSegmentIds.push(this.activeTask.currentSegmentId);
+        }
         if (this.activeTask.rooms[detected] !== undefined) {
             // Re-entering a room we already tracked => the robot is not cleaning room-by-room
-            // (e.g. Carpet First). Switch to whole-job estimation for the rest of this task.
+            // (e.g. Carpet First). Stop inferring exact room completion for this task.
             this.activeTask.nonSequential = true;
+            this.activeTask.completedSegmentIds = [];
         }
         const room = this.activeTask.rooms[detected] ?? {
             segmentId: detected,
             name: this.getSegmentName(detected),
-            durationSeconds: 0,
-            visits: 0,
-            estimatedDurationSeconds: this.estimates[this.getEstimateKey(detected)]?.value ??
-                this.getBaselineRoomEstimate(detected)
+            visits: 0
         };
-        room.startedAtMs = Date.now();
         room.visits++;
         this.activeTask.rooms[detected] = room;
         this.activeTask.currentSegmentId = detected;
         this.publish();
-    }
-
-    reconcileDraftCleaningTarget() {
-        const Target = stateAttrs.CleaningTargetStateAttribute;
-        const target = this.robot.state.getFirstMatchingAttributeByConstructor(Target);
-        if (!target || target.active || target.value !== Target.VALUE.SEGMENTS) {
-            return;
-        }
-        const reconcileKey = `${target.revision}|${this.getMapGeometryVersion()}`;
-        if (reconcileKey === this.lastDraftReconcileKey) {
-            return;
-        }
-        this.lastDraftReconcileKey = reconcileKey;
-        const availableIds = new Set((this.robot.state.map?.layers ?? [])
-            .filter(layer => layer.type === MapLayer.TYPE.SEGMENT && !layer.metaData.hidden)
-            .map(layer => String(layer.metaData.segmentId)));
-        if (availableIds.size === 0) {
-            return;
-        }
-        const validIds = target.segmentIds.filter(id => availableIds.has(String(id)));
-        if (validIds.length === target.segmentIds.length) {
-            return;
-        }
-        this.robot.setCleaningTarget({
-            ...target,
-            value: Target.VALUE.SEGMENTS,
-            segmentIds: validIds,
-            source: "system",
-            active: false,
-            expectedRevision: target.revision
-        });
-    }
-
-    closeCurrentRoom() {
-        const id = this.activeTask?.currentSegmentId;
-        const room = id ? this.activeTask.rooms[id] : null;
-        if (room?.startedAtMs) {
-            room.durationSeconds += Math.max(0, Math.round((Date.now() - room.startedAtMs) / 1000));
-            delete room.startedAtMs;
-        }
-    }
-
-    getEstimateKey(segmentId, profile = this.activeTask?.profile, mapId = this.activeTask?.mapId ??
-        this.robot.state.map?.metaData?.id ?? "unknown") {
-        return [mapId, segmentId, profile?.operationMode ?? "unknown", profile?.cleanRoute ?? "unknown",
-            profile?.iterations ?? 1].join("|");
-    }
-
-    learnRoom(room, profile, mapId) {
-        if (room.durationSeconds < 30) {
-            return;
-        }
-        const key = this.getEstimateKey(room.segmentId, profile, mapId);
-        const previous = this.estimates[key];
-        const value = previous ? previous.value * 0.8 + room.durationSeconds * 0.2 : room.durationSeconds;
-        this.estimateSequence = Math.max(Date.now(), this.estimateSequence + 1);
-        this.estimates[key] = {
-            value: value,
-            samples: Math.min(1000, (previous?.samples ?? 0) + 1),
-            updatedAt: this.estimateSequence
-        };
-        this.pruneEstimates();
-    }
-
-    pruneEstimates() {
-        const entries = Object.entries(this.estimates);
-        const mapRecency = new Map();
-        entries.forEach(([key, estimate], index) => {
-            const mapId = key.split("|", 1)[0];
-            mapRecency.set(mapId, Math.max(mapRecency.get(mapId) ?? 0, estimate.updatedAt ?? index + 1));
-        });
-        const retainedMaps = new Set([...mapRecency.entries()]
-            .sort((left, right) => right[1] - left[1])
-            .slice(0, MAX_ESTIMATE_MAPS)
-            .map(([mapId]) => mapId));
-        this.estimates = Object.fromEntries(entries
-            .filter(([key]) => retainedMaps.has(key.split("|", 1)[0]))
-            .sort((left, right) => (right[1].updatedAt ?? 0) - (left[1].updatedAt ?? 0))
-            .slice(0, MAX_ESTIMATES));
     }
 
     getTrackedSegmentIds() {
@@ -632,44 +536,23 @@ class CleaningTaskManager {
         if (!this.activeTask || this.activeTask.nonSequential) {
             return [];
         }
-        return trackedSegmentIds.filter(id => {
-            const room = this.activeTask.rooms[id];
-            return room !== undefined && !room.startedAtMs && id !== this.activeTask.currentSegmentId;
-        });
+        return trackedSegmentIds.filter(id => this.activeTask.completedSegmentIds.includes(id));
     }
 
-    getSegmentArea(segmentId) {
+    getFallbackTotalEstimateSeconds() {
+        if (!this.activeTask) {
+            return null;
+        }
         const map = this.robot.state.map;
-        const layer = map?.layers?.find(item =>
-            item.type === MapLayer.TYPE.SEGMENT && !item.metaData.hidden &&
-            String(item.metaData.segmentId) === String(segmentId));
-        if (!layer) {
-            return null;
-        }
-        const area = layer.metaData.area ?? layer.dimensions?.pixelCount * (map?.pixelSize ?? 0) ** 2;
-        return Number.isFinite(area) && area > 0 ? area : null;
-    }
-
-    getBaselineRoomEstimate(segmentId, profile = this.activeTask?.profile) {
-        if (this.robot.getManufacturer?.().toLowerCase() !== "dreame") {
-            return null;
-        }
-        const areaCm2 = this.getSegmentArea(segmentId);
-        const coverageRate = DREAME_COVERAGE_RATES_M2_PER_MINUTE[profile?.cleanRoute] ??
-            DREAME_COVERAGE_RATES_M2_PER_MINUTE.routine;
-        if (areaCm2 === null || !coverageRate) {
-            return null;
-        }
-        const passFactor = DREAME_OPERATION_MODE_PASS_FACTORS[profile?.operationMode] ?? 1;
-        return areaCm2 / 10_000 / coverageRate * 60 * (profile?.iterations ?? 1) * passFactor;
-    }
-
-    getRoomElapsedSeconds(segmentId) {
-        const room = this.activeTask?.rooms[segmentId];
-        if (!room) {
-            return 0;
-        }
-        return room.durationSeconds + (room.startedAtMs ? (Date.now() - room.startedAtMs) / 1000 : 0);
+        const trackedIds = new Set(this.getTrackedSegmentIds().map(String));
+        const areaCm2 = (map?.layers ?? []).filter(layer =>
+            layer.type === MapLayer.TYPE.SEGMENT && !layer.metaData.hidden &&
+            trackedIds.has(String(layer.metaData.segmentId))
+        ).reduce((total, layer) => {
+            const area = layer.metaData.area ?? layer.dimensions?.pixelCount * (map?.pixelSize ?? 0) ** 2;
+            return total + (Number.isFinite(area) && area > 0 ? area : 0);
+        }, 0);
+        return areaCm2 > 0 ? areaCm2 / 10_000 / DEFAULT_COVERAGE_RATE_M2_PER_MINUTE * 60 : null;
     }
 
     getActiveElapsedSeconds() {
@@ -683,75 +566,62 @@ class CleaningTaskManager {
         return Math.max(0, ms / 1000);
     }
 
-    getJobTotalEstimateSeconds() {
-        if (!this.activeTask) {
-            return null;
-        }
-        let total = 0;
-        let found = false;
-        for (const id of this.getTrackedSegmentIds()) {
-            const estimate = this.estimates[this.getEstimateKey(id)]?.value ?? this.getBaselineRoomEstimate(id);
-            if (estimate !== null && estimate !== undefined) {
-                total += estimate;
-                found = true;
-            }
-        }
-        return found ? total : null;
-    }
-
     getCompletedRoomCount(trackedSegmentIds) {
         if (!this.activeTask) {
             return 0;
         }
         if (this.activeTask.nonSequential) {
-            // Rooms are revisited, so count completion by elapsed fraction of the total estimate
-            // rather than by which rooms we've left. Never reaches totalRooms until the task ends.
-            const total = this.getJobTotalEstimateSeconds();
-            if (total === null || total <= 0) {
-                return 0;
-            }
-            const fraction = Math.min(1, this.getActiveElapsedSeconds() / total);
-            return Math.min(trackedSegmentIds.length - 1, Math.floor(trackedSegmentIds.length * fraction));
+            return 0;
         }
-        return trackedSegmentIds.filter(id => {
-            const room = this.activeTask.rooms[id];
-            return room !== undefined && !room.startedAtMs && id !== this.activeTask.currentSegmentId;
-        }).length;
+        return this.getCompletedSegmentIds(trackedSegmentIds).length;
     }
 
-    estimateRemaining() {
+    estimateRemaining(completedPercent, cleaningElapsedSeconds) {
         if (!this.activeTask) {
             return null;
         }
-        if (this.activeTask.nonSequential) {
-            // Rooms get revisited, so per-room "done" state is unreliable. Estimate the whole job
-            // against total wall-clock cleaning time instead.
-            const total = this.getJobTotalEstimateSeconds();
-            return total === null ? null : Math.max(0, Math.round(total - this.getActiveElapsedSeconds()));
-        }
-        let remaining = 0;
-        let found = false;
-        for (const id of this.getTrackedSegmentIds()) {
-            const room = this.activeTask.rooms[id];
-            if (room && !room.startedAtMs && id !== this.activeTask.currentSegmentId) {
-                continue;
+        if (Number.isFinite(completedPercent)) {
+            if (completedPercent === 100) {
+                return 0;
             }
-            const learned = this.estimates[this.getEstimateKey(id)]?.value;
-            const estimate = learned ?? this.getBaselineRoomEstimate(id);
-            if (estimate !== null && estimate !== undefined) {
-                const elapsed = id === this.activeTask.currentSegmentId ? this.getRoomElapsedSeconds(id) : 0;
-                remaining += Math.max(0, estimate - elapsed);
-                found = true;
+            if (completedPercent >= 5 && Number.isFinite(cleaningElapsedSeconds) && cleaningElapsedSeconds > 0) {
+                return Math.max(0, Math.round(
+                    cleaningElapsedSeconds * (100 - completedPercent) / completedPercent
+                ));
             }
         }
-        return found ? Math.round(remaining) : null;
+        const total = this.getFallbackTotalEstimateSeconds();
+        if (total === null) {
+            return null;
+        }
+        if (Number.isFinite(cleaningElapsedSeconds) && cleaningElapsedSeconds > 0) {
+            return Math.max(0, Math.round(total - cleaningElapsedSeconds));
+        }
+        if (Number.isFinite(completedPercent)) {
+            return Math.max(0, Math.round(total * (1 - completedPercent / 100)));
+        }
+        return Math.max(0, Math.round(total - this.getActiveElapsedSeconds()));
     }
 
     publish() {
         if (!this.activeTask) {
             return;
         }
-        const estimate = this.estimateRemaining();
+        const status = this.robot.state.getFirstMatchingAttributeByConstructor(stateAttrs.StatusStateAttribute);
+        const completedPercent = Number.isFinite(status?.metaData?.completedPercent) ?
+            Math.max(0, Math.min(100, status.metaData.completedPercent)) : undefined;
+        const cleaningElapsedSeconds = Number.isFinite(status?.metaData?.cleaningElapsedSeconds) ?
+            Math.max(0, status.metaData.cleaningElapsedSeconds) : undefined;
+        const estimate = this.estimateRemaining(completedPercent, cleaningElapsedSeconds);
+        if (estimate !== null && completedPercent !== 100) {
+            const firmwareCalibrated = Number.isFinite(completedPercent) && completedPercent >= 5 &&
+                Number.isFinite(cleaningElapsedSeconds) && cleaningElapsedSeconds > 0;
+            const total = firmwareCalibrated ? cleaningElapsedSeconds + estimate :
+                this.getFallbackTotalEstimateSeconds();
+            if (total !== null) {
+                this.activeTask.estimatedDurationSeconds = Math.round(total);
+            }
+        }
         const trackedSegmentIds = this.getTrackedSegmentIds();
         const Attribute = stateAttrs.ActiveCleaningTaskStateAttribute;
         this.lastEstimatePublishAt = Date.now();
@@ -768,13 +638,13 @@ class CleaningTaskManager {
                 completedRooms: this.getCompletedRoomCount(trackedSegmentIds),
                 completedSegmentIds: this.getCompletedSegmentIds(trackedSegmentIds),
                 totalRooms: trackedSegmentIds.length,
+                completedPercent: completedPercent,
                 estimatedRemainingSeconds: estimate,
                 estimatedCompletionTime: estimate === null ? null : new Date(Date.now() + estimate * 1000).toISOString()
             },
             outcome: this.activeTask.outcome,
             revision: this.revision
         };
-        this.lastTaskPayload = payload;
         this.robot.state.upsertFirstMatchingAttribute(new Attribute(payload));
         this.robot.emitStateAttributesUpdated();
     }
@@ -782,7 +652,6 @@ class CleaningTaskManager {
     finishTask(outcome) {
         this.finishing = true;
         this.clearTerminalStatusTimer();
-        this.closeCurrentRoom();
         const finishedTask = this.activeTask;
         this.transitionCommandId = null;
         this.preTransitionState = null;
@@ -793,10 +662,8 @@ class CleaningTaskManager {
         const currentTarget = this.robot.state.getFirstMatchingAttributeByConstructor(Target);
         if (currentTarget?.active && currentTarget.revision === finishedTask.targetRevision) {
             const retainWholeHomeMode = [Target.VALUE.ALL, Target.VALUE.AUTOMATIC].includes(currentTarget.value);
-            const resetAfterInterruption = ["cancelled", "stopped"].includes(outcome);
             this.robot.setCleaningTarget({
-                value: resetAfterInterruption ?
-                    (retainWholeHomeMode ? currentTarget.value : Target.VALUE.ALL) : Target.VALUE.NONE,
+                value: retainWholeHomeMode ? currentTarget.value : Target.VALUE.ALL,
                 segmentIds: [],
                 source: "task",
                 active: false,
@@ -804,7 +671,6 @@ class CleaningTaskManager {
             });
         }
         const completedAt = new Date().toISOString();
-        const trackedSegmentIds = this.getTrackedSegmentIds();
         const record = {
             id: finishedTask.id,
             startedAt: finishedTask.startedAt,
@@ -813,9 +679,8 @@ class CleaningTaskManager {
             outcome: outcome,
             target: finishedTask.target,
             profile: finishedTask.profile,
-            rooms: Object.values(finishedTask.rooms).map(room => ({...room, startedAtMs: undefined})),
-            estimatedDurationSeconds: trackedSegmentIds.reduce((sum, id) => sum +
-                (this.estimates[this.getEstimateKey(id)]?.value ?? this.getBaselineRoomEstimate(id) ?? 0), 0) || null,
+            rooms: Object.values(finishedTask.rooms),
+            estimatedDurationSeconds: finishedTask.estimatedDurationSeconds,
             totalDurationSeconds: Math.max(0, Math.round((Date.now() - finishedTask.startedAtMs -
                 finishedTask.pausedMs) / 1000))
         };
@@ -834,16 +699,6 @@ class CleaningTaskManager {
             }
             if (Number.isFinite(firmwareDuration) && firmwareDuration > 0) {
                 record.totalDurationSeconds = Math.round(firmwareDuration);
-            }
-            if (outcome === "completed" &&
-                finishedTask.mapId === (this.robot.state.map?.metaData?.id ?? "unknown")) {
-                const observedRoomDuration = record.rooms.reduce((sum, room) => sum + room.durationSeconds, 0);
-                const learningScale = observedRoomDuration > 0 && Number.isFinite(firmwareDuration) && firmwareDuration > 0 ?
-                    firmwareDuration / observedRoomDuration : 1;
-                record.rooms.forEach(room => this.learnRoom({
-                    ...room,
-                    durationSeconds: room.durationSeconds * learningScale
-                }, record.profile, finishedTask.mapId));
             }
             this.history.push(record);
             this.history.sort((left, right) => right.completedAt.localeCompare(left.completedAt));
@@ -868,13 +723,8 @@ class CleaningTaskManager {
     getHistory() {
         return structuredClone(this.history);
     }
-    getEstimates() {
-        return structuredClone(this.estimates);
-    }
     clearHistory() {
         this.history = [];
-        this.estimates = {};
-        this.lastTaskPayload = null;
         this.scheduleSave();
     }
 

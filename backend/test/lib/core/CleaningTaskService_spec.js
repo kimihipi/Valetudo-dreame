@@ -44,6 +44,48 @@ describe("CleaningTaskService", function() {
         return robot;
     };
 
+    it("should seed a process-local whole-home target", function() {
+        const robot = createRobot();
+
+        const service = new CleaningTaskService({robot: robot});
+
+        service.getTarget().should.match({value: "all", segmentIds: [], source: "system", active: false});
+    });
+
+    it("should seed automatic only when firmware reports it enabled", function() {
+        const robot = createRobot();
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.PresetSelectionStateAttribute({
+            type: stateAttrs.PresetSelectionStateAttribute.TYPE.AUTOMATIC_CONTROL,
+            value: "routine"
+        }));
+
+        const service = new CleaningTaskService({robot: robot});
+
+        service.getTarget().value.should.equal("automatic");
+    });
+
+    it("should accept the first late firmware automatic mode without replacing a user draft", function() {
+        const robot = createRobot();
+        robot.capabilities.AutomaticControlCapability = {};
+        const service = new CleaningTaskService({robot: robot});
+
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.PresetSelectionStateAttribute({
+            type: stateAttrs.PresetSelectionStateAttribute.TYPE.AUTOMATIC_CONTROL,
+            value: "routine"
+        }));
+        service.getTarget().value.should.equal("automatic");
+
+        const secondRobot = createRobot();
+        secondRobot.capabilities.AutomaticControlCapability = {};
+        const secondService = new CleaningTaskService({robot: secondRobot});
+        secondService.stageTarget({value: "segments", segmentIds: []});
+        secondRobot.state.upsertFirstMatchingAttribute(new stateAttrs.PresetSelectionStateAttribute({
+            type: stateAttrs.PresetSelectionStateAttribute.TYPE.AUTOMATIC_CONTROL,
+            value: "deep"
+        }));
+        secondService.getTarget().value.should.equal("segments");
+    });
+
     it("should stage a normalized, map-bound cleaning draft", function() {
         const robot = createRobot();
         robot.state.upsertFirstMatchingAttribute(new stateAttrs.PresetSelectionStateAttribute({
@@ -110,6 +152,100 @@ describe("CleaningTaskService", function() {
         executed.should.deepEqual({ids: ["4", "2"], options: {iterations: 2, customOrder: true}});
     });
 
+    it("should disable firmware automatic control before starting a manual segment target", async function() {
+        const robot = createRobot();
+        const calls = [];
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.PresetSelectionStateAttribute({
+            type: stateAttrs.PresetSelectionStateAttribute.TYPE.AUTOMATIC_CONTROL,
+            value: "routine"
+        }));
+        robot.capabilities.AutomaticControlCapability = {
+            selectPreset: async preset => calls.push(`automatic:${preset}`)
+        };
+        robot.capabilities.MapSegmentationCapability = {
+            getProperties: () => ({iterationCount: {min: 1, max: 3}}),
+            executeSegmentAction: async () => calls.push("start:segments")
+        };
+        const service = new CleaningTaskService({robot: robot});
+
+        await service.startSegments({segmentIds: ["2"], source: "matter"});
+
+        calls.should.deepEqual(["automatic:off", "start:segments"]);
+    });
+
+    it("should start the exact staged segment-target revision", async function() {
+        const robot = createRobot();
+        let executed;
+        robot.capabilities.MapSegmentationCapability = {
+            getProperties: () => ({
+                customOrderSupport: true,
+                iterationCount: {min: 1, max: 3}
+            }),
+            executeSegmentAction: async (segments, options) => {
+                executed = {ids: segments.map(segment => segment.id), options: options};
+            }
+        };
+        const service = new CleaningTaskService({robot: robot});
+        service.stageTarget({value: "segments", segmentIds: ["2", "4"], iterations: 2});
+
+        const target = service.getTarget();
+        const result = await service.startTarget({source: "webui", expectedRevision: target.revision});
+
+        result.target.should.match({value: "segments", segmentIds: ["2", "4"], active: true});
+        result.target.revision.should.equal(target.revision + 1);
+        executed.should.deepEqual({ids: ["2", "4"], options: {iterations: 2, customOrder: true}});
+    });
+
+    it("should reject a staged room that disappeared instead of rewriting the draft", async function() {
+        const robot = createRobot();
+        robot.capabilities.MapSegmentationCapability = {
+            getProperties: () => ({customOrderSupport: true, iterationCount: {min: 1, max: 3}}),
+            executeSegmentAction: async () => {}
+        };
+        const service = new CleaningTaskService({robot: robot});
+        const target = service.stageTarget({value: "segments", segmentIds: ["2"], iterations: 1});
+        robot.state.map.layers = [{type: "segment", metaData: {segmentId: "4"}}];
+
+        await should(service.startTarget({expectedRevision: target.revision}))
+            .be.rejectedWith("One or more selected rooms are no longer available");
+        service.getTarget().should.match({
+            value: "segments", segmentIds: ["2"], active: false, revision: target.revision
+        });
+    });
+
+    it("should gate and execute the currently staged zone draft", async function() {
+        const robot = createRobot();
+        let executed;
+        robot.capabilities.ZoneCleaningCapability = {
+            getProperties: () => ({zoneCount: {min: 1, max: 3}, iterationCount: {min: 1, max: 2}}),
+            start: async options => {
+                executed = options;
+            }
+        };
+        const service = new CleaningTaskService({robot: robot});
+        const zone = {points: {
+            pA: {x: 0, y: 0}, pB: {x: 100, y: 0}, pC: {x: 100, y: 100}, pD: {x: 0, y: 100}
+        }};
+
+        service.stageTarget({value: "zones", zones: [], segmentIds: []})
+            .should.match({value: "zones", zones: [], active: false});
+        await should(service.startTarget({expectedRevision: service.getTarget().revision}))
+            .be.rejectedWith("At least one zone must be selected");
+        service.stageTarget({value: "zones", zones: [zone], segmentIds: [], iterations: 2});
+        const result = await service.startTarget({
+            source: "webui",
+            expectedRevision: service.getTarget().revision
+        });
+
+        result.target.should.match({value: "zones", iterations: 2, active: true});
+        executed.iterations.should.equal(2);
+        executed.zones.should.have.length(1);
+        executed.zones[0].points.should.deepEqual(zone.points);
+        robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.CleaningCommandStateAttribute
+        ).command.should.equal("start_zones");
+    });
+
     it("should execute whole-home cleaning through the same target lifecycle", async function() {
         const robot = createRobot();
         let starts = 0;
@@ -126,15 +262,60 @@ describe("CleaningTaskService", function() {
         result.target.should.match({value: "all", segmentIds: [], iterations: 1, source: "webui", active: true});
     });
 
-    it("should preserve an automatic draft when whole-home Start is pressed", async function() {
+    it("should preserve firmware automatic mode for Basic whole-home Start", async function() {
         const robot = createRobot();
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.PresetSelectionStateAttribute({
+            type: stateAttrs.PresetSelectionStateAttribute.TYPE.AUTOMATIC_CONTROL,
+            value: "routine"
+        }));
         robot.capabilities.BasicControlCapability = {start: async () => {}};
         const service = new CleaningTaskService({robot: robot});
-        service.stageTarget({value: "automatic", segmentIds: [], source: "webui"});
 
         const result = await service.startAll({source: "webui"});
 
         result.target.should.match({value: "automatic", segmentIds: [], source: "webui", active: true});
+    });
+
+    it("should keep Basic Start as whole-home even when another draft was staged", async function() {
+        const robot = createRobot();
+        robot.capabilities.BasicControlCapability = {start: async () => {}};
+        const service = new CleaningTaskService({robot: robot});
+        service.stageTarget({value: "segments", segmentIds: [], source: "webui"});
+
+        const result = await service.startAll({source: "webui"});
+
+        result.target.should.match({value: "all", segmentIds: [], source: "webui", active: true});
+    });
+
+    it("should reject a staged-target Start when its revision changed", async function() {
+        const robot = createRobot();
+        robot.capabilities.BasicControlCapability = {start: async () => {}};
+        const service = new CleaningTaskService({robot: robot});
+        const target = service.stageTarget({value: "all", segmentIds: [], source: "webui"});
+        service.stageTarget({value: "all", segmentIds: [], source: "matter"});
+
+        await should(service.startTarget({expectedRevision: target.revision}))
+            .be.rejectedWith("The cleaning target changed before the operation could be applied");
+    });
+
+    it("should treat Web UI Start while paused as resume", async function() {
+        const robot = createRobot();
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({value: "paused"}));
+        robot.setCleaningTarget({value: "segments", segmentIds: ["4"], source: "webui", active: true});
+        robot.capabilities.BasicControlCapability = {
+            start: async () => {
+                robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({value: "cleaning"}));
+            }
+        };
+        const service = new CleaningTaskService({robot: robot, verificationTimeoutMs: 10});
+
+        const result = await service.startAll({source: "webui"});
+        await new Promise(resolve => setImmediate(resolve));
+
+        result.target.should.match({value: "segments", segmentIds: ["4"], active: true});
+        robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.CleaningCommandStateAttribute
+        ).should.match({command: "resume", state: "verified", source: "webui"});
     });
 
     it("should publish an identifiable accepted and verified command lifecycle", async function() {

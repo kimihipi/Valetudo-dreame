@@ -8,7 +8,6 @@ const BasicControlCapability = require("../core/capabilities/BasicControlCapabil
 const CallbackAttributeSubscriber = require("../entities/CallbackAttributeSubscriber");
 const CleanRouteControlCapability = require("../core/capabilities/CleanRouteControlCapability");
 const ConsumableMonitoringCapability = require("../core/capabilities/ConsumableMonitoringCapability");
-const CurrentStatisticsCapability = require("../core/capabilities/CurrentStatisticsCapability");
 const env = require("../res/env");
 const FanSpeedControlCapability = require("../core/capabilities/FanSpeedControlCapability");
 const LocateCapability = require("../core/capabilities/LocateCapability");
@@ -17,11 +16,9 @@ const MapLayer = require("../entities/map/MapLayer");
 const MapSegmentationCapability = require("../core/capabilities/MapSegmentationCapability");
 const MopDockMopDryingTimeControlCapability = require("../core/capabilities/MopDockMopDryingTimeControlCapability");
 const OperationModeControlCapability = require("../core/capabilities/OperationModeControlCapability");
-const PointMapEntity = require("../entities/map/entities/PointMapEntity");
 const stateAttrs = require("../entities/state/attributes");
 const Tools = require("../utils/Tools");
 const ValetudoConsumable = require("../entities/core/ValetudoConsumable");
-const ValetudoDataPoint = require("../entities/core/ValetudoDataPoint");
 const ValetudoRobotError = require("../entities/core/ValetudoRobotError");
 const WaterUsageControlCapability = require("../core/capabilities/WaterUsageControlCapability");
 
@@ -61,7 +58,6 @@ const CLEAN_MODE_VERIFICATION_DELAY_MS = 150;
 const STATE_SYNC_DEBOUNCE_MS = 75;
 const MAP_STATE_SYNC_INTERVAL_MS = 2_000;
 const SERVICE_AREA_TOPOLOGY_INTERVAL_MS = 10_000;
-const ROOM_DETECTION_INTERVAL_MS = 5_000;
 const FILTER_RESOURCE_POLL_INTERVAL_MS = 300_000;
 const AUXILIARY_REFRESH_INTERVAL_MS = 30_000;
 const MATTER_TRANSACTION_RETRY_MS = 100;
@@ -145,24 +141,18 @@ class MatterController {
         this.filterResourceMeta = null;
         this.waterTankResourceSupported = false;
         this.lastFilterResourcePoll = 0;
-        this.estimation = null;
-        this.statisticsCache = {timestamp: 0, data: null};
         this.filterResourceStateCache = null;
         this.dryingDurationSecondsCache = null;
         this.auxiliaryRefreshTimer = null;
         this.auxiliaryRefreshRunning = false;
         this.auxiliaryRefreshEnabled = false;
         this.phaseEstimate = {phase: null, startedAt: null, total: null};
-        this.chargingSample = null;
-        this.currentCleaningRate = null;
         this.lastServiceAreaTopologyHash = null;
         this.lastServiceAreaTopologyCheck = 0;
         this.mapTopologyVersion = null;
         this.lastPublishedCountdown = {value: null, phase: null, timestamp: 0};
         this.lastPublishedRvcState = null;
         this.lastPublishedBatteryState = null;
-        this.mapSegmentCache = {version: null, dirty: true, bySegmentId: new Map(), byAreaId: new Map()};
-        this.lastRoomDetectionAt = 0;
         this.robotStateSyncTimer = null;
         this.robotStateSyncDueAt = 0;
         this.robotStateSyncRunning = false;
@@ -365,11 +355,9 @@ class MatterController {
         const topologyVersion = this.getMapTopologyVersion();
         const topologyChanged = topologyVersion !== this.mapTopologyVersion;
         if (topologyChanged) {
-            this.mapSegmentCache.dirty = true;
             this.mapTopologyVersion = topologyVersion;
             this.lastServiceAreaTopologyCheck = 0;
             this.lastServiceAreaTopologyHash = null;
-            this.lastRoomDetectionAt = 0;
         }
         if (!topologyChanged) {
             return;
@@ -386,11 +374,6 @@ class MatterController {
      */
     loadConfig() {
         this.currentConfig = structuredClone(this.config.get("matter"));
-        this.estimation = structuredClone(this.config.get("matterEstimation")) ?? {
-            cleaningRates: {},
-            washingDuration: {value: 0, samples: 0},
-            chargingRate: {value: 0, samples: 0}
-        };
     }
 
     /**
@@ -832,13 +815,7 @@ class MatterController {
 
             const phase = this.getMatterPhase();
             const phaseName = phase === null ? null : MATTER_PHASES[phase];
-            timedStateUpdate = ["Cleaning", "Charging", "Mop washing", "Drying"].includes(phaseName);
-            if (phaseName === "Cleaning" &&
-                Date.now() - this.statisticsCache.timestamp >= AUXILIARY_REFRESH_INTERVAL_MS) {
-                const previousStatistics = this.statisticsCache.data;
-                await this.getCurrentStatisticsCached(true);
-                changed ||= !STATE_VALUES_EQUAL(previousStatistics, this.statisticsCache.data);
-            }
+            timedStateUpdate = ["Cleaning", "Drying"].includes(phaseName);
             if (phaseName === "Drying" && this.dryingDurationSecondsCache === null) {
                 const capability = this.robot.capabilities[MopDockMopDryingTimeControlCapability.TYPE];
                 try {
@@ -912,136 +889,10 @@ class MatterController {
      * @return {number|null}
      */
     getCurrentOperationDuration() {
-        const time = this.statisticsCache.data?.time;
-        if (Number.isFinite(time) && time >= 0 && time <= 0xffffffff) {
-            return Math.round(time);
-        }
-
         if (this.matterOperation.startedAt !== null) {
             return Math.min(0xffffffff, Math.max(0, Math.round((Date.now() - this.matterOperation.startedAt) / 1000)));
         }
         return null;
-    }
-
-    /** @private */
-    getEstimationKey() {
-        const mode = this.getMatterCleanMode();
-        const mapping = this.cleanModeMatterModeToPreset.get(mode);
-        return mapping ? `${mapping.operationMode}:${mapping.profile}` : "default";
-    }
-
-    /**
-     * @private
-     * @param {string} collection
-     * @param {string|null} key
-     * @param {number} sample
-     */
-    learnEstimate(collection, key, sample) {
-        if (!Number.isFinite(sample) || sample <= 0) {
-            return;
-        }
-        const previous = key === null ? this.estimation[collection] : this.estimation[collection][key];
-        const samples = Math.min(1000, (previous?.samples ?? 0) + 1);
-        const value = previous?.samples > 0 ? previous.value * 0.8 + sample * 0.2 : sample;
-        const learned = {value: value, samples: samples};
-        if (key === null) {
-            this.estimation[collection] = learned;
-        } else {
-            this.estimation[collection][key] = learned;
-        }
-        this.config.set("matterEstimation", structuredClone(this.estimation));
-    }
-
-    /**
-     * Persists one charging-rate sample for the whole charging session. Battery updates while
-     * charging only update chargingSample in memory, avoiding a full configuration write every
-     * five minutes. A partial session is deliberately discarded if Matter is shut down before
-     * charging completes.
-     *
-     * @private
-     */
-    finishChargingSample() {
-        const sample = this.chargingSample;
-        this.chargingSample = null;
-        if (!sample) {
-            return;
-        }
-        const elapsed = (sample.lastTimestamp - sample.timestamp) / 1000;
-        const gained = sample.lastLevel - sample.level;
-        if (elapsed >= 300 && gained >= 3) {
-            this.learnEstimate("chargingRate", null, gained / elapsed);
-        }
-    }
-
-    /**
-     * @private
-     * @param {boolean} [force]
-     */
-    async getCurrentStatisticsCached(force = false) {
-        if (!force && Date.now() - this.statisticsCache.timestamp < 30_000) {
-            return this.statisticsCache.data;
-        }
-        const capability = this.robot.capabilities[CurrentStatisticsCapability.TYPE];
-        if (!capability) {
-            return null;
-        }
-        try {
-            const statistics = await capability.getStatistics();
-            const result = {
-                time: statistics.find(item => item.type === ValetudoDataPoint.TYPES.TIME)?.value,
-                area: statistics.find(item => item.type === ValetudoDataPoint.TYPES.AREA)?.value
-            };
-            this.statisticsCache = {timestamp: Date.now(), data: result};
-            return result;
-        } catch (e) {
-            Logger.debug("Unable to retrieve statistics for Matter estimates", e);
-            return null;
-        }
-    }
-
-    /** @private */
-    learnCleaningRate() {
-        const statistics = this.statisticsCache.data;
-        if (statistics?.time >= 60 && statistics?.area >= 5_000) {
-            this.learnEstimate("cleaningRates", this.getEstimationKey(), statistics.time / statistics.area);
-        }
-    }
-
-    /**
-     * @private
-     * @param {number} areaId
-     */
-    getAreaForServiceArea(areaId) {
-        this.rebuildMapSegmentCache();
-        return this.mapSegmentCache.byAreaId.get(areaId)?.area;
-    }
-
-    /** @private */
-    rebuildMapSegmentCache() {
-        const map = this.robot.state.map;
-        const version = this.getMapTopologyVersion();
-        if (!this.mapSegmentCache.dirty && this.mapSegmentCache.version === version) {
-            return;
-        }
-        const bySegmentId = new Map();
-        const byAreaId = new Map();
-        const areaIdsBySegmentId = new Map([...this.serviceAreaSegments.entries()].map(([areaId, segment]) => {
-            return [String(segment.id), areaId];
-        }));
-        for (const layer of map?.layers ?? []) {
-            if (layer.type !== MapLayer.TYPE.SEGMENT) {
-                continue;
-            }
-            const segmentId = String(layer.metaData.segmentId);
-            const areaId = areaIdsBySegmentId.get(segmentId);
-            const area = layer.metaData.area ?? (layer.dimensions?.pixelCount * (map?.pixelSize ?? 0) ** 2);
-            const entry = {areaId: areaId, area: area, layer: layer};
-            bySegmentId.set(segmentId, entry);
-            if (areaId !== undefined) {
-                byAreaId.set(areaId, entry);
-            }
-        }
-        this.mapSegmentCache = {version: version, dirty: false, bySegmentId: bySegmentId, byAreaId: byAreaId};
     }
 
     /**
@@ -1080,94 +931,22 @@ class MatterController {
         const now = Date.now();
         const phaseName = phase === null ? null : MATTER_PHASES[phase];
         if (phaseName !== this.phaseEstimate.phase) {
-            if (this.phaseEstimate.phase === "Mop washing" && this.phaseEstimate.startedAt) {
-                const duration = (now - this.phaseEstimate.startedAt) / 1000;
-                if (duration >= 30 && duration <= 3600) {
-                    this.learnEstimate("washingDuration", null, duration);
-                }
-            }
-            this.phaseEstimate = {phase: phaseName, startedAt: phaseName ? now : null, total: null};
+            this.phaseEstimate = {phase: phaseName, startedAt: phaseName === "Drying" ? now : null, total: null};
             if (phaseName === "Drying") {
                 this.phaseEstimate.total = this.dryingDurationSecondsCache;
-            } else if (phaseName === "Mop washing" && this.estimation.washingDuration.samples >= 2) {
-                this.phaseEstimate.total = this.estimation.washingDuration.value;
             }
         }
-
-        const battery = this.robot.state.getFirstMatchingAttributeByConstructor(stateAttrs.BatteryStateAttribute);
-        if (phaseName === "Charging" && battery?.flag === stateAttrs.BatteryStateAttribute.FLAG.CHARGING) {
-            if (!this.chargingSample) {
-                this.chargingSample = {
-                    level: battery.level,
-                    timestamp: now,
-                    lastLevel: battery.level,
-                    lastTimestamp: now
-                };
-            } else {
-                this.chargingSample.lastLevel = battery.level;
-                this.chargingSample.lastTimestamp = now;
-            }
-            const elapsed = (now - this.chargingSample.timestamp) / 1000;
-            const gained = battery.level - this.chargingSample.level;
-            const liveRate = elapsed >= 300 && gained >= 3 ? gained / elapsed : null;
-            const learnedRate = this.estimation.chargingRate.samples >= 2 && this.estimation.chargingRate.value > 0 ?
-                this.estimation.chargingRate.value : null;
-            const chargingRate = liveRate ?? learnedRate;
-            if (chargingRate) {
-                return Math.min(0xffffffff, Math.round((100 - battery.level) / chargingRate));
-            }
-        } else {
-            this.finishChargingSample();
-        }
-
-        if (["Drying", "Mop washing"].includes(phaseName) && this.phaseEstimate.total) {
+        if (phaseName === "Drying" && this.phaseEstimate.total) {
             return Math.max(0, Math.round(this.phaseEstimate.total - (now - this.phaseEstimate.startedAt) / 1000));
         }
         if (phaseName !== "Cleaning") {
-            this.currentCleaningRate = null;
             return null;
         }
-
-        const sharedRoomEstimate = this.cleaningTaskManager?.estimateRemaining();
-        if (sharedRoomEstimate !== null && sharedRoomEstimate !== undefined) {
-            return Math.min(0xffffffff, sharedRoomEstimate);
-        }
-
-        const statistics = this.statisticsCache.data;
-        let secondsPerCm2 = statistics?.time >= 60 && statistics?.area >= 5_000 ?
-            statistics.time / statistics.area : null;
-        const learned = this.estimation.cleaningRates[this.getEstimationKey()];
-        if (!secondsPerCm2 && learned?.samples >= 1) {
-            secondsPerCm2 = learned.value;
-        }
-        if (!secondsPerCm2) {
-            this.currentCleaningRate = null;
-            return null;
-        }
-        this.currentCleaningRate = secondsPerCm2;
-
-        const selectedAreas = this.rvcEndpoint?.state?.serviceArea?.selectedAreas ?? [];
-        let remainingArea;
-        if (selectedAreas.length > 0) {
-            remainingArea = selectedAreas.reduce((sum, areaId) => {
-                const progress = this.serviceAreaProgress.get(areaId);
-                return progress?.status === matterModules.ServiceArea.OperationalStatus.Completed ? sum :
-                    sum + (this.getAreaForServiceArea(areaId) ?? 0);
-            }, 0);
-            const currentProgress = this.currentServiceArea !== null ?
-                this.serviceAreaProgress.get(this.currentServiceArea) : null;
-            const elapsedCurrent = (currentProgress?.elapsedSeconds ?? 0) + (currentProgress?.startedAt ?
-                (Date.now() - currentProgress.startedAt) / 1000 : 0);
-            return remainingArea > 0 ? Math.min(0xffffffff,
-                Math.max(0, Math.round(remainingArea * secondsPerCm2 - elapsedCurrent))) : null;
-        } else {
-            const totalArea = this.robot.state.map?.layers?.filter(layer =>
-                layer.type === MapLayer.TYPE.SEGMENT && !layer.metaData.hidden)
-                .reduce((sum, layer) => sum + (layer.metaData.area ??
-                    layer.dimensions.pixelCount * this.robot.state.map.pixelSize ** 2), 0) ?? 0;
-            remainingArea = Math.max(0, totalArea - (statistics?.area ?? 0));
-        }
-        return remainingArea > 0 ? Math.min(0xffffffff, Math.round(remainingArea * secondsPerCm2)) : null;
+        const task = this.robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.ActiveCleaningTaskStateAttribute
+        );
+        const remaining = task?.progress?.estimatedRemainingSeconds;
+        return Number.isFinite(remaining) ? Math.min(0xffffffff, Math.max(0, Math.round(remaining))) : null;
     }
 
     /**
@@ -1196,10 +975,7 @@ class MatterController {
             this.filterResourceMeta = null;
             this.waterTankResourceSupported = false;
             this.lastFilterResourcePoll = 0;
-            this.statisticsCache = {timestamp: 0, data: null};
             this.phaseEstimate = {phase: null, startedAt: null, total: null};
-            this.chargingSample = null;
-            this.currentCleaningRate = null;
             let completionErrorCode = matterModules.OperationalState.ErrorState.UnableToCompleteOperation;
             if (outcome === "completed") {
                 completionErrorCode = matterModules.OperationalState.ErrorState.NoError;
@@ -1211,9 +987,6 @@ class MatterController {
             }
             const totalOperationalTime = this.getCurrentOperationDuration();
             const pausedTime = Math.min(0xffffffff, Math.round(operation.pausedMilliseconds / 1000));
-            if (completionErrorCode === matterModules.OperationalState.ErrorState.NoError) {
-                this.learnCleaningRate();
-            }
             this.matterOperation = MatterController.NEW_OPERATION_TRACKER();
             return {
                 completionErrorCode: completionErrorCode,
@@ -1261,9 +1034,6 @@ class MatterController {
 
         const totalOperationalTime = this.getCurrentOperationDuration();
         const pausedTime = Math.min(0xffffffff, Math.round(operation.pausedMilliseconds / 1000));
-        if (completionErrorCode === matterModules.OperationalState.ErrorState.NoError) {
-            this.learnCleaningRate();
-        }
         this.matterOperation = MatterController.NEW_OPERATION_TRACKER();
 
         return {completionErrorCode: completionErrorCode, totalOperationalTime: totalOperationalTime, pausedTime: pausedTime};
@@ -1347,7 +1117,6 @@ class MatterController {
         const usedNames = new Set();
         const areas = [];
         this.serviceAreaSegments.clear();
-        this.mapSegmentCache.dirty = true;
 
         for (const segment of segments.slice(0, 255)) {
             const rawId = String(segment.id ?? "").trim();
@@ -1428,8 +1197,8 @@ class MatterController {
         const progress = preservedSelection.map(areaId => this.serviceAreaProgress.get(areaId) ?? ({
             areaId: areaId,
             status: matterModules.ServiceArea.OperationalStatus.Pending
-        })).map(({areaId, status, totalOperationalTime = null}) => ({
-            areaId: areaId, status: status, totalOperationalTime: totalOperationalTime
+        })).map(({areaId, status}) => ({
+            areaId: areaId, status: status, totalOperationalTime: null, estimatedTime: null
         }));
         await this.rvcEndpoint.act(agent => {
             agent.serviceArea.state.selectedAreas = [];
@@ -1440,50 +1209,6 @@ class MatterController {
                 agent.serviceArea.state.currentArea = null;
             }
         });
-    }
-
-    /**
-     * Fallback for legacy or temporarily untracked cleaning operations. Normal
-     * room progress comes from CleaningTaskManager's shared active-task state.
-     * Finds the selected Matter area containing the robot's current map position;
-     * a small radius handles coordinate rounding at room borders.
-     *
-     * @private
-     * @return {number|null}
-     */
-    detectCurrentServiceAreaFallback() {
-        const map = this.robot.state.map;
-        const position = map?.entities?.find(entity => entity.type === PointMapEntity.TYPE.ROBOT_POSITION);
-        if (!position || !map.pixelSize) {
-            return null;
-        }
-        const x = Math.round(position.points[0] / map.pixelSize);
-        const y = Math.round(position.points[1] / map.pixelSize);
-        const selected = new Set(this.getTrackedServiceAreaIds());
-        this.rebuildMapSegmentCache();
-
-        for (let radius = 0; radius <= 2; radius++) {
-            for (const [areaId, entry] of this.mapSegmentCache.byAreaId) {
-                if (!selected.has(areaId)) {
-                    continue;
-                }
-                const dimensions = entry.layer.dimensions;
-                if (x + radius < dimensions.x.min || x - radius > dimensions.x.max ||
-                    y + radius < dimensions.y.min || y - radius > dimensions.y.max) {
-                    continue;
-                }
-                const pixels = entry.layer.compressedPixels;
-                for (let i = 0; i < pixels.length; i += 3) {
-                    const start = pixels[i];
-                    const row = pixels[i + 1];
-                    const count = pixels[i + 2];
-                    if (Math.abs(row - y) <= radius && x + radius >= start && x - radius < start + count) {
-                        return areaId;
-                    }
-                }
-            }
-        }
-        return null;
     }
 
     /**
@@ -1535,13 +1260,11 @@ class MatterController {
         const statuses = matterModules.ServiceArea.OperationalStatus;
         const nextProgress = new Map();
         trackedAreaIds.forEach((areaId, index) => {
-            const previous = this.serviceAreaProgress.get(areaId);
             nextProgress.set(areaId, {
                 areaId: areaId,
                 status: areaId === currentArea ? statuses.Operating :
                     (hasExactCompletedRooms ? completedAreaIds.has(areaId) : index < completedRooms) ?
-                        statuses.Completed : statuses.Pending,
-                totalOperationalTime: previous?.totalOperationalTime ?? null
+                        statuses.Completed : statuses.Pending
             });
         });
         this.serviceAreaProgress = nextProgress;
@@ -1579,60 +1302,15 @@ class MatterController {
         if (operationCompletion) {
             const success = operationCompletion.completionErrorCode ===
                 matterModules.OperationalState.ErrorState.NoError;
-            for (const [areaId, progress] of this.serviceAreaProgress) {
+            for (const areaId of this.serviceAreaProgress.keys()) {
                 const completed = success;
                 this.serviceAreaProgress.set(areaId, {
                     areaId: areaId,
-                    status: completed ? statuses.Completed : statuses.Skipped,
-                    totalOperationalTime: progress.startedAt || progress.elapsedSeconds ? Math.min(0xffffffff,
-                        (progress.elapsedSeconds ?? 0) + (progress.startedAt ?
-                            Math.round((Date.now() - progress.startedAt) / 1000) : 0)) : null
+                    status: completed ? statuses.Completed : statuses.Skipped
                 });
             }
             this.currentServiceArea = null;
-            return;
         }
-
-        const status = this.robot.state.getFirstMatchingAttributeByConstructor(stateAttrs.StatusStateAttribute);
-        if (![stateAttrs.StatusStateAttribute.VALUE.CLEANING, stateAttrs.StatusStateAttribute.VALUE.PAUSED]
-            .includes(status?.value)) {
-            return;
-        }
-        const now = Date.now();
-        if (this.lastRoomDetectionAt > 0 && now - this.lastRoomDetectionAt < ROOM_DETECTION_INTERVAL_MS) {
-            return;
-        }
-        this.lastRoomDetectionAt = now;
-        // Normally CleaningTaskManager supplies currentSegmentId through the shared active-task
-        // attribute and the early return above projects it directly. Keep pixel scanning only for
-        // legacy/untracked tasks where no usable shared task exists.
-        let detectedArea = this.detectCurrentServiceAreaFallback();
-        if (detectedArea === null && trackedAreas.length === 1) {
-            detectedArea = trackedAreas[0];
-        }
-        if (detectedArea === null || detectedArea === this.currentServiceArea) {
-            return;
-        }
-        if (this.currentServiceArea !== null) {
-            const previous = this.serviceAreaProgress.get(this.currentServiceArea);
-            if (previous?.status === statuses.Operating) {
-                this.serviceAreaProgress.set(this.currentServiceArea, {
-                    areaId: this.currentServiceArea,
-                    status: statuses.Completed,
-                    totalOperationalTime: Math.min(0xffffffff,
-                        (previous.elapsedSeconds ?? 0) + (previous.startedAt ?
-                            Math.round((Date.now() - previous.startedAt) / 1000) : 0))
-                });
-            }
-        }
-        this.currentServiceArea = detectedArea;
-        this.serviceAreaProgress.set(detectedArea, {
-            areaId: detectedArea,
-            status: statuses.Operating,
-            startedAt: Date.now(),
-            elapsedSeconds: this.serviceAreaProgress.get(detectedArea)?.totalOperationalTime ??
-                this.serviceAreaProgress.get(detectedArea)?.elapsedSeconds ?? 0
-        });
     }
 
     /**
@@ -1656,10 +1334,14 @@ class MatterController {
             });
             return;
         }
-        await this.cleaningTaskService.startAll({
-            expectedRevision: target?.revision,
-            source: "matter"
-        });
+        if (target) {
+            await this.cleaningTaskService.startTarget({
+                expectedRevision: target.revision,
+                source: "matter"
+            });
+        } else {
+            await this.cleaningTaskService.startAll({source: "matter"});
+        }
     }
 
     /**
@@ -1707,7 +1389,7 @@ class MatterController {
      * @private
      * @param {Array<number>} areaIds
      */
-    handleMatterAreaSelection(areaIds) {
+    async handleMatterAreaSelection(areaIds) {
         const orderedAreaIds = this.orderMatterAreaIds(areaIds);
         const segmentIds = orderedAreaIds.map(areaId => this.serviceAreaSegments.get(areaId)?.id)
             .filter(id => id !== undefined);
@@ -1729,7 +1411,10 @@ class MatterController {
             });
         } catch (error) {
             Logger.warn("Unable to stage Matter Service Area selection", error);
+            return;
         }
+
+        await this.cleaningTaskService.disableAutomaticControlForManualTarget();
     }
 
     /**
@@ -1859,7 +1544,8 @@ class MatterController {
             progress: [...this.serviceAreaProgress.values()].map(entry => ({
                 areaId: entry.areaId,
                 status: entry.status,
-                totalOperationalTime: entry.totalOperationalTime ?? null
+                totalOperationalTime: null,
+                estimatedTime: null
             })),
             countdownTime: Number.isFinite(task.progress?.estimatedRemainingSeconds) ?
                 Math.max(0, Math.round(task.progress.estimatedRemainingSeconds)) : null,
@@ -1908,7 +1594,8 @@ class MatterController {
         const progress = areaIds.map(areaId => ({
             areaId: areaId,
             status: statuses.Pending,
-            totalOperationalTime: null
+            totalOperationalTime: null,
+            estimatedTime: null
         }));
         await this.rvcEndpoint.act(agent => {
             agent.serviceArea.state.selectedAreas = areaIds;
@@ -2264,17 +1951,14 @@ class MatterController {
             if (publishCountdown) {
                 this.lastPublishedCountdown = {value: countdownTime, phase: currentPhase, timestamp: now};
             }
-            let currentAreaCountdown = null;
-            if (this.currentServiceArea !== null && this.currentCleaningRate) {
-                const progress = this.serviceAreaProgress.get(this.currentServiceArea);
-                const elapsed = (progress?.elapsedSeconds ?? 0) + (progress?.startedAt ?
-                    (Date.now() - progress.startedAt) / 1000 : 0);
-                currentAreaCountdown = Math.max(0, Math.round(
-                    (this.getAreaForServiceArea(this.currentServiceArea) ?? 0) * this.currentCleaningRate - elapsed
-                ));
-            }
             const runMode = this.getMatterRunMode();
             const cleanMode = this.getMatterCleanMode();
+            const sharedTask = this.robot.state.getFirstMatchingAttributeByConstructor(
+                stateAttrs.ActiveCleaningTaskStateAttribute
+            );
+            const estimatedCompletionMs = Date.parse(sharedTask?.progress?.estimatedCompletionTime ?? "");
+            const estimatedEndTime = Number.isFinite(estimatedCompletionMs) ?
+                Math.round(estimatedCompletionMs / 1000) : null;
             const progressAreaIds = this.serviceAreaProgress.size > 0 ?
                 [...this.serviceAreaProgress.keys()] : this.getTrackedServiceAreaIds();
             const progressState = progressAreaIds.map(areaId => {
@@ -2285,9 +1969,8 @@ class MatterController {
                 return {
                     areaId: areaId,
                     status: progress.status,
-                    totalOperationalTime: progress.totalOperationalTime ?? null,
-                    estimatedTime: this.currentCleaningRate ? Math.min(0xffffffff,
-                        Math.round((this.getAreaForServiceArea(areaId) ?? 0) * this.currentCleaningRate)) : null
+                    totalOperationalTime: null,
+                    estimatedTime: null
                 };
             });
             const nextRvcState = {
@@ -2299,8 +1982,7 @@ class MatterController {
                 cleanMode: cleanMode,
                 currentArea: this.currentServiceArea,
                 progress: progressState,
-                estimatedEndTime: publishCountdown ? (currentAreaCountdown !== null ?
-                    Math.round(now / 1000) + currentAreaCountdown : null) :
+                estimatedEndTime: publishCountdown ? estimatedEndTime :
                     this.lastPublishedRvcState?.estimatedEndTime,
                 filterResource: filterResourceState ?? this.lastPublishedRvcState?.filterResource ?? null,
                 waterTankResource: waterTankResourceState ?? this.lastPublishedRvcState?.waterTankResource ?? null
@@ -2515,28 +2197,14 @@ class MatterController {
                     this.cleaningTaskService.home({source: "matter"})) : undefined,
                 serviceArea: !!mapSegmentationCapability,
                 selectAreas: mapSegmentationCapability ? areaIds => {
-                    this.handleMatterAreaSelection(areaIds);
+                    this.executeMatterCommand(() => this.handleMatterAreaSelection(areaIds)).catch(error => {
+                        Logger.warn("Unable to apply Matter Service Area selection", error);
+                    });
                 } : undefined,
                 resetFilter: this.filterResourceMeta ? () => this.executeMatterCommand(() =>
                     this.resetFilterResource()) : undefined,
                 refreshWaterTank: this.waterTankResourceSupported ? () => this.executeMatterCommand(() =>
-                    this.robot.pollState()) : undefined,
-                skipArea: typeof (/** @type {any} */ (mapSegmentationCapability))?.skipSegment === "function" ? areaId =>
-                    this.executeMatterCommand(async () => {
-                        const segment = this.serviceAreaSegments.get(areaId);
-                        if (!segment) {
-                            throw new Error("Selected room is no longer available");
-                        }
-                        await (/** @type {any} */ (mapSegmentationCapability)).skipSegment(segment);
-                        this.serviceAreaProgress.set(areaId, {
-                            areaId: areaId,
-                            status: matterModules.ServiceArea.OperationalStatus.Skipped,
-                            totalOperationalTime: null
-                        });
-                        if (this.currentServiceArea === areaId) {
-                            this.currentServiceArea = null;
-                        }
-                    }) : undefined
+                    this.robot.pollState()) : undefined
             });
 
             this.node = await this.createServerNodeWithLockRetry(ServerNode, {
@@ -2762,13 +2430,10 @@ class MatterController {
         this.filterResourceMeta = null;
         this.waterTankResourceSupported = false;
         this.lastFilterResourcePoll = 0;
-        this.statisticsCache = {timestamp: 0, data: null};
         this.filterResourceStateCache = null;
         this.dryingDurationSecondsCache = null;
         this.auxiliaryRefreshRunning = false;
         this.phaseEstimate = {phase: null, startedAt: null, total: null};
-        this.chargingSample = null;
-        this.currentCleaningRate = null;
         this.lastServiceAreaTopologyHash = null;
         this.lastServiceAreaTopologyCheck = 0;
         this.mapTopologyVersion = null;
@@ -2776,8 +2441,6 @@ class MatterController {
         this.lastPublishedRvcState = null;
         this.lastPublishedBatteryState = null;
         this.lastPublishedTaskProjection = null;
-        this.mapSegmentCache = {version: null, dirty: true, bySegmentId: new Map(), byAreaId: new Map()};
-        this.lastRoomDetectionAt = 0;
         this.matterOperation = MatterController.NEW_OPERATION_TRACKER();
 
         this.state = STATE.DISABLED;

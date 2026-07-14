@@ -58,9 +58,6 @@
           "matter": {
             "$ref": "#/components/schemas/MatterConfigDTO"
           },
-          "matterEstimation": {
-            "$ref": "#/components/schemas/MatterEstimationDTO"
-          },
           "ntpClient": {
             "$ref": "#/components/schemas/NTPClientConfigDTO"
           },
@@ -489,28 +486,6 @@
             "description": "Per-cluster interface toggles. Empty in this build; populated in later phases.",
             "properties": {}
           }
-        }
-      },
-      "MatterEstimationSampleDTO": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["value", "samples"],
-        "properties": {
-          "value": {"type": "number", "minimum": 0},
-          "samples": {"type": "integer", "minimum": 0}
-        }
-      },
-      "MatterEstimationDTO": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["cleaningRates", "washingDuration", "chargingRate"],
-        "properties": {
-          "cleaningRates": {
-            "type": "object",
-            "additionalProperties": {"$ref": "#/components/schemas/MatterEstimationSampleDTO"}
-          },
-          "washingDuration": {"$ref": "#/components/schemas/MatterEstimationSampleDTO"},
-          "chargingRate": {"$ref": "#/components/schemas/MatterEstimationSampleDTO"}
         }
       },
       "MatterCleanModeProfileDTO": {

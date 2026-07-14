@@ -275,6 +275,7 @@ const PresetsSubmenu = ({ operationMode, fanSpeed, waterControl, cleanRoute, aut
         RobotAttributeClass.PresetSelectionState,
         (attrs) => attrs.find(a => a.type === "water_grade")
     );
+    const {data: currentRoute} = useCleanRouteQuery(cleanRoute && !automaticIsActive);
     const [suctionBoostSupported] = useCapabilitiesSupported(Capability.SuctionBoostControl);
     const {data: suctionBoostState} = useSuctionBoostControlQuery();
     const {mutate: setSuctionBoost} = useSuctionBoostControlMutation();
@@ -322,8 +323,17 @@ const PresetsSubmenu = ({ operationMode, fanSpeed, waterControl, cleanRoute, aut
                 </Box>
             );
         }
+        if (cleanRoute && currentRoute) {
+            const RouteIcon = CLEAN_ROUTE_ICON_COMPONENTS[currentRoute];
+            parts.push(
+                <Box key="route" sx={{display: "inline-flex", alignItems: "center", gap: "3px"}}>
+                    <RouteIcon style={purpleIconStyle}/>
+                    {CLEAN_ROUTE_LABELS[currentRoute]}
+                </Box>
+            );
+        }
         return parts;
-    }, [automaticIsActive, currentLevel, purpleIconStyle, fanSpeed, fanSpeedPreset, fanIconStyle, waterControl, waterPreset, waterIconStyle]);
+    }, [automaticIsActive, currentLevel, purpleIconStyle, fanSpeed, fanSpeedPreset, fanIconStyle, waterControl, waterPreset, waterIconStyle, cleanRoute, currentRoute]);
 
     return (
         <Paper variant="outlined" sx={{mt: 1, p: 1, backgroundColor: "transparent"}}>

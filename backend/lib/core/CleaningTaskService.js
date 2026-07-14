@@ -1,6 +1,8 @@
 const crypto = require("crypto");
 
 const ActiveCleaningTaskStateAttribute = require("../entities/state/attributes/ActiveCleaningTaskStateAttribute");
+const AttributeSubscriber = require("../entities/AttributeSubscriber");
+const AutomaticControlCapability = require("./capabilities/AutomaticControlCapability");
 const BasicControlCapability = require("./capabilities/BasicControlCapability");
 const CallbackAttributeSubscriber = require("../entities/CallbackAttributeSubscriber");
 const CleaningCommandStateAttribute = require("../entities/state/attributes/CleaningCommandStateAttribute");
@@ -11,6 +13,8 @@ const MapSegmentationCapability = require("./capabilities/MapSegmentationCapabil
 const PresetSelectionStateAttribute = require("../entities/state/attributes/PresetSelectionStateAttribute");
 const StatusStateAttribute = require("../entities/state/attributes/StatusStateAttribute");
 const ValetudoMapSegment = require("../entities/core/ValetudoMapSegment");
+const ValetudoZone = require("../entities/core/ValetudoZone");
+const ZoneCleaningCapability = require("./capabilities/ZoneCleaningCapability");
 
 const CREATE_CONFLICT_ERROR = (name, message) => {
     const error = /** @type {Error & {statusCode: number}} */ (new Error(message));
@@ -29,10 +33,70 @@ class CleaningTaskService {
         this.robot = options.robot;
         this.verificationTimeoutMs = options.verificationTimeoutMs ?? 5_000;
         this.commandQueue = Promise.resolve();
+        this.initializeDefaultTarget();
     }
 
     getTarget() {
         return this.robot.state.getFirstMatchingAttributeByConstructor(CleaningTargetStateAttribute);
+    }
+
+    /**
+     * Cleaning drafts are process-local. Seed a safe whole-home target at startup and, when
+     * supported, replace only that untouched seed with the first firmware-reported automatic mode.
+     * @private
+     */
+    initializeDefaultTarget() {
+        if (this.getTarget()) {
+            return;
+        }
+        const matcher = {
+            attributeClass: PresetSelectionStateAttribute.name,
+            attributeType: PresetSelectionStateAttribute.TYPE.AUTOMATIC_CONTROL
+        };
+        const automaticAttribute = /** @type {import("../entities/state/attributes/PresetSelectionStateAttribute")|null} */ (
+            this.robot.state.getFirstMatchingAttribute(matcher)
+        );
+        const initialTarget = this.robot.setCleaningTarget(this.normalizeTarget({
+            value: this.getFirmwareWholeHomeTargetValue(),
+            segmentIds: [],
+            source: "system",
+            active: false
+        }));
+
+        if (automaticAttribute || !this.robot.capabilities[AutomaticControlCapability.TYPE]) {
+            return;
+        }
+
+        const subscriber = new CallbackAttributeSubscriber((eventType, attribute) => {
+            if (eventType !== AttributeSubscriber.EVENT_TYPE.ADD &&
+                eventType !== AttributeSubscriber.EVENT_TYPE.CHANGE) {
+                return;
+            }
+            this.robot.state.unsubscribe(subscriber, matcher);
+            const currentTarget = this.getTarget();
+            if (/** @type {any} */ (attribute).value === "off" ||
+                currentTarget?.revision !== initialTarget?.revision ||
+                currentTarget.active) {
+                return;
+            }
+            this.robot.setCleaningTarget(this.normalizeTarget({
+                value: CleaningTargetStateAttribute.VALUE.AUTOMATIC,
+                segmentIds: [],
+                source: "system",
+                active: false,
+                expectedRevision: currentTarget.revision
+            }));
+        });
+        this.robot.state.subscribe(subscriber, matcher);
+    }
+
+    getFirmwareWholeHomeTargetValue() {
+        const automatic = this.robot.state.getFirstMatchingAttribute({
+            attributeClass: PresetSelectionStateAttribute.name,
+            attributeType: PresetSelectionStateAttribute.TYPE.AUTOMATIC_CONTROL
+        });
+        return automatic?.value !== undefined && automatic.value !== "off" ?
+            CleaningTargetStateAttribute.VALUE.AUTOMATIC : CleaningTargetStateAttribute.VALUE.ALL;
     }
 
     /**
@@ -55,33 +119,69 @@ class CleaningTaskService {
         return published;
     }
 
-    /** @param {{source?: string, expectedRevision?: number}} [options] */
+    /** @param {{source?: string}} [options] */
     startAll(options = {}) {
-        const command = this.createCommand(CleaningCommandStateAttribute.COMMAND.START_ALL, options.source);
-        return this.serializeCommand(() => this.startAllLocked(options, command));
+        return this.serializeCommand(() => this.startAllLocked(options));
     }
 
-    async startAllLocked(options, command) {
+    /**
+     * Starts exactly the currently staged target revision.
+     * @param {{source?: string, expectedRevision: number}} options
+     */
+    startTarget(options) {
+        return this.serializeCommand(() => this.startTargetLocked(options));
+    }
+
+    async startTargetLocked(options) {
+        if (!Number.isInteger(options.expectedRevision) || options.expectedRevision < 0) {
+            throw new RangeError("A valid cleaning-target revision is required");
+        }
+        const target = this.getTarget();
+        if (!target || target.revision !== options.expectedRevision) {
+            throw CREATE_CONFLICT_ERROR(
+                "CleaningTargetRevisionError",
+                "The cleaning target changed before the operation could be applied"
+            );
+        }
         const status = this.robot.state.getFirstMatchingAttributeByConstructor(StatusStateAttribute);
-        const capability = this.robot.capabilities[BasicControlCapability.TYPE];
-        if (!capability) {
-            throw new Error("Basic control is not supported");
-        }
         if (status?.value === StatusStateAttribute.VALUE.PAUSED) {
-            return this.executeStartCommand(this.getTarget(), command, () => capability.start());
+            return this.resumeLocked(this.createCommand(CleaningCommandStateAttribute.COMMAND.RESUME, options.source));
         }
-        const currentTarget = this.getTarget();
-        const automatic = currentTarget?.value === CleaningTargetStateAttribute.VALUE.AUTOMATIC;
+        if (target.active) {
+            throw CREATE_CONFLICT_ERROR("CleaningTaskActiveError", "The cleaning target is already active");
+        }
+        if (target.value === CleaningTargetStateAttribute.VALUE.SEGMENTS) {
+            const command = this.createCommand(CleaningCommandStateAttribute.COMMAND.START_SEGMENTS, options.source);
+            return this.executeSegmentTarget(target, command);
+        }
+        if (target.value === CleaningTargetStateAttribute.VALUE.ZONES) {
+            const command = this.createCommand(CleaningCommandStateAttribute.COMMAND.START_ZONES, options.source);
+            return this.executeZoneTarget(target, command);
+        }
+        if (target.value === CleaningTargetStateAttribute.VALUE.ALL ||
+            target.value === CleaningTargetStateAttribute.VALUE.AUTOMATIC) {
+            const command = this.createCommand(CleaningCommandStateAttribute.COMMAND.START_ALL, options.source);
+            return this.executeWholeHomeTarget(target, command);
+        }
+        throw new RangeError("No startable cleaning target is staged");
+    }
+
+    async startAllLocked(options) {
+        const status = this.robot.state.getFirstMatchingAttributeByConstructor(StatusStateAttribute);
+        if (status?.value === StatusStateAttribute.VALUE.PAUSED) {
+            return this.resumeLocked(this.createCommand(CleaningCommandStateAttribute.COMMAND.RESUME, options.source));
+        }
+        const command = this.createCommand(CleaningCommandStateAttribute.COMMAND.START_ALL, options.source);
+        const targetValue = this.getFirmwareWholeHomeTargetValue();
         const draft = this.stageTarget({
-            ...(automatic ? currentTarget : {}),
-            value: automatic ? CleaningTargetStateAttribute.VALUE.AUTOMATIC : CleaningTargetStateAttribute.VALUE.ALL,
+            value: targetValue,
             segmentIds: [],
-            iterations: automatic ? currentTarget.iterations : 1,
+            iterations: 1,
             source: options.source ?? "webui",
             active: false,
-            expectedRevision: options.expectedRevision ?? (automatic ? currentTarget.revision : undefined)
+            expectedRevision: options.expectedRevision
         });
-        return this.startDraft(draft, command, () => capability.start());
+        return this.executeWholeHomeTarget(draft, command);
     }
 
     /**
@@ -95,6 +195,18 @@ class CleaningTaskService {
     startSegments(options) {
         const command = this.createCommand(CleaningCommandStateAttribute.COMMAND.START_SEGMENTS, options.source);
         return this.serializeCommand(() => this.startSegmentsLocked(options, command));
+    }
+
+    /**
+     * @param {object} options
+     * @param {Array<object>} options.zones
+     * @param {number} [options.iterations]
+     * @param {string} [options.source]
+     * @param {number} [options.expectedRevision]
+     */
+    startZones(options) {
+        const command = this.createCommand(CleaningCommandStateAttribute.COMMAND.START_ZONES, options.source);
+        return this.serializeCommand(() => this.startZonesLocked(options, command));
     }
 
     home(options = {}) {
@@ -238,10 +350,6 @@ class CleaningTaskService {
     }
 
     async startSegmentsLocked(options, command) {
-        const capability = this.robot.capabilities[MapSegmentationCapability.TYPE];
-        if (!capability) {
-            throw new Error("Segment cleaning is not supported");
-        }
         if (!Array.isArray(options.segmentIds) || options.segmentIds.length === 0) {
             throw new RangeError("At least one room must be selected");
         }
@@ -253,11 +361,83 @@ class CleaningTaskService {
             active: false,
             expectedRevision: options.expectedRevision
         });
-        const segments = draft.segmentIds.map(id => new ValetudoMapSegment({id: id}));
-        return this.startDraft(draft, command, () => capability.executeSegmentAction(segments, {
-            iterations: draft.iterations,
-            customOrder: options.customOrder === true
+        return this.executeSegmentTarget(draft, command, options.customOrder === true);
+    }
+
+    async startZonesLocked(options, command) {
+        if (!Array.isArray(options.zones) || options.zones.length === 0) {
+            throw new RangeError("At least one zone must be selected");
+        }
+        const draft = this.stageTarget({
+            value: CleaningTargetStateAttribute.VALUE.ZONES,
+            segmentIds: [],
+            zones: options.zones,
+            iterations: options.iterations ?? 1,
+            source: options.source ?? "webui",
+            active: false,
+            expectedRevision: options.expectedRevision
+        });
+        return this.executeZoneTarget(draft, command);
+    }
+
+    async executeWholeHomeTarget(target, command) {
+        const capability = this.robot.capabilities[BasicControlCapability.TYPE];
+        if (!capability) {
+            throw new Error("Basic control is not supported");
+        }
+        if (target.value !== CleaningTargetStateAttribute.VALUE.AUTOMATIC) {
+            await this.disableAutomaticControlForManualTarget();
+        }
+        return this.startDraft(target, command, () => capability.start());
+    }
+
+    async executeSegmentTarget(target, command, customOrder) {
+        const capability = this.robot.capabilities[MapSegmentationCapability.TYPE];
+        if (!capability) {
+            throw new Error("Segment cleaning is not supported");
+        }
+        if (target.segmentIds.length === 0) {
+            throw new RangeError("At least one room must be selected");
+        }
+        this.validateSegments(target.segmentIds, target.iterations);
+        const segments = target.segmentIds.map(id => new ValetudoMapSegment({id: id}));
+        await this.disableAutomaticControlForManualTarget();
+        return this.startDraft(target, command, () => capability.executeSegmentAction(segments, {
+            iterations: target.iterations,
+            customOrder: customOrder ?? capability.getProperties()?.customOrderSupport === true
         }));
+    }
+
+    async executeZoneTarget(target, command) {
+        const capability = this.robot.capabilities[ZoneCleaningCapability.TYPE];
+        if (!capability) {
+            throw new Error("Zone cleaning is not supported");
+        }
+        if (target.zones.length === 0) {
+            throw new RangeError("At least one zone must be selected");
+        }
+        this.validateZones(target.zones, target.iterations);
+        const zones = target.zones.map(zone => new ValetudoZone(zone));
+        await this.disableAutomaticControlForManualTarget();
+        return this.startDraft(target, command, () => capability.start({
+            zones: zones,
+            iterations: target.iterations
+        }));
+    }
+
+    async disableAutomaticControlForManualTarget() {
+        const automaticAttribute = this.robot.state.getFirstMatchingAttribute({
+            attributeClass: PresetSelectionStateAttribute.name,
+            attributeType: PresetSelectionStateAttribute.TYPE.AUTOMATIC_CONTROL
+        });
+        if (automaticAttribute?.value === undefined || automaticAttribute.value === "off") {
+            return;
+        }
+        const capability = this.robot.capabilities[AutomaticControlCapability.TYPE];
+        if (!capability) {
+            throw new Error("Automatic control cannot be disabled for a manual cleaning target");
+        }
+        await capability.selectPreset("off");
     }
 
     async startDraft(draft, command, execute) {
@@ -438,9 +618,6 @@ class CleaningTaskService {
         if (requestedTarget.value !== CleaningTargetStateAttribute.VALUE.SEGMENTS && segmentIds.length > 0) {
             throw new RangeError("Room IDs are only valid for segment targets");
         }
-        if (requestedTarget.value === CleaningTargetStateAttribute.VALUE.ZONES && zones.length === 0) {
-            throw new RangeError("At least one zone must be selected");
-        }
         if (requestedTarget.value !== CleaningTargetStateAttribute.VALUE.ZONES && zones.length > 0) {
             throw new RangeError("Zones are only valid for zone targets");
         }
@@ -450,6 +627,9 @@ class CleaningTaskService {
         }
         if (requestedTarget.value === CleaningTargetStateAttribute.VALUE.SEGMENTS && segmentIds.length > 0) {
             this.validateSegments(segmentIds, iterations);
+        }
+        if (requestedTarget.value === CleaningTargetStateAttribute.VALUE.ZONES && zones.length > 0) {
+            this.validateZones(zones, iterations);
         }
         const map = this.robot.state.map;
         return {
@@ -480,6 +660,19 @@ class CleaningTaskService {
         const properties = this.robot.capabilities[MapSegmentationCapability.TYPE]?.getProperties();
         const iterationCount = properties?.iterationCount;
         if (iterationCount && (iterations < iterationCount.min || iterations > iterationCount.max)) {
+            throw new RangeError("Iteration count is not supported");
+        }
+    }
+
+    validateZones(zones, iterations) {
+        zones.forEach(zone => new ValetudoZone(zone));
+        const properties = this.robot.capabilities[ZoneCleaningCapability.TYPE]?.getProperties();
+        if (properties?.zoneCount &&
+            (zones.length < properties.zoneCount.min || zones.length > properties.zoneCount.max)) {
+            throw new RangeError("Zone count is not supported");
+        }
+        if (properties?.iterationCount &&
+            (iterations < properties.iterationCount.min || iterations > properties.iterationCount.max)) {
             throw new RangeError("Iteration count is not supported");
         }
     }

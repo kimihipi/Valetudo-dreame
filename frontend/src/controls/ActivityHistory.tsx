@@ -1,10 +1,15 @@
 import React from "react";
 import {Box, Button, Divider, Grid2, Typography} from "@mui/material";
 import {
+    Adjust as SpotModeIcon,
     BatteryChargingFull,
+    CropSquare as ZoneModeIcon,
+    Dashboard as SegmentModeIcon,
     Download as DownloadIcon,
     History as HistoryIcon,
+    SelectAll as AllModeIcon,
     DeleteOutline as ResetIcon,
+    SvgIconComponent,
 } from "@mui/icons-material";
 import ControlsCard from "./ControlsCard";
 import {
@@ -19,7 +24,7 @@ import {
 import {useValetudoColorsInverse} from "../hooks/useValetudoColors";
 
 type ValetudoColors = ReturnType<typeof useValetudoColorsInverse>;
-import {getFriendlyStatName, getHumanReadableStatValue, getStatusColor, STATUS_FLAG_LABELS, STATUS_LABELS} from "../utils";
+import {getFriendlyStatName, getHumanReadableStatValue, getOutcomeColor, getStatusColor, STATUS_FLAG_LABELS, STATUS_LABELS} from "../utils";
 import {getPresetIconOrLabel, presetFriendlyNames} from "../presetUtils";
 import ConfirmationDialog from "../components/ConfirmationDialog";
 import {DeepRouteIcon, IntensiveRouteIcon, NormalRouteIcon, QuickRouteIcon} from "../components/CustomIcons";
@@ -82,6 +87,25 @@ const ROUTE_ICONS: Record<string, React.ComponentType<{style?: React.CSSProperti
     intensive: IntensiveRouteIcon,
     deep: DeepRouteIcon,
 };
+const TARGET_MODE_ICON_SX = {fontSize: "0.95rem"} as const;
+const TARGET_MODE_ICONS: Record<string, SvgIconComponent> = {
+    all: AllModeIcon,
+    segments: SegmentModeIcon,
+    zones: ZoneModeIcon,
+    spot: SpotModeIcon,
+};
+
+// Shows the task's actual duration alongside its task-local estimate when one was available.
+const DurationText = ({actualSeconds, estimatedSeconds}: {actualSeconds: number; estimatedSeconds?: number | null}): React.ReactElement => (
+    <>
+        {formatSeconds(actualSeconds)}
+        {typeof estimatedSeconds === "number" && (
+            <Box component="span" sx={{color: "text.disabled"}}>
+                {` / est ${formatSeconds(estimatedSeconds)}`}
+            </Box>
+        )}
+    </>
+);
 
 const SectionHeader = ({children}: {children: React.ReactNode}): React.ReactElement => (
     <Typography variant="subtitle2" color="text.secondary">
@@ -137,19 +161,6 @@ const OUTCOME_LABELS: Record<string, string> = {
     completed: "Completed",
     cancelled: "Cancelled",
     failed: "Failed",
-};
-
-const getOutcomeColor = (outcome: string, palette: ValetudoColors): string | undefined => {
-    switch (outcome) {
-        case "completed":
-            return palette.green;
-        case "failed":
-            return palette.crimson;
-        case "cancelled":
-            return palette.yellow;
-        default:
-            return undefined;
-    }
 };
 
 const ActivityEntryRow = ({entry, duration}: {entry: ActivityHistoryEntry; duration?: number}): React.ReactElement => {
@@ -315,24 +326,37 @@ const ActivityHistory = (): React.ReactElement => {
                                 </Button>
                             </Box>
                         </Box>
-                        {cleaningHistory.slice(0, 20).map((record, index) => (
-                            <React.Fragment key={record.id}>
-                                {index > 0 && <Divider/>}
-                                <Box py={0.75}>
-                                    <Box display="flex" justifyContent="space-between" alignItems="baseline" gap={1}>
-                                        <Typography variant="body2" noWrap sx={{fontWeight: 500, minWidth: 0}}>
-                                            {record.target.segmentNames.join(" → ") || "All"}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary" sx={{whiteSpace: "nowrap", flexShrink: 0}}>
-                                            {formatSeconds(record.totalDurationSeconds)}
-                                            {typeof record.estimatedDurationSeconds === "number" && (
-                                                <Box component="span" sx={{color: "text.disabled"}}>
-                                                    {` / est ${formatSeconds(record.estimatedDurationSeconds)}`}
+                        {cleaningHistory.slice(0, 20).map((record, index) => {
+                            const TargetIcon = TARGET_MODE_ICONS[record.target.type] ?? AllModeIcon;
+                            const title = record.target.segmentNames.join(" → ") ||
+                                (record.target.type === "zones" ? "Zones" :
+                                    record.target.type === "spot" ? "Spot" : "All");
+                            const outcomeLabel = OUTCOME_LABELS[record.outcome] ??
+                                record.outcome.charAt(0).toUpperCase() + record.outcome.slice(1);
+                            return (
+                                <React.Fragment key={record.id}>
+                                    {index > 0 && <Divider/>}
+                                    <Box py={0.75}>
+                                        <Box display="flex" justifyContent="space-between" alignItems="baseline" gap={1}>
+                                            <Box sx={{display: "flex", alignItems: "center", gap: 0.5, minWidth: 0}}>
+                                                <Box sx={{display: "flex", alignItems: "center", flexShrink: 0, color: "text.secondary"}}>
+                                                    <TargetIcon sx={TARGET_MODE_ICON_SX}/>
                                                 </Box>
-                                            )}
-                                        </Typography>
-                                    </Box>
-                                    <Box sx={{display: "flex", alignItems: "baseline", flexWrap: "wrap", columnGap: 0.75}}>
+                                                <Typography variant="body2" noWrap sx={{fontWeight: 500, minWidth: 0}}>
+                                                    {title}
+                                                    <Typography
+                                                        component="span"
+                                                        variant="caption"
+                                                        sx={{color: getOutcomeColor(record.outcome, palette) ?? "text.secondary"}}
+                                                    >
+                                                        {` — ${outcomeLabel}`}
+                                                    </Typography>
+                                                </Typography>
+                                            </Box>
+                                            <Typography variant="caption" color="text.secondary" sx={{whiteSpace: "nowrap", flexShrink: 0}}>
+                                                <DurationText actualSeconds={record.totalDurationSeconds} estimatedSeconds={record.estimatedDurationSeconds}/>
+                                            </Typography>
+                                        </Box>
                                         <Typography
                                             variant="caption"
                                             color="text.secondary"
@@ -340,35 +364,26 @@ const ActivityHistory = (): React.ReactElement => {
                                         >
                                             {formatHistoryDate(record.startedAt)} · {formatHistoryTime(record.startedAt)}
                                         </Typography>
-                                        <Typography
-                                            variant="caption"
-                                            sx={{color: getOutcomeColor(record.outcome, palette) ?? "text.secondary"}}
-                                        >
-                                            {OUTCOME_LABELS[record.outcome] ??
-                                                record.outcome.charAt(0).toUpperCase() + record.outcome.slice(1)}
-                                        </Typography>
+                                        <CleaningProfileDetails record={record} palette={palette}/>
+                                        {record.rooms.length > 0 && (
+                                            <Box sx={{display: "flex", flexWrap: "wrap", columnGap: 1, rowGap: 0}}>
+                                                {record.rooms.map(room => (
+                                                    <Typography key={room.segmentId} variant="caption" color="text.disabled">
+                                                        {room.name}{room.visits > 1 ? ` ×${room.visits}` : ""}
+                                                    </Typography>
+                                                ))}
+                                            </Box>
+                                        )}
                                     </Box>
-                                    <CleaningProfileDetails record={record} palette={palette}/>
-                                    {record.rooms.length > 0 && (
-                                        <Box sx={{display: "flex", flexWrap: "wrap", columnGap: 1, rowGap: 0}}>
-                                            {record.rooms.map(room => (
-                                                <Typography key={room.segmentId} variant="caption" color="text.disabled">
-                                                    {room.name} {formatSeconds(room.durationSeconds)}
-                                                    {typeof room.estimatedDurationSeconds === "number" &&
-                                                    ` (Estimated ${formatSeconds(room.estimatedDurationSeconds)})`}
-                                                </Typography>
-                                            ))}
-                                        </Box>
-                                    )}
-                                </Box>
-                            </React.Fragment>
-                        ))}
+                                </React.Fragment>
+                            );
+                        })}
                     </Box>
                 )}
             </ControlsCard>
             <ConfirmationDialog
                 title="Reset Cleaning History?"
-                text="This clears the saved cleaning history and all learned room estimates."
+                text="This clears the saved cleaning history."
                 open={resetDialogOpen}
                 onClose={() => setResetDialogOpen(false)}
                 onAccept={() => resetHistory()}

@@ -98,6 +98,24 @@ class RobotRouter {
                 res.status(status).send(error.message);
             }
         });
+        this.router.put("/state/cleaning_target/start", this.validator, async (req, res) => {
+            try {
+                const result = await this.cleaningTaskService.startTarget({
+                    expectedRevision: req.body.targetRevision,
+                    source: "webui"
+                });
+                res.set("X-Valetudo-Command-Id", result.commandId).status(200).json({
+                    commandId: result.commandId
+                });
+            } catch (error) {
+                const status = error.statusCode ??
+                    (error instanceof RangeError || error instanceof TypeError ? 400 : 500);
+                if (error.commandId) {
+                    res.set("X-Valetudo-Command-Id", error.commandId);
+                }
+                res.status(status).json(error.message);
+            }
+        });
 
         this.router.get("/state/map", async (req, res) => {
             try {
@@ -114,9 +132,6 @@ class RobotRouter {
 
         this.router.get("/cleaningHistory", (req, res) => {
             res.json(this.cleaningTaskManager?.getHistory() ?? []);
-        });
-        this.router.get("/cleaningEstimates", (req, res) => {
-            res.json(this.cleaningTaskManager?.getEstimates() ?? {});
         });
         this.router.delete("/cleaningHistory", (req, res) => {
             this.cleaningTaskManager?.clearHistory();

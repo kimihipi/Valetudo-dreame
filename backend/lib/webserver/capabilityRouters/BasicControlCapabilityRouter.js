@@ -4,10 +4,7 @@ class BasicControlCapabilityRouter extends CapabilityRouter {
     initRoutes() {
         const methodMap = {
             "start": req => {
-                return this.cleaningTaskService.startAll({
-                    source: "webui",
-                    expectedRevision: req.body.targetRevision
-                });
+                return this.cleaningTaskService.startAll({source: "webui"});
             },
             "stop": () => {
                 return this.cleaningTaskService.stop({source: "webui"});

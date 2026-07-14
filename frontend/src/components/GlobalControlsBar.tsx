@@ -1,4 +1,4 @@
-import {Box, Button, Grid2, IconButton, Paper, Popover, Typography} from "@mui/material";
+import {Box, Button, Grid2, IconButton, LinearProgress, Paper, Popover, Typography} from "@mui/material";
 import {
     AutoMode as AutomaticModeIcon,
     ArrowForward as RoomProgressIcon,
@@ -6,6 +6,7 @@ import {
     CropSquare as ZoneModeIcon,
     Dashboard as SegmentModeIcon,
     Home as HomeIcon,
+    LocationOn as GoToModeIcon,
     MoreHoriz as MoreSettingsIcon,
     Pause as PauseIcon,
     PlayArrow as StartIcon,
@@ -18,17 +19,21 @@ import React from "react";
 import {
     BasicControlCommand,
     Capability,
+    RawMapLayerType,
     RobotAttributeClass,
     useAutomaticControlAttributeQuery,
     useAutomaticSubModeControlAttributeQuery,
     useBasicControlMutation,
     useCleanRouteQuery,
-    useCurrentStatisticsQuery,
+    useGoToMutation,
     useRobotAttributeQuery,
+    useRobotMapQuery,
     useRobotStatusQuery,
+    useStartCleaningTargetMutation,
 } from "../api";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import {DeepRouteIcon, IntensiveRouteIcon, NormalRouteIcon, QuickRouteIcon} from "./CustomIcons";
+import {useIsMobileView} from "../hooks";
 import {useValetudoColorsInverse} from "../hooks/useValetudoColors";
 import {useMapEditorOpen, usePendingMapAction} from "../map/BaseMap";
 import {useLiveMapMode} from "../map/LiveMap";
@@ -54,6 +59,7 @@ const TARGET_MODE_ICONS: Record<string, SvgIconComponent> = {
     segments: SegmentModeIcon,
     zones: ZoneModeIcon,
     automatic: AutomaticModeIcon,
+    goto: GoToModeIcon,
 };
 const formatRemainingTime = (seconds: number): string => {
     const minutes = Math.ceil(seconds / 60);
@@ -112,8 +118,10 @@ const InlineStat = ({icon, label}: {icon?: React.ReactNode; label: string}): Rea
 
 const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.ReactElement => {
     const [settingsAnchor, setSettingsAnchor] = React.useState<HTMLElement | null>(null);
+    const mobileView = useIsMobileView();
     const palette = useValetudoColorsInverse();
     const {data: status} = useRobotStatusQuery();
+    const {data: map} = useRobotMapQuery();
     const {data: battery} = useRobotAttributeQuery(RobotAttributeClass.BatteryState, attrs => attrs[0]);
     const {data: task} = useRobotAttributeQuery(RobotAttributeClass.ActiveCleaningTaskState, attrs => attrs[0]);
     const {data: cleaningTarget} = useRobotAttributeQuery(
@@ -136,17 +144,17 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
     );
     const {data: automaticPreset} = useAutomaticControlAttributeQuery();
     const {data: automaticSubMode} = useAutomaticSubModeControlAttributeQuery();
-    const [basicControlSupported, cleanRouteSupported, currentStatisticsSupported] = useCapabilitiesSupported(
+    const [basicControlSupported, cleanRouteSupported] = useCapabilitiesSupported(
         Capability.BasicControl,
-        Capability.CleanRouteControl,
-        Capability.CurrentStatistics
+        Capability.CleanRouteControl
     );
     const {data: cleanRoute} = useCleanRouteQuery(cleanRouteSupported);
-    const {data: currentStatistics, refetch: refetchCurrentStatistics} = useCurrentStatisticsQuery(
-        currentStatisticsSupported
-    );
     const {mutate: sendCommand, isPending} = useBasicControlMutation();
-    const {hasPendingMapAction} = usePendingMapAction();
+    const {mutate: startCleaningTarget, isPending: startTargetPending} = useStartCleaningTargetMutation();
+    const pendingMapAction = usePendingMapAction();
+    const {mutate: sendGoTo, isPending: goToPending} = useGoToMutation({
+        onSuccess: () => pendingMapAction.clearAction?.()
+    });
     const {isMapEditorOpen} = useMapEditorOpen();
     const {mode: liveMapMode} = useLiveMapMode();
 
@@ -158,36 +166,70 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
     const BatteryIcon = battery?.flag === "charging" ? BatteryChargingFull :
         battery ? getBatteryIcon(battery.level) : null;
     const batteryColor = battery ? getBatteryColor(battery.level, palette) : undefined;
-    const remainingSeconds = task?.progress.estimatedRemainingSeconds;
     const taskFinished = task !== undefined && ["completed", "cancelled", "stopped", "failed"].includes(task.state);
-    const firmwareTotalSeconds = currentStatistics?.find(statistic => statistic.type === "time")?.value;
+    const taskActive = task !== undefined && !taskFinished;
+    const completedPercent = taskActive ? task.progress.completedPercent : undefined;
+    const hasProgress = typeof completedPercent === "number";
+    const remainingSeconds = taskActive ? task.progress.estimatedRemainingSeconds : undefined;
     const automaticActive = automaticPreset?.value !== undefined && automaticPreset.value !== "off";
-    const selectedLiveMapMode = liveMapMode === "none" || liveMapMode === "goto" ? "all" : liveMapMode;
+    const selectedLiveMapMode = liveMapMode === "none" ? null : liveMapMode;
     const backendTargetMode = cleaningTarget?.value && cleaningTarget.value !== "none" ?
         cleaningTarget.value : null;
-    const targetMode = task ? (automaticActive ? "automatic" : task.target.type) :
-        backendTargetMode ?? selectedLiveMapMode;
-    const targetModeLabel = targetMode.charAt(0).toUpperCase() + targetMode.slice(1);
-    const completedRooms = task?.progress.completedRooms ?? 0;
-    const totalRooms = task?.progress.totalRooms ?? 0;
+    const targetMode = taskActive ? (automaticActive ? "automatic" : task.target.type) :
+        selectedLiveMapMode ?? backendTargetMode ?? "all";
+    const targetModeLabel = targetMode === "goto" ? "Go To" :
+        targetMode.charAt(0).toUpperCase() + targetMode.slice(1);
+    const mapSegmentCount = map?.layers.filter(layer =>
+        layer.type === RawMapLayerType.Segment && !layer.metaData.hidden
+    ).length;
+    const completedRooms = taskActive ? task.progress.completedRooms ?? 0 : 0;
+    const totalRooms = taskActive ? task.progress.totalRooms ?? 0 :
+        targetMode === "segments" ? pendingMapAction.selectionCount || cleaningTarget?.segmentIds.length || 0 :
+            0;
+    const selectedCount = targetMode === "segments" ?
+        pendingMapAction.selectionCount || cleaningTarget?.segmentIds.length || 0 :
+        targetMode === "zones" ?
+            pendingMapAction.selectionCount || cleaningTarget?.zones.length || 0 :
+            targetMode === "goto" ? pendingMapAction.selectionCount : 0;
     const currentRoomNumber = totalRooms > 0 ?
         Math.min(totalRooms, completedRooms + (task?.target.currentSegmentId ? 1 : 0)) : 0;
-    const progressText = totalRooms > 0 ? `${Math.max(1, currentRoomNumber)} of ${totalRooms} Rooms` : null;
+    const automaticLevelValue = automaticPreset?.value !== undefined && automaticPreset.value !== "off" ?
+        automaticPreset.value : "routine";
+    const automaticLevel = presetFriendlyNames[automaticLevelValue] ?? automaticLevelValue;
+    const goToActive = targetMode === "goto" && status?.value === "moving";
+    let targetDetailText: string;
+    if (goToActive) {
+        targetDetailText = "In Progress";
+    } else if (taskActive) {
+        if (targetMode === "automatic") {
+            targetDetailText = automaticLevel;
+        } else if (targetMode === "zones" && selectedCount > 0) {
+            targetDetailText = `${selectedCount} Selected`;
+        } else if (["all", "segments"].includes(targetMode) && totalRooms > 0) {
+            targetDetailText = `Cleaning ${Math.max(1, currentRoomNumber)} of ${totalRooms}`;
+        } else if (typeof completedPercent === "number") {
+            targetDetailText = `${Math.round(completedPercent)}% Complete`;
+        } else {
+            targetDetailText = "In Progress";
+        }
+    } else if (targetMode === "all") {
+        targetDetailText = mapSegmentCount === undefined ? "— Segments" :
+            `${mapSegmentCount} ${mapSegmentCount === 1 ? "Segment" : "Segments"}`;
+    } else if (targetMode === "automatic") {
+        targetDetailText = automaticLevel;
+    } else {
+        targetDetailText = `${selectedCount} Selected`;
+    }
     const RouteIcon = cleanRoute ? ROUTE_ICONS[cleanRoute] : undefined;
     const TargetModeIcon = TARGET_MODE_ICONS[targetMode] ?? AllModeIcon;
     const cleaningMode = automaticActive ? automaticSubMode?.value : operationModePreset?.value;
     const hasAdditionalSettings = Boolean(fanPreset?.value || waterPreset?.value || (cleanRoute && RouteIcon));
     const commandInFlight = cleaningCommand?.state === "pending" || cleaningCommand?.state === "accepted";
-
-    React.useEffect(() => {
-        if (!taskFinished || !currentStatisticsSupported) {
-            return;
-        }
-        const refreshTimer = setTimeout(() => {
-            refetchCurrentStatistics().catch(() => {});
-        }, 1_000);
-        return () => clearTimeout(refreshTimer);
-    }, [currentStatisticsSupported, refetchCurrentStatistics, task?.id, taskFinished]);
+    const stagedTargetReady = cleaningTarget?.value === targetMode &&
+        cleaningTarget.revision === pendingMapAction.targetRevision && pendingMapAction.draftReady;
+    const draftReady = targetMode === "segments" || targetMode === "zones" ?
+        selectedCount > 0 && stagedTargetReady : targetMode === "goto" ?
+            pendingMapAction.goToTarget !== null : stagedTargetReady;
 
     const buttons: CompactButton[] = React.useMemo(() => {
         if (!status) {
@@ -201,20 +243,21 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
         }
         if (status.value === "paused") {
             return [
-                {command: "start", label: status.flag === "resumable" ? "Resume" : "Start", enabled: !hasPendingMapAction && !isMapEditorOpen, Icon: StartIcon, color: palette.green},
+                {command: "start", label: status.flag === "resumable" && !pendingMapAction.hasPendingMapAction ?
+                    "Resume" : "Start", enabled: draftReady && !isMapEditorOpen, Icon: StartIcon, color: palette.green},
                 {command: "stop", label: "Stop", enabled: !isMapEditorOpen, Icon: StopIcon, color: palette.crimson},
             ];
         }
         return [
-            {command: "start", label: "Start", enabled: !hasPendingMapAction && !isMapEditorOpen, Icon: StartIcon, color: palette.green},
+            {command: "start", label: "Start", enabled: draftReady && !isMapEditorOpen, Icon: StartIcon, color: palette.green},
             {command: "home", label: "Dock", enabled: status.value !== "docked" && !isMapEditorOpen, Icon: HomeIcon, color: palette.teal},
         ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [status, palette, hasPendingMapAction, isMapEditorOpen]);
+    }, [status, palette, pendingMapAction.hasPendingMapAction, draftReady, isMapEditorOpen]);
 
     return (
         <>
-            <Paper sx={{height: `${GLOBAL_CONTROLS_BAR_HEIGHT}px`, flexShrink: 0}}>
+            <Paper sx={{height: `${GLOBAL_CONTROLS_BAR_HEIGHT}px`, flexShrink: 0, position: "relative"}}>
                 <Grid2
                     container
                     direction="row"
@@ -248,14 +291,12 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
                         </Box>
                         <Box sx={{display: "flex", justifyContent: "flex-start", alignItems: "center", gap: 1, height: BAR_ROW_HEIGHT, minWidth: 0, maxWidth: "100%", overflow: "hidden"}}>
                             <InlineStat icon={<TargetModeIcon sx={CHIP_ICON_SX}/>} label={targetModeLabel}/>
-                            {progressText && <InlineStat icon={<RoomProgressIcon sx={CHIP_ICON_SX}/>} label={progressText}/>}
-                            {task && (
+                            <InlineStat icon={<RoomProgressIcon sx={CHIP_ICON_SX}/>} label={targetDetailText}/>
+                            {targetMode !== "goto" && (
                                 <InlineStat
                                     icon={<TimeRemainingIcon sx={CHIP_ICON_SX}/>}
-                                    label={taskFinished ?
-                                        (typeof firmwareTotalSeconds === "number" ?
-                                            formatRemainingTime(firmwareTotalSeconds) : "Updating") :
-                                        (typeof remainingSeconds === "number" ? formatRemainingTime(remainingSeconds) : "Calculating")}
+                                    label={taskActive && typeof remainingSeconds === "number" ?
+                                        formatRemainingTime(remainingSeconds) : "—"}
                                 />
                             )}
                         </Box>
@@ -296,16 +337,25 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
                                     key={command}
                                     variant="outlined"
                                     aria-label={label}
-                                    disabled={!enabled || isPending || commandInFlight}
+                                    disabled={!enabled || isPending || startTargetPending || goToPending || commandInFlight}
                                     onClick={event => {
                                         event.stopPropagation();
-                                        sendCommand(command);
+                                        if (command === "start" && targetMode === "goto" &&
+                                            pendingMapAction.goToTarget) {
+                                            sendGoTo(pendingMapAction.goToTarget);
+                                        } else if (command === "start" && status.value !== "paused" &&
+                                            pendingMapAction.targetRevision !== null) {
+                                            startCleaningTarget(pendingMapAction.targetRevision);
+                                        } else {
+                                            sendCommand(command);
+                                        }
                                     }}
                                     sx={{
-                                        minWidth: 0,
-                                        width: "44px",
+                                        minWidth: mobileView ? 0 : "104px",
+                                        width: mobileView ? "44px" : "104px",
                                         height: "44px",
-                                        p: 0,
+                                        px: mobileView ? 0 : 1.5,
+                                        py: 0,
                                         color: enabled ? color : undefined,
                                         borderColor: enabled ? color : undefined,
                                         "&:hover": {
@@ -314,12 +364,31 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
                                         },
                                     }}
                                 >
-                                    <Icon sx={{fontSize: "1.25rem"}}/>
+                                    <Icon sx={{fontSize: "1.25rem", ml: mobileView ? 0 : -1, mr: mobileView ? 0 : 0.75}}/>
+                                    {!mobileView && label}
                                 </Button>
                             ))}
                         </Grid2>
                     )}
                 </Grid2>
+                <LinearProgress
+                    variant="determinate"
+                    value={hasProgress ? completedPercent : 0}
+                    sx={{
+                        position: "absolute",
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: 3,
+                        opacity: hasProgress ? 1 : 0,
+                        backgroundColor: `${palette.teal}55`,
+                        transition: "opacity 0.3s ease",
+                        "& .MuiLinearProgress-bar": {
+                            backgroundColor: palette.green,
+                            transition: "transform 0.6s linear",
+                        },
+                    }}
+                />
             </Paper>
             <Popover
                 open={settingsAnchor !== null}

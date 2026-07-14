@@ -74,6 +74,7 @@ import {
     sendDoNotDisturbConfiguration,
     sendEnergySavingChargingConfiguration,
     sendGoToCommand,
+    startCleaningTarget,
     sendHTTPBasicAuthConfiguration,
     sendJoinSegmentsCommand,
     sendKeyLockEnable,
@@ -596,6 +597,15 @@ export const useBasicControlMutation = () => {
     return useMutation({
         mutationFn: (command: BasicControlCommand) => {
             return sendBasicControlCommand(command);
+        },
+        onError: useOnCommandError(Capability.BasicControl),
+    });
+};
+
+export const useStartCleaningTargetMutation = () => {
+    return useMutation({
+        mutationFn: (targetRevision: number) => {
+            return startCleaningTarget(targetRevision);
         },
         onError: useOnCommandError(Capability.BasicControl),
     });

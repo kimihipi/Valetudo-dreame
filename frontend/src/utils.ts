@@ -58,6 +58,19 @@ export const getStatusColor = (
     }
 };
 
+// Cleaning history outcomes reuse the equivalent live-status colors above (e.g. a "failed" task
+// is colored the same as an "error" status) so there is a single place to edit these colors.
+const OUTCOME_TO_STATUS: Record<string, string> = {
+    completed: "cleaning",
+    cancelled: "paused",
+    failed: "error",
+};
+
+export const getOutcomeColor = (
+    outcome: string,
+    palette: {green: string; orange: string; teal: string; yellow: string; purple: string; red: string}
+): string | undefined => getStatusColor(OUTCOME_TO_STATUS[outcome], palette);
+
 export function convertSecondsToHumans(seconds: number, showSeconds = true, showDays = true): string {
     let levels;
 

@@ -855,7 +855,7 @@ export interface CleaningHistoryRecord {
         cleanRoute?: string | null;
         iterations?: number
     };
-    rooms: Array<{segmentId: string; name: string; durationSeconds: number; estimatedDurationSeconds?: number | null; visits: number}>;
+    rooms: Array<{segmentId: string; name: string; visits: number}>;
     totalDurationSeconds: number;
     estimatedDurationSeconds?: number | null;
 }

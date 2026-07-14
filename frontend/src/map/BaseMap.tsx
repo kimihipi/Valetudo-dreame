@@ -33,10 +33,22 @@ export interface MapState {
 }
 
 export const usePendingMapAction = create<{
-    hasPendingMapAction: boolean
+    hasPendingMapAction: boolean;
+    type: "segments" | "zones" | "goto" | null;
+    selectionCount: number;
+    goToTarget: PointCoordinates | null;
+    draftReady: boolean;
+    targetRevision: number | null;
+    clearAction: (() => void) | null;
 }>()(() => {
     return {
-        hasPendingMapAction: false
+        hasPendingMapAction: false,
+        type: null,
+        selectionCount: 0,
+        goToTarget: null,
+        draftReady: false,
+        targetRevision: null,
+        clearAction: null
     };
 });
 

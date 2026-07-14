@@ -93,11 +93,6 @@
         },
         "interfaces": {}
     },
-    "matterEstimation": {
-        "cleaningRates": {},
-        "washingDuration": {"value": 0, "samples": 0},
-        "chargingRate": {"value": 0, "samples": 0}
-    },
     "ntpClient": {
         "enabled": true,
         "server": "valetudo.pool.ntp.org",

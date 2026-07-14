@@ -30,6 +30,7 @@ CleaningCommandStateAttribute.COMMAND = Object.freeze({
     RESUME: "resume",
     START_ALL: "start_all",
     START_SEGMENTS: "start_segments",
+    START_ZONES: "start_zones",
     STOP: "stop"
 });
 

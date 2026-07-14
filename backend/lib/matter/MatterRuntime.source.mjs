@@ -36,7 +36,6 @@ export const BatteryPowerSourceEndpoint = PowerSourceEndpoint.with(
  * @param {(() => Promise<void>)|undefined} handlers.goHome
  * @param {boolean|undefined} handlers.serviceArea
  * @param {((areaIds: Array<number>) => void)|undefined} handlers.selectAreas
- * @param {((areaId: number) => Promise<void>)|undefined} handlers.skipArea
  * @param {(() => Promise<void>)|undefined} handlers.resetFilter
  * @param {(() => Promise<void>)|undefined} handlers.refreshWaterTank
  */
@@ -49,7 +48,6 @@ export function createRoboticVacuumCleanerDevice({
     goHome,
     serviceArea,
     selectAreas,
-    skipArea,
     resetFilter,
     refreshWaterTank
 }) {
@@ -276,35 +274,6 @@ export function createRoboticVacuumCleanerDevice({
                 return result;
             }
 
-            async skipArea(request) {
-                const validation = this.assertSkipServiceArea(request);
-                if (validation.status !== ServiceArea.SkipAreaStatus.Success) {
-                    return validation;
-                }
-                if (!skipArea) {
-                    return {
-                        status: ServiceArea.SkipAreaStatus.InvalidInMode,
-                        statusText: "Robot cannot change rooms during an active cleaning task"
-                    };
-                }
-                try {
-                    await skipArea(request.skippedArea);
-                    this.state.progress = this.state.progress.map(progress => progress.areaId === request.skippedArea ? {
-                        areaId: progress.areaId,
-                        status: ServiceArea.OperationalStatus.Skipped,
-                        totalOperationalTime: null
-                    } : progress);
-                    if (this.state.currentArea === request.skippedArea) {
-                        this.state.currentArea = null;
-                    }
-                    return validation;
-                } catch (e) {
-                    return {
-                        status: ServiceArea.SkipAreaStatus.InvalidInMode,
-                        statusText: e?.message ?? "Unable to skip room"
-                    };
-                }
-            }
         }
 
         behaviors.push(ValetudoServiceAreaServer);

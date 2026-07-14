@@ -30,7 +30,7 @@ export interface ActiveCleaningTaskState {
     source: string;
     startedAt: string;
     target: {
-        type: "all" | "segments" | "zones";
+        type: "all" | "segments" | "zones" | "spot";
         segmentIds: string[];
         segmentNames: string[];
         currentSegmentId?: string | null;
@@ -45,6 +45,7 @@ export interface ActiveCleaningTaskState {
     progress: {
         completedRooms?: number;
         totalRooms?: number;
+        completedPercent?: number;
         estimatedRemainingSeconds?: number | null;
         estimatedCompletionTime?: string | null;
     };
@@ -119,7 +120,14 @@ export interface CleaningTargetState {
     metaData: Record<string, never>;
     value: "none" | "all" | "segments" | "zones" | "automatic";
     segmentIds: string[];
-    zones: Array<Record<string, unknown>>;
+    zones: Array<{
+        points: {
+            pA: {x: number; y: number};
+            pB: {x: number; y: number};
+            pC: {x: number; y: number};
+            pD: {x: number; y: number};
+        };
+    }>;
     iterations: number;
     mapId: string | null;
     mapVersion: string | number | null;
@@ -134,7 +142,7 @@ export interface CleaningCommandState {
     __class: RobotAttributeClass.CleaningCommandState;
     metaData: Record<string, never>;
     id: string;
-    command: "home" | "pause" | "resume" | "start_all" | "start_segments" | "stop";
+    command: "home" | "pause" | "resume" | "start_all" | "start_segments" | "start_zones" | "stop";
     state: "pending" | "accepted" | "verified" | "failed" | "uncertain";
     source: string;
     targetRevision: number | null;
