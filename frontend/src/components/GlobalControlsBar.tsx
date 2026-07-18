@@ -38,7 +38,7 @@ import {useValetudoColorsInverse} from "../hooks/useValetudoColors";
 import {useMapEditorOpen, usePendingMapAction} from "../map/BaseMap";
 import {useLiveMapMode} from "../map/LiveMap";
 import {getPresetIconOrLabel, presetFriendlyNames} from "../presetUtils";
-import {getStatusColor, STATUS_FLAG_LABELS, STATUS_LABELS} from "../utils";
+import {getStatusColor, isNewCleaningStartBlocked, STATUS_FLAG_LABELS, STATUS_LABELS} from "../utils";
 import {getBatteryColor, getBatteryIcon} from "../controls/RobotStatus";
 
 export const GLOBAL_CONTROLS_BAR_HEIGHT = 96;
@@ -123,6 +123,7 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
     const {data: status} = useRobotStatusQuery();
     const {data: map} = useRobotMapQuery();
     const {data: battery} = useRobotAttributeQuery(RobotAttributeClass.BatteryState, attrs => attrs[0]);
+    const {data: dockStatus} = useRobotAttributeQuery(RobotAttributeClass.DockStatusState, attrs => attrs[0]);
     const {data: task} = useRobotAttributeQuery(RobotAttributeClass.ActiveCleaningTaskState, attrs => attrs[0]);
     const {data: cleaningTarget} = useRobotAttributeQuery(
         RobotAttributeClass.CleaningTargetState, attrs => attrs[0]
@@ -168,6 +169,7 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
     const batteryColor = battery ? getBatteryColor(battery.level, palette) : undefined;
     const taskFinished = task !== undefined && ["completed", "cancelled", "stopped", "failed"].includes(task.state);
     const taskActive = task !== undefined && !taskFinished;
+    const taskRunning = task?.state === "running";
     const completedPercent = taskActive ? task.progress.completedPercent : undefined;
     const hasProgress = typeof completedPercent === "number";
     const remainingSeconds = taskActive ? task.progress.estimatedRemainingSeconds : undefined;
@@ -182,7 +184,6 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
     const mapSegmentCount = map?.layers.filter(layer =>
         layer.type === RawMapLayerType.Segment && !layer.metaData.hidden
     ).length;
-    const completedRooms = taskActive ? task.progress.completedRooms ?? 0 : 0;
     const totalRooms = taskActive ? task.progress.totalRooms ?? 0 :
         targetMode === "segments" ? pendingMapAction.selectionCount || cleaningTarget?.segmentIds.length || 0 :
             0;
@@ -191,8 +192,7 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
         targetMode === "zones" ?
             pendingMapAction.selectionCount || cleaningTarget?.zones.length || 0 :
             targetMode === "goto" ? pendingMapAction.selectionCount : 0;
-    const currentRoomNumber = totalRooms > 0 ?
-        Math.min(totalRooms, completedRooms + (task?.target.currentSegmentId ? 1 : 0)) : 0;
+    const currentRoomNumber = taskActive ? task.progress.currentRoomNumber : null;
     const automaticLevelValue = automaticPreset?.value !== undefined && automaticPreset.value !== "off" ?
         automaticPreset.value : "routine";
     const automaticLevel = presetFriendlyNames[automaticLevelValue] ?? automaticLevelValue;
@@ -205,8 +205,9 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
             targetDetailText = automaticLevel;
         } else if (targetMode === "zones" && selectedCount > 0) {
             targetDetailText = `${selectedCount} Selected`;
-        } else if (["all", "segments"].includes(targetMode) && totalRooms > 0) {
-            targetDetailText = `Cleaning ${Math.max(1, currentRoomNumber)} of ${totalRooms}`;
+        } else if (["all", "segments"].includes(targetMode) && totalRooms > 0 &&
+            typeof currentRoomNumber === "number") {
+            targetDetailText = `Cleaning ${currentRoomNumber} of ${totalRooms}`;
         } else if (typeof completedPercent === "number") {
             targetDetailText = `${Math.round(completedPercent)}% Complete`;
         } else {
@@ -230,6 +231,7 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
     const draftReady = targetMode === "segments" || targetMode === "zones" ?
         selectedCount > 0 && stagedTargetReady : targetMode === "goto" ?
             pendingMapAction.goToTarget !== null : stagedTargetReady;
+    const newCleaningStartBlocked = isNewCleaningStartBlocked(status, dockStatus, task);
 
     const buttons: CompactButton[] = React.useMemo(() => {
         if (!status) {
@@ -244,16 +246,18 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
         if (status.value === "paused") {
             return [
                 {command: "start", label: status.flag === "resumable" && !pendingMapAction.hasPendingMapAction ?
-                    "Resume" : "Start", enabled: draftReady && !isMapEditorOpen, Icon: StartIcon, color: palette.green},
+                    "Resume" : "Start", enabled: draftReady && !newCleaningStartBlocked && !isMapEditorOpen,
+                Icon: StartIcon, color: palette.green},
                 {command: "stop", label: "Stop", enabled: !isMapEditorOpen, Icon: StopIcon, color: palette.crimson},
             ];
         }
         return [
-            {command: "start", label: "Start", enabled: draftReady && !isMapEditorOpen, Icon: StartIcon, color: palette.green},
+            {command: "start", label: "Start", enabled: draftReady && !newCleaningStartBlocked && !isMapEditorOpen,
+                Icon: StartIcon, color: palette.green},
             {command: "home", label: "Dock", enabled: status.value !== "docked" && !isMapEditorOpen, Icon: HomeIcon, color: palette.teal},
         ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [status, palette, pendingMapAction.hasPendingMapAction, draftReady, isMapEditorOpen]);
+    }, [status, palette, pendingMapAction.hasPendingMapAction, draftReady, newCleaningStartBlocked, isMapEditorOpen]);
 
     return (
         <>
@@ -390,14 +394,17 @@ const GlobalControlsBar = ({onDrawerToggle}: GlobalControlsBarProps): React.Reac
                         "& .MuiLinearProgress-bar": {
                             backgroundColor: palette.green,
                             transition: "transform 0.6s linear",
-                            position: "relative",
+                            // Preserve MUI's absolute positioning: determinate progress is rendered by
+                            // translating this full-width bar. It also provides the positioning context
+                            // for the clipped shimmer pseudo-element.
+                            position: "absolute",
                             overflow: "hidden",
                             "&::after": {
                                 content: "\"\"",
                                 position: "absolute",
                                 inset: 0,
                                 background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)",
-                                animation: taskActive ? "shimmer 1.8s linear infinite" : "none",
+                                animation: taskRunning ? "shimmer 1.8s linear infinite" : "none",
                                 "@media (prefers-reduced-motion: reduce)": {
                                     animation: "none",
                                 },

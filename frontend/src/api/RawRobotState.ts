@@ -44,7 +44,10 @@ export interface ActiveCleaningTaskState {
     };
     progress: {
         completedRooms?: number;
+        completedSegmentIds?: string[];
+        currentRoomNumber?: number | null;
         totalRooms?: number;
+        sequential?: boolean;
         completedPercent?: number;
         estimatedRemainingSeconds?: number | null;
         estimatedCompletionTime?: string | null;

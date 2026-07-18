@@ -146,7 +146,11 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
         if (this.props.mode === "virtual_restrictions" || this.props.mode === "virtual_thresholds" || this.props.mode === "curtains" || this.props.mode === "carpets") {
             const pathsImage = await PathDrawer.drawPaths( {
                 pathMapEntities: this.props.rawMap.entities.filter(e => {
-                    return e.type === RawMapEntityType.Path;
+                    return (
+                        e.type === RawMapEntityType.Path ||
+                        e.type === RawMapEntityType.MopPath ||
+                        e.type === RawMapEntityType.VacuumAndMopPath
+                    );
                 }),
                 mapWidth: this.props.rawMap.size.x,
                 mapHeight: this.props.rawMap.size.y,

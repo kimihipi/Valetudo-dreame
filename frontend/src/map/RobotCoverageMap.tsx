@@ -74,7 +74,11 @@ class RobotCoverageMap extends BaseMap<CleanupCoverageMapProps, CleanupCoverageM
 
         const coveragePathImage = await PathDrawer.drawPaths( {
             pathMapEntities: this.props.rawMap.entities.filter(e => {
-                return e.type === RawMapEntityType.Path;
+                return (
+                    e.type === RawMapEntityType.Path ||
+                    e.type === RawMapEntityType.MopPath ||
+                    e.type === RawMapEntityType.VacuumAndMopPath
+                );
             }),
             mapWidth: this.props.rawMap.size.x,
             mapHeight: this.props.rawMap.size.y,
@@ -87,7 +91,12 @@ class RobotCoverageMap extends BaseMap<CleanupCoverageMapProps, CleanupCoverageM
 
         const pathsImage = await PathDrawer.drawPaths( {
             pathMapEntities: this.props.rawMap.entities.filter(e => {
-                return e.type === RawMapEntityType.Path || e.type === RawMapEntityType.PredictedPath;
+                return (
+                    e.type === RawMapEntityType.Path ||
+                    e.type === RawMapEntityType.MopPath ||
+                    e.type === RawMapEntityType.VacuumAndMopPath ||
+                    e.type === RawMapEntityType.PredictedPath
+                );
             }),
             mapWidth: this.props.rawMap.size.x,
             mapHeight: this.props.rawMap.size.y,

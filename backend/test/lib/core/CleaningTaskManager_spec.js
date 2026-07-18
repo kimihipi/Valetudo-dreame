@@ -6,6 +6,7 @@ const should = require("should");
 
 const CleaningTaskManager = require("../../../lib/core/CleaningTaskManager");
 const MapLayer = require("../../../lib/entities/map/MapLayer");
+const PathMapEntity = require("../../../lib/entities/map/entities/PathMapEntity");
 const PointMapEntity = require("../../../lib/entities/map/entities/PointMapEntity");
 const RobotState = require("../../../lib/entities/state/RobotState");
 const stateAttrs = require("../../../lib/entities/state/attributes");
@@ -41,6 +42,37 @@ describe("CleaningTaskManager", function() {
             return attribute;
         };
         return robot;
+    };
+    const setTwoRoomMap = robot => {
+        const roomPixels = (start, end) => Array.from({length: end - start + 1}, (_, index) =>
+            [start + index, 10]).flat();
+        const position = new PointMapEntity({
+            type: PointMapEntity.TYPE.ROBOT_POSITION,
+            points: [50, 50]
+        });
+        const cleaningPath = new PathMapEntity({
+            type: PathMapEntity.TYPE.PATH,
+            points: [50, 50]
+        });
+        robot.state.map.layers = [
+            new MapLayer({
+                type: MapLayer.TYPE.SEGMENT,
+                pixels: roomPixels(10, 39),
+                metaData: {segmentId: "1"}
+            }),
+            new MapLayer({
+                type: MapLayer.TYPE.SEGMENT,
+                pixels: roomPixels(40, 69),
+                metaData: {segmentId: "2"}
+            })
+        ];
+        robot.state.map.entities = [position, cleaningPath];
+        return {position: position, cleaningPath: cleaningPath};
+    };
+    const startTrackedCleaning = async (robot, manager) => {
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({value: "cleaning"}));
+        await new Promise(resolve => setImmediate(resolve));
+        manager.activeTask.should.not.equal(null);
     };
 
     it("should retain pauses, room visits and bounded task history", async function() {
@@ -151,6 +183,146 @@ describe("CleaningTaskManager", function() {
         manager.detectCurrentSegment().should.equal("2");
         position.points = [80, 50];
         manager.detectCurrentSegment().should.equal("2");
+        manager.shutdown();
+    });
+
+    it("should require room-local path growth before advancing the room counter", async function() {
+        const robot = createRobot();
+        const {position, cleaningPath} = setTwoRoomMap(robot);
+        const manager = new CleaningTaskManager({
+            robot: robot,
+            config: {location: path.join(os.tmpdir(), `valetudo-task-path-${Date.now()}`, "config.json")}
+        });
+        await startTrackedCleaning(robot, manager);
+
+        let task = robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.ActiveCleaningTaskStateAttribute
+        );
+        should(task.target.currentSegmentId).equal(null);
+        should(task.progress.currentRoomNumber).equal(null);
+
+        cleaningPath.points.push(100, 50);
+        manager.handleMapUpdate(true);
+        task = robot.state.getFirstMatchingAttributeByConstructor(stateAttrs.ActiveCleaningTaskStateAttribute);
+        task.target.currentSegmentId.should.equal("1");
+        task.progress.currentRoomNumber.should.equal(1);
+
+        // Crossing into room 2 without drawing is transit, not room completion.
+        position.points = [225, 50];
+        manager.handleMapUpdate(true);
+        task = robot.state.getFirstMatchingAttributeByConstructor(stateAttrs.ActiveCleaningTaskStateAttribute);
+        task.target.currentSegmentId.should.equal("1");
+        task.progress.completedRooms.should.equal(0);
+
+        cleaningPath.points.push(150, 50, 200, 50, 250, 50);
+        manager.handleMapUpdate(true);
+        task = robot.state.getFirstMatchingAttributeByConstructor(stateAttrs.ActiveCleaningTaskStateAttribute);
+        task.target.currentSegmentId.should.equal("2");
+        task.progress.completedSegmentIds.should.deepEqual(["1"]);
+        task.progress.currentRoomNumber.should.equal(2);
+        manager.shutdown();
+    });
+
+    it("should treat a replaced path as a baseline instead of new room evidence", async function() {
+        const robot = createRobot();
+        const {position, cleaningPath} = setTwoRoomMap(robot);
+        const manager = new CleaningTaskManager({
+            robot: robot,
+            config: {location: path.join(os.tmpdir(), `valetudo-task-path-reset-${Date.now()}`, "config.json")}
+        });
+        await startTrackedCleaning(robot, manager);
+        cleaningPath.points.push(100, 50);
+        manager.handleMapUpdate(true);
+
+        position.points = [225, 50];
+        cleaningPath.points = [225, 50, 275, 50];
+        manager.handleMapUpdate(true);
+
+        const task = robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.ActiveCleaningTaskStateAttribute
+        );
+        task.target.currentSegmentId.should.equal("1");
+        task.progress.completedRooms.should.equal(0);
+        manager.shutdown();
+    });
+
+    it("should confirm short room-local path evidence across two map updates", async function() {
+        const robot = createRobot();
+        const {position, cleaningPath} = setTwoRoomMap(robot);
+        const manager = new CleaningTaskManager({
+            robot: robot,
+            config: {location: path.join(os.tmpdir(), `valetudo-task-path-dwell-${Date.now()}`, "config.json")}
+        });
+        await startTrackedCleaning(robot, manager);
+        cleaningPath.points.push(100, 50);
+        manager.handleMapUpdate(true);
+
+        position.points = [210, 50];
+        const secondPath = new PathMapEntity({type: PathMapEntity.TYPE.MOP_PATH, points: [210, 50]});
+        robot.state.map.entities.push(secondPath);
+        manager.handleMapUpdate(true);
+        manager.activeTask.currentSegmentId.should.equal("1");
+
+        secondPath.points.push(220, 50);
+        manager.handleMapUpdate(true);
+        const task = robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.ActiveCleaningTaskStateAttribute
+        );
+        task.target.currentSegmentId.should.equal("2");
+        task.progress.currentRoomNumber.should.equal(2);
+        manager.shutdown();
+    });
+
+    it("should discard path accumulated while cleaning is paused", async function() {
+        const robot = createRobot();
+        const {position, cleaningPath} = setTwoRoomMap(robot);
+        const manager = new CleaningTaskManager({
+            robot: robot,
+            config: {location: path.join(os.tmpdir(), `valetudo-task-paused-path-${Date.now()}`, "config.json")}
+        });
+        await startTrackedCleaning(robot, manager);
+        cleaningPath.points.push(100, 50);
+        manager.handleMapUpdate(true);
+
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({value: "paused"}));
+        position.points = [250, 50];
+        cleaningPath.points.push(150, 50, 200, 50, 250, 50);
+        manager.handleMapUpdate(true);
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({value: "cleaning"}));
+        manager.handleMapUpdate(true);
+
+        const task = robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.ActiveCleaningTaskStateAttribute
+        );
+        task.target.currentSegmentId.should.equal("1");
+        task.progress.completedRooms.should.equal(0);
+        manager.shutdown();
+    });
+
+    it("should stop publishing an exact ordinal when cleaning revisits a completed room", async function() {
+        const robot = createRobot();
+        const {position, cleaningPath} = setTwoRoomMap(robot);
+        const manager = new CleaningTaskManager({
+            robot: robot,
+            config: {location: path.join(os.tmpdir(), `valetudo-task-path-revisit-${Date.now()}`, "config.json")}
+        });
+        await startTrackedCleaning(robot, manager);
+        cleaningPath.points.push(100, 50);
+        manager.handleMapUpdate(true);
+        position.points = [250, 50];
+        cleaningPath.points.push(150, 50, 200, 50, 250, 50);
+        manager.handleMapUpdate(true);
+
+        position.points = [100, 50];
+        cleaningPath.points.push(200, 50, 150, 50, 100, 50);
+        manager.handleMapUpdate(true);
+
+        const task = robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.ActiveCleaningTaskStateAttribute
+        );
+        task.progress.sequential.should.equal(false);
+        should(task.progress.currentRoomNumber).equal(null);
+        task.progress.completedSegmentIds.should.deepEqual([]);
         manager.shutdown();
     });
 

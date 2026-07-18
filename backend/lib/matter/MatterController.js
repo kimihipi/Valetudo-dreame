@@ -63,6 +63,10 @@ const AUXILIARY_REFRESH_INTERVAL_MS = 30_000;
 const MATTER_TRANSACTION_RETRY_MS = 100;
 const MATTER_STORAGE_LOCK_RETRY_MS = 250;
 const MATTER_STORAGE_LOCK_RETRY_ATTEMPTS = 40;
+const MATTER_LOCK_FILE = "matter.lock";
+const MATTER_PID_FILE = "matter.pid";
+const MATTER_LOCK_BOOT_ID_MARKER = "valetudo-boot-id";
+const MATTER_BOOT_ID_PATH = "/proc/sys/kernel/random/boot_id";
 const TARGETED_SYNC_DELAY_MS = 25;
 const TARGETED_SYNC_MAX_RETRIES = 20;
 const CLEAN_MODE_STORAGE_SCHEMA = 3;
@@ -91,6 +95,26 @@ const IS_MATTER_STORAGE_LOCK_ERROR = error =>
         error.message.includes("Storage is locked by another process") ||
         error.message.includes("Storage is already locked by this process")
     ));
+
+/**
+ * The kernel regenerates this UUID on every boot, so comparing it (rather than wall-clock
+ * time) tells us whether a lock was last legitimately acquired in a previous boot session
+ * without depending on the system clock having been NTP-corrected yet.
+ *
+ * undefined = not yet read, null = unavailable (e.g. non-Linux)
+ * @type {string|null|undefined}
+ */
+let cachedBootId;
+const GET_CURRENT_BOOT_ID = () => {
+    if (cachedBootId === undefined) {
+        try {
+            cachedBootId = fs.readFileSync(MATTER_BOOT_ID_PATH, "utf8").trim() || null;
+        } catch (e) {
+            cachedBootId = null;
+        }
+    }
+    return cachedBootId;
+};
 
 class MatterController {
     /**
@@ -435,9 +459,73 @@ class MatterController {
     }
 
     /**
+     * @private
+     * @return {string}
+     */
+    getMatterNodeStorageDir() {
+        return path.join(this.getStorageLocation(), NODE_ID);
+    }
+
+    /**
+     * Records the boot session during which we last legitimately held the Matter storage lock.
+     * Called right after a successful acquisition so a future startup can tell whether a leftover
+     * lock is from this same boot (possibly still live) or a previous one (provably dead).
+     *
+     * @private
+     */
+    recordMatterLockBootId() {
+        const currentBootId = GET_CURRENT_BOOT_ID();
+        if (currentBootId === null) {
+            return;
+        }
+        try {
+            fs.writeFileSync(path.join(this.getMatterNodeStorageDir(), MATTER_LOCK_BOOT_ID_MARKER), currentBootId);
+        } catch (e) {
+            Logger.debug("Unable to persist Matter storage lock boot id", e);
+        }
+    }
+
+    /**
+     * A lock left over from this same boot could still have a live owner (e.g. a previous Valetudo
+     * process still releasing it while its replacement starts), so it must only be waited out.
+     * A lock whose last known legitimate owner recorded a *different* boot id cannot have a live
+     * owner - nothing survives a reboot - regardless of whether its PID has since been reused by an
+     * unrelated process. In that case we can safely delete it ourselves instead of waiting.
+     *
+     * @private
+     * @return {boolean} whether an orphaned lock was reclaimed
+     */
+    reclaimMatterLockFromPreviousBoot() {
+        const currentBootId = GET_CURRENT_BOOT_ID();
+        if (currentBootId === null) {
+            return false;
+        }
+        const nodeStorageDir = this.getMatterNodeStorageDir();
+        let recordedBootId;
+        try {
+            recordedBootId = fs.readFileSync(path.join(nodeStorageDir, MATTER_LOCK_BOOT_ID_MARKER), "utf8").trim();
+        } catch (e) {
+            return false;
+        }
+        if (recordedBootId === currentBootId) {
+            return false;
+        }
+        Logger.info("Matter storage lock is orphaned from a previous boot; reclaiming it");
+        try {
+            fs.rmSync(path.join(nodeStorageDir, MATTER_LOCK_FILE), {force: true});
+            fs.rmSync(path.join(nodeStorageDir, MATTER_PID_FILE), {force: true});
+        } catch (e) {
+            Logger.warn("Failed to reclaim orphaned Matter storage lock", e);
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * A previous Valetudo process can still be releasing matter.js's directory lock while its
-     * replacement starts. matter.js already reclaims provably stale lock files, so retrying the
-     * atomic acquisition is safer than deleting a lock that may still have a live owner.
+     * replacement starts. If that lock was last legitimately held during this same boot, it may
+     * still have a live owner, so retrying the atomic acquisition is safer than deleting it. If it
+     * was last held during a previous boot, it is reclaimed outright via reclaimMatterLockFromPreviousBoot().
      *
      * @private
      * @param {new (options: object) => any} ServerNode
@@ -445,6 +533,7 @@ class MatterController {
      * @return {Promise<any>}
      */
     async createServerNodeWithLockRetry(ServerNode, options) {
+        let reclaimAttempted = false;
         for (let attempt = 1; ; attempt++) {
             let node;
             try {
@@ -453,6 +542,7 @@ class MatterController {
                 // cleanup when construction fails after acquiring storage.
                 node = new ServerNode(options);
                 await node.construction.ready;
+                this.recordMatterLockBootId();
                 return node;
             } catch (error) {
                 if (node) {
@@ -466,7 +556,11 @@ class MatterController {
                     throw error;
                 }
 
-                if (attempt === 1) {
+                if (!reclaimAttempted) {
+                    reclaimAttempted = true;
+                    if (this.reclaimMatterLockFromPreviousBoot()) {
+                        continue;
+                    }
                     Logger.info("Matter storage is still locked; waiting for the previous owner to release it");
                 }
                 await this.waitForMatterStorageLockRetry();

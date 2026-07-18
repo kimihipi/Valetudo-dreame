@@ -54,11 +54,13 @@ export class PathDrawer {
                 break;
         }
 
-        const paths = pathMapEntities.filter(e => e.type === RawMapEntityType.Path).map(e => e.points);
-        if (paths.length > 0) {
+        // PredictedPath is the only entity type drawn dashed. Everything else the caller passes in
+        // (Path, MopPath, VacuumAndMopPath) is drawn solid using the given width/opacity.
+        const solidPaths = pathMapEntities.filter(e => e.type !== RawMapEntityType.PredictedPath).map(e => e.points);
+        if (solidPaths.length > 0) {
             svg += PathDrawer.createSVGPathFromPaths(
-                paths,
-                RawMapEntityType.Path,
+                solidPaths,
+                false,
                 pixelSize,
                 pathColor,
                 width,
@@ -70,7 +72,7 @@ export class PathDrawer {
         if (predictedPaths.length > 0) {
             svg += PathDrawer.createSVGPathFromPaths(
                 predictedPaths,
-                RawMapEntityType.PredictedPath,
+                true,
                 pixelSize,
                 pathColor,
                 width,
@@ -85,7 +87,7 @@ export class PathDrawer {
 
     private static createSVGPathFromPaths(
         paths: Array<Array<number>>,
-        type: RawMapEntityType,
+        dashed: boolean,
         pixelSize: number,
         color: string,
         width?: number,
@@ -111,7 +113,7 @@ export class PathDrawer {
 
         let svgPath = `<path d="${commands}" fill="none" stroke="${color}" stroke-width="${pathWidth}" stroke-opacity="${pathOpacity}" stroke-linecap="round" stroke-linejoin="round"`;
 
-        if (type === RawMapEntityType.PredictedPath) {
+        if (dashed) {
             svgPath += " stroke-dasharray=\"1,1\"";
         }
 

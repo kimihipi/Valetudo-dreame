@@ -129,6 +129,11 @@ class Configuration {
                     Logger.info(`Migrating config from ${parsedConfig._version} to ${Tools.GET_VALETUDO_VERSION()}`);
 
                     // BEGIN migration code to be removed with the next version
+                    Object.values(parsedConfig.matter?.cleanModeProfiles ?? {}).forEach(profile => {
+                        if (profile && typeof profile === "object" && typeof profile.enabled !== "boolean") {
+                            profile.enabled = true;
+                        }
+                    });
 
                     // END migration code to be removed with the next version
 

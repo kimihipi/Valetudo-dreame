@@ -329,9 +329,27 @@ abstract class BaseMap<P, S> extends React.Component<P & MapProps, S & MapState 
             await this.mapLayerManager.draw(mapData, this.props.paletteMode);
             this.drawableComponents.push(this.mapLayerManager.getCanvas());
 
+            const mopPathImage = await PathDrawer.drawPaths( {
+                pathMapEntities: mapData.entities.filter(e => {
+                    return e.type === RawMapEntityType.MopPath || e.type === RawMapEntityType.VacuumAndMopPath;
+                }),
+                mapWidth: mapData.size.x,
+                mapHeight: mapData.size.y,
+                pixelSize: mapData.pixelSize,
+                paletteMode: this.props.paletteMode,
+                width: 5,
+                opacity: 0.3,
+            });
+
+            this.drawableComponents.push(mopPathImage);
+
             const pathsImage = await PathDrawer.drawPaths( {
                 pathMapEntities: mapData.entities.filter(e => {
-                    return e.type === RawMapEntityType.Path || e.type === RawMapEntityType.PredictedPath;
+                    return (
+                        e.type === RawMapEntityType.Path ||
+                        e.type === RawMapEntityType.VacuumAndMopPath ||
+                        e.type === RawMapEntityType.PredictedPath
+                    );
                 }),
                 mapWidth: mapData.size.x,
                 mapHeight: mapData.size.y,

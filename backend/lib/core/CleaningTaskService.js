@@ -7,6 +7,7 @@ const BasicControlCapability = require("./capabilities/BasicControlCapability");
 const CallbackAttributeSubscriber = require("../entities/CallbackAttributeSubscriber");
 const CleaningCommandStateAttribute = require("../entities/state/attributes/CleaningCommandStateAttribute");
 const CleaningTargetStateAttribute = require("../entities/state/attributes/CleaningTargetStateAttribute");
+const DockStatusStateAttribute = require("../entities/state/attributes/DockStatusStateAttribute");
 const Logger = require("../Logger");
 const MapLayer = require("../entities/map/MapLayer");
 const MapSegmentationCapability = require("./capabilities/MapSegmentationCapability");
@@ -144,12 +145,14 @@ class CleaningTaskService {
             );
         }
         const status = this.robot.state.getFirstMatchingAttributeByConstructor(StatusStateAttribute);
-        if (status?.value === StatusStateAttribute.VALUE.PAUSED) {
+        if (this.isExplicitResumeState(status)) {
+            this.assertDockMaintenanceInactive();
             return this.resumeLocked(this.createCommand(CleaningCommandStateAttribute.COMMAND.RESUME, options.source));
         }
         if (target.active) {
             throw CREATE_CONFLICT_ERROR("CleaningTaskActiveError", "The cleaning target is already active");
         }
+        this.assertNewCleaningCanStart();
         if (target.value === CleaningTargetStateAttribute.VALUE.SEGMENTS) {
             const command = this.createCommand(CleaningCommandStateAttribute.COMMAND.START_SEGMENTS, options.source);
             return this.executeSegmentTarget(target, command);
@@ -168,9 +171,11 @@ class CleaningTaskService {
 
     async startAllLocked(options) {
         const status = this.robot.state.getFirstMatchingAttributeByConstructor(StatusStateAttribute);
-        if (status?.value === StatusStateAttribute.VALUE.PAUSED) {
+        if (this.isExplicitResumeState(status)) {
+            this.assertDockMaintenanceInactive();
             return this.resumeLocked(this.createCommand(CleaningCommandStateAttribute.COMMAND.RESUME, options.source));
         }
+        this.assertNewCleaningCanStart();
         const command = this.createCommand(CleaningCommandStateAttribute.COMMAND.START_ALL, options.source);
         const targetValue = this.getFirmwareWholeHomeTargetValue();
         const draft = this.stageTarget({
@@ -350,6 +355,7 @@ class CleaningTaskService {
     }
 
     async startSegmentsLocked(options, command) {
+        this.assertNewCleaningCanStart();
         if (!Array.isArray(options.segmentIds) || options.segmentIds.length === 0) {
             throw new RangeError("At least one room must be selected");
         }
@@ -365,6 +371,7 @@ class CleaningTaskService {
     }
 
     async startZonesLocked(options, command) {
+        this.assertNewCleaningCanStart();
         if (!Array.isArray(options.zones) || options.zones.length === 0) {
             throw new RangeError("At least one zone must be selected");
         }
@@ -378,6 +385,63 @@ class CleaningTaskService {
             expectedRevision: options.expectedRevision
         });
         return this.executeZoneTarget(draft, command);
+    }
+
+    /**
+     * Rejects only genuinely new cleaning tasks. Resume paths call resumeLocked() before reaching
+     * this guard so a low-battery or recoverable-error task can continue.
+     *
+     * @private
+     */
+    assertNewCleaningCanStart() {
+        const activeTask = this.robot.state.getFirstMatchingAttributeByConstructor(
+            ActiveCleaningTaskStateAttribute
+        );
+        if (activeTask && !TERMINAL_TASK_STATES.has(activeTask.state)) {
+            throw CREATE_CONFLICT_ERROR(
+                "CleaningStartBlockedError",
+                "Cannot start a new cleaning while another cleaning task is active"
+            );
+        }
+
+        this.assertDockMaintenanceInactive();
+
+        const status = this.robot.state.getFirstMatchingAttributeByConstructor(StatusStateAttribute);
+        if (BLOCKING_ROBOT_STATES.has(status?.value)) {
+            throw CREATE_CONFLICT_ERROR(
+                "CleaningStartBlockedError",
+                `Cannot start cleaning while the robot is ${status.value.replaceAll("_", " ")}`
+            );
+        }
+    }
+
+    /**
+     * @param {StatusStateAttribute|undefined|null} status
+     * @private
+     */
+    isExplicitResumeState(status) {
+        return status?.value === StatusStateAttribute.VALUE.PAUSED ||
+            (status?.value === StatusStateAttribute.VALUE.ERROR &&
+                status?.flag === StatusStateAttribute.FLAG.RESUMABLE);
+    }
+
+    /** @private */
+    assertDockMaintenanceInactive() {
+        const dockStatus = this.robot.state.getFirstMatchingAttributeByConstructor(DockStatusStateAttribute);
+        if (BLOCKING_DOCK_STATES.has(dockStatus?.value)) {
+            throw CREATE_CONFLICT_ERROR(
+                "CleaningStartBlockedError",
+                `Cannot start cleaning while dock maintenance is ${dockStatus.value}`
+            );
+        }
+
+        const status = this.robot.state.getFirstMatchingAttributeByConstructor(StatusStateAttribute);
+        if (BLOCKING_MAINTENANCE_FLAGS.has(status?.flag)) {
+            throw CREATE_CONFLICT_ERROR(
+                "CleaningStartBlockedError",
+                `Cannot start cleaning while robot maintenance is ${status.flag.replaceAll("_", " ")}`
+            );
+        }
     }
 
     async executeWholeHomeTarget(target, command) {
@@ -695,5 +759,31 @@ class CleaningTaskService {
         };
     }
 }
+
+const TERMINAL_TASK_STATES = new Set(["completed", "cancelled", "stopped", "failed"]);
+const BLOCKING_DOCK_STATES = new Set([
+    DockStatusStateAttribute.VALUE.CLEANING,
+    DockStatusStateAttribute.VALUE.EMPTYING,
+    DockStatusStateAttribute.VALUE.PAUSE
+]);
+const BLOCKING_MAINTENANCE_FLAGS = new Set([
+    StatusStateAttribute.FLAG.WASHING,
+    StatusStateAttribute.FLAG.TO_WASH,
+    StatusStateAttribute.FLAG.EMPTYING,
+    StatusStateAttribute.FLAG.TO_EMPTY,
+    StatusStateAttribute.FLAG.DRAINING,
+    StatusStateAttribute.FLAG.TO_DRAIN,
+    StatusStateAttribute.FLAG.ADD_WATER,
+    StatusStateAttribute.FLAG.CHANGING_MOP,
+    StatusStateAttribute.FLAG.INSTALL_MOP,
+    StatusStateAttribute.FLAG.REMOVE_MOP,
+    StatusStateAttribute.FLAG.AUTO_RECLEANING
+]);
+const BLOCKING_ROBOT_STATES = new Set([
+    StatusStateAttribute.VALUE.CLEANING,
+    StatusStateAttribute.VALUE.RETURNING,
+    StatusStateAttribute.VALUE.MANUAL_CONTROL,
+    StatusStateAttribute.VALUE.MOVING
+]);
 
 module.exports = CleaningTaskService;

@@ -50,6 +50,10 @@ const STATISTICS_TIMEOUT_MS = 5_000;
 const TERMINAL_OUTCOME_GRACE_MS = 2_000;
 const ROOM_DETECTION_INTERVAL_MS = 1_000;
 const ROOM_BOUNDARY_TOLERANCE_PIXELS = 2;
+const PATH_CONFIRMATION_DISTANCE_CM = 50;
+const PATH_CONFIRMATION_UPDATES = 2;
+const PATH_SAMPLE_DISTANCE_CM = 25;
+const MAX_PATH_SAMPLES_PER_UPDATE = 24;
 const DEFAULT_COVERAGE_RATE_M2_PER_MINUTE = 1;
 const FIRMWARE_TARGET_TYPES = Object.freeze({
     [stateAttrs.StatusStateAttribute.FLAG.ZONE]: "zones",
@@ -67,7 +71,12 @@ class CleaningTaskManager {
         this.roomCandidateSince = 0;
         this.pendingOutcome = null;
         this.finishing = false;
-        this.lastPathPointCount = 0;
+        this.pathTrackers = new Map();
+        this.pathCandidate = null;
+        this.pathCandidateDistance = 0;
+        this.pathCandidateUpdates = 0;
+        this.segmentRowIndex = new Map();
+        this.segmentIndexGeometryVersion = null;
         this.lastEstimatePublishAt = 0;
         this.lastRoomDetectionAt = 0;
         this.lastDetectedPositionKey = null;
@@ -198,7 +207,7 @@ class CleaningTaskManager {
         if (currentStatus?.value !== stateAttrs.StatusStateAttribute.VALUE.CLEANING) {
             return;
         }
-        this.lastPathPointCount = this.getCleaningPathPointCount();
+        this.resetPathTracking();
         const segmentIds = target?.value === stateAttrs.CleaningTargetStateAttribute.VALUE.SEGMENTS ?
             [...target.segmentIds] : [];
         const targetType = [
@@ -307,6 +316,11 @@ class CleaningTaskManager {
         }
         if (active) {
             this.clearTerminalStatusTimer();
+            if (this.activeTask.state !== "running") {
+                // Discard path accumulated while paused, returning, or at the dock. Only trace
+                // drawn after active cleaning resumes may confirm the next room.
+                this.resetPathTracking();
+            }
             this.activeTask.state = "running";
             this.publish();
             return;
@@ -412,32 +426,17 @@ class CleaningTaskManager {
         if (!position) {
             return null;
         }
+        this.ensureSegmentRowIndex();
         const x = Math.round(position.points[0] / this.robot.state.map.pixelSize);
         const y = Math.round(position.points[1] / this.robot.state.map.pixelSize);
-        const positionKey = `${this.getMapGeometryVersion()}|${x}|${y}`;
+        const positionKey = `${this.segmentIndexGeometryVersion}|${x}|${y}`;
         if (positionKey === this.lastDetectedPositionKey) {
             return this.lastDetectedSegment;
         }
-        // Prefer an exact match across every room before applying tolerance. This avoids assigning
-        // a point inside one room to an earlier adjacent room whose pixels are merely nearby.
-        for (let radius = 0; radius <= ROOM_BOUNDARY_TOLERANCE_PIXELS; radius++) {
-            for (const layer of layers) {
-                const runs = layer.compressedPixels ?? [];
-                for (let i = 0; i < runs.length; i += 3) {
-                    const start = runs[i];
-                    const row = runs[i + 1];
-                    const count = runs[i + 2];
-                    if (Math.abs(row - y) <= radius && x + radius >= start && x - radius < start + count) {
-                        this.lastDetectedPositionKey = positionKey;
-                        this.lastDetectedSegment = String(layer.metaData.segmentId);
-                        return this.lastDetectedSegment;
-                    }
-                }
-            }
-        }
+        const detected = this.findSegmentAtPixel(x, y, ROOM_BOUNDARY_TOLERANCE_PIXELS, true);
         this.lastDetectedPositionKey = positionKey;
-        this.lastDetectedSegment = null;
-        return null;
+        this.lastDetectedSegment = detected;
+        return detected;
     }
 
     getMapGeometryVersion() {
@@ -449,57 +448,203 @@ class CleaningTaskManager {
                 layer.dimensions?.y?.min, layer.dimensions?.y?.max].join(":"))].join("|");
     }
 
-    getCleaningPathPointCount() {
-        let count = 0;
-        for (const entity of this.robot.state.map?.entities ?? []) {
-            if (TRAVELED_PATH_TYPES.includes(entity.type) && Array.isArray(entity.points)) {
-                count += entity.points.length;
+    ensureSegmentRowIndex() {
+        const geometryVersion = this.getMapGeometryVersion();
+        if (geometryVersion === this.segmentIndexGeometryVersion) {
+            return;
+        }
+        const rows = new Map();
+        for (const layer of this.robot.state.map?.layers ?? []) {
+            if (layer.type !== MapLayer.TYPE.SEGMENT || layer.metaData.hidden) {
+                continue;
+            }
+            const segmentId = String(layer.metaData.segmentId);
+            const runs = layer.compressedPixels ?? [];
+            for (let i = 0; i < runs.length; i += 3) {
+                const row = runs[i + 1];
+                const intervals = rows.get(row) ?? [];
+                intervals.push({start: runs[i], end: runs[i] + runs[i + 2] - 1, segmentId: segmentId});
+                rows.set(row, intervals);
             }
         }
-        return count;
+        for (const intervals of rows.values()) {
+            intervals.sort((a, b) => a.start - b.start);
+        }
+        this.segmentRowIndex = rows;
+        this.segmentIndexGeometryVersion = geometryVersion;
+        this.lastDetectedPositionKey = null;
+        this.lastDetectedSegment = null;
     }
 
-    // True when the cleaning path has grown since the previous map update, i.e. the robot is
-    // laying new trace rather than sitting docked/emptying or otherwise stationary. Returns true
-    // when no path data is available (e.g. non-Dreame) so tracking falls back to position only.
-    updateDrawingState() {
-        const count = this.getCleaningPathPointCount();
-        if (count === 0) {
-            return true;
+    findSegmentAtPixel(x, y, tolerance = 0, indexReady = false) {
+        if (!indexReady) {
+            this.ensureSegmentRowIndex();
         }
-        const drawing = count > this.lastPathPointCount;
-        this.lastPathPointCount = count;
-        return drawing;
+        for (let radius = 0; radius <= tolerance; radius++) {
+            let closest = null;
+            for (let row = y - radius; row <= y + radius; row++) {
+                for (const interval of this.segmentRowIndex.get(row) ?? []) {
+                    const horizontalDistance = x < interval.start ? interval.start - x :
+                        x > interval.end ? x - interval.end : 0;
+                    const distance = horizontalDistance + Math.abs(row - y);
+                    if (distance <= radius && (closest === null || distance < closest.distance)) {
+                        closest = {distance: distance, segmentId: interval.segmentId};
+                    }
+                }
+            }
+            if (closest !== null) {
+                return closest.segmentId;
+            }
+        }
+        return null;
+    }
+
+    getTraveledPathEntities() {
+        return (this.robot.state.map?.entities ?? []).filter(entity =>
+            TRAVELED_PATH_TYPES.includes(entity.type) && Array.isArray(entity.points));
+    }
+
+    resetPathTracking() {
+        this.pathTrackers.clear();
+        const typeOccurrences = new Map();
+        for (const entity of this.getTraveledPathEntities()) {
+            const occurrence = typeOccurrences.get(entity.type) ?? 0;
+            typeOccurrences.set(entity.type, occurrence + 1);
+            const key = `${entity.type}:${occurrence}`;
+            this.pathTrackers.set(key, {
+                pointCount: entity.points.length,
+                lastX: entity.points.at(-2),
+                lastY: entity.points.at(-1)
+            });
+        }
+        this.pathCandidate = null;
+        this.pathCandidateDistance = 0;
+        this.pathCandidateUpdates = 0;
+    }
+
+    collectPathRoomEvidence() {
+        const entities = this.getTraveledPathEntities();
+        this.ensureSegmentRowIndex();
+        const nextTrackers = new Map();
+        const typeOccurrences = new Map();
+        const evidence = new Map();
+        const trackedSegmentIds = new Set(this.getTrackedSegmentIds());
+        let samplesRemaining = MAX_PATH_SAMPLES_PER_UPDATE;
+        let tailSegmentId = null;
+
+        for (const entity of entities) {
+            const occurrence = typeOccurrences.get(entity.type) ?? 0;
+            typeOccurrences.set(entity.type, occurrence + 1);
+            const key = `${entity.type}:${occurrence}`;
+            const previous = this.pathTrackers.get(key);
+            const points = entity.points;
+            let start = 0;
+            if (previous) {
+                const prefixUnchanged = previous.pointCount <= points.length && previous.pointCount >= 2 &&
+                    points[previous.pointCount - 2] === previous.lastX &&
+                    points[previous.pointCount - 1] === previous.lastY;
+                // A shorter/replaced path is a new baseline, not newly traveled distance.
+                start = prefixUnchanged ? previous.pointCount : points.length;
+            }
+            nextTrackers.set(key, {
+                pointCount: points.length,
+                lastX: points.at(-2),
+                lastY: points.at(-1)
+            });
+
+            if (start >= points.length) {
+                continue;
+            }
+            start = Math.max(start, 2);
+            const pixelSize = this.robot.state.map?.pixelSize;
+            if (!Number.isFinite(pixelSize) || pixelSize <= 0) {
+                continue;
+            }
+            const endpointSegmentId = this.findSegmentAtPixel(
+                Math.round(points.at(-2) / pixelSize), Math.round(points.at(-1) / pixelSize),
+                ROOM_BOUNDARY_TOLERANCE_PIXELS, true
+            );
+            if (endpointSegmentId !== null && trackedSegmentIds.has(endpointSegmentId)) {
+                tailSegmentId = endpointSegmentId;
+            }
+            for (let i = start; i < points.length && samplesRemaining > 0; i += 2) {
+                const fromX = points[i - 2];
+                const fromY = points[i - 1];
+                const toX = points[i];
+                const toY = points[i + 1];
+                const distance = Math.hypot(toX - fromX, toY - fromY);
+                const sampleCount = Math.max(1, Math.min(samplesRemaining,
+                    Math.ceil(distance / PATH_SAMPLE_DISTANCE_CM)));
+                for (let sample = 1; sample <= sampleCount; sample++) {
+                    const ratio = sample / sampleCount;
+                    const x = fromX + (toX - fromX) * ratio;
+                    const y = fromY + (toY - fromY) * ratio;
+                    const segmentId = this.findSegmentAtPixel(
+                        Math.round(x / pixelSize), Math.round(y / pixelSize), ROOM_BOUNDARY_TOLERANCE_PIXELS, true
+                    );
+                    if (segmentId !== null && trackedSegmentIds.has(segmentId)) {
+                        const roomEvidence = evidence.get(segmentId) ?? {distance: 0, samples: 0};
+                        roomEvidence.distance += distance / sampleCount;
+                        roomEvidence.samples++;
+                        evidence.set(segmentId, roomEvidence);
+                    }
+                }
+                samplesRemaining -= sampleCount;
+            }
+        }
+        this.pathTrackers = nextTrackers;
+
+        if (tailSegmentId === null && evidence.size > 0) {
+            tailSegmentId = [...evidence.entries()].sort((a, b) =>
+                b[1].distance - a[1].distance || b[1].samples - a[1].samples)[0][0];
+        }
+        return {
+            hasPathData: entities.some(entity => entity.points.length >= 2),
+            segmentId: tailSegmentId,
+            distance: tailSegmentId === null ? 0 : evidence.get(tailSegmentId)?.distance ?? 0
+        };
+    }
+
+    confirmPathCandidate(evidence) {
+        if (evidence.segmentId === null) {
+            return null;
+        }
+        if (evidence.segmentId !== this.pathCandidate) {
+            this.pathCandidate = evidence.segmentId;
+            this.pathCandidateDistance = evidence.distance;
+            this.pathCandidateUpdates = 1;
+        } else {
+            this.pathCandidateDistance += evidence.distance;
+            this.pathCandidateUpdates++;
+        }
+        return this.pathCandidateDistance >= PATH_CONFIRMATION_DISTANCE_CM ||
+            this.pathCandidateUpdates >= PATH_CONFIRMATION_UPDATES ? this.pathCandidate : null;
     }
 
     handleMapUpdate(immediate = false) {
-        if (!this.activeTask || !["running", "paused"].includes(this.activeTask.state)) {
+        if (!this.activeTask || this.activeTask.state !== "running") {
             return;
         }
         if (!immediate && Date.now() - this.lastRoomDetectionAt < ROOM_DETECTION_INTERVAL_MS) {
             return;
         }
         this.lastRoomDetectionAt = Date.now();
-        // Tie room tracking to the robot actually drawing cleaning trace on the live map. When it
-        // travels back to the dock to auto-empty and sits there, the path stops growing, so we
-        // freeze on the current room instead of mis-attributing the transited/dock rooms (which
-        // also used to inflate completedRooms and falsely flip nonSequential on resume).
-        const drawing = this.updateDrawingState();
-        if (!immediate && !drawing) {
-            return;
-        }
-        const detected = this.detectCurrentSegment();
+        // Newly drawn trace is room-local proof of cleaning. Position/dwell remains a fallback for
+        // vendors that do not expose traveled paths at all.
+        const pathEvidence = this.collectPathRoomEvidence();
+        const detected = pathEvidence.hasPathData ? this.confirmPathCandidate(pathEvidence) :
+            this.detectCurrentSegment();
         if (detected === null) {
             return;
         }
-        if (detected !== this.roomCandidate) {
+        if (!pathEvidence.hasPathData && detected !== this.roomCandidate) {
             this.roomCandidate = detected;
             this.roomCandidateSince = Date.now();
             if (!immediate) {
                 return;
             }
         }
-        if (!immediate && Date.now() - this.roomCandidateSince < ROOM_DWELL_MS) {
+        if (!pathEvidence.hasPathData && !immediate && Date.now() - this.roomCandidateSince < ROOM_DWELL_MS) {
             return;
         }
         if (detected === this.activeTask.currentSegmentId) {
@@ -549,6 +694,15 @@ class CleaningTaskManager {
             return [];
         }
         return trackedSegmentIds.filter(id => this.activeTask.completedSegmentIds.includes(id));
+    }
+
+    getCurrentRoomNumber(trackedSegmentIds) {
+        if (!this.activeTask || this.activeTask.nonSequential || this.activeTask.currentSegmentId === null ||
+            !trackedSegmentIds.includes(this.activeTask.currentSegmentId)) {
+            return null;
+        }
+        return Math.min(trackedSegmentIds.length,
+            this.getCompletedRoomCount(trackedSegmentIds) + 1);
     }
 
     getFallbackTotalEstimateSeconds() {
@@ -649,7 +803,9 @@ class CleaningTaskManager {
             progress: {
                 completedRooms: this.getCompletedRoomCount(trackedSegmentIds),
                 completedSegmentIds: this.getCompletedSegmentIds(trackedSegmentIds),
+                currentRoomNumber: this.getCurrentRoomNumber(trackedSegmentIds),
                 totalRooms: trackedSegmentIds.length,
+                sequential: !this.activeTask.nonSequential,
                 completedPercent: completedPercent,
                 estimatedRemainingSeconds: estimate,
                 estimatedCompletionTime: estimate === null ? null : new Date(Date.now() + estimate * 1000).toISOString()

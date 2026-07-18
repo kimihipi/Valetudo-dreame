@@ -264,6 +264,114 @@ describe("CleaningTaskService", function() {
         result.target.should.match({value: "all", segmentIds: [], iterations: 1, source: "webui", active: true});
     });
 
+    it("should reject Web and Matter starts while dock maintenance is active", async function() {
+        for (const source of ["webui", "matter"]) {
+            for (const dockState of ["cleaning", "emptying", "pause"]) {
+                const robot = createRobot();
+                robot.capabilities.BasicControlCapability = {start: async () => {}};
+                robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({value: "docked"}));
+                robot.state.upsertFirstMatchingAttribute(new stateAttrs.DockStatusStateAttribute({value: dockState}));
+                const service = new CleaningTaskService({robot: robot});
+                const targetBefore = service.getTarget();
+
+                let error;
+                try {
+                    await service.startAll({source: source});
+                } catch (e) {
+                    error = e;
+                }
+
+                error.should.match({name: "CleaningStartBlockedError", statusCode: 409});
+                service.getTarget().should.match({revision: targetBefore.revision, active: false});
+                should(robot.state.getFirstMatchingAttributeByConstructor(
+                    stateAttrs.CleaningCommandStateAttribute
+                )).equal(null);
+            }
+        }
+    });
+
+    it("should reject maintenance flags and nonterminal tasks before publishing a start command", async function() {
+        const maintenanceFlags = [
+            "washing", "to_wash", "emptying", "to_empty", "draining", "to_drain", "add_water",
+            "changing_mop", "install_mop", "remove_mop", "auto_recleaning"
+        ];
+        for (const flag of maintenanceFlags) {
+            const robot = createRobot();
+            robot.capabilities.BasicControlCapability = {start: async () => {}};
+            robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({value: "docked", flag: flag}));
+            const service = new CleaningTaskService({robot: robot});
+
+            await should(service.startAll({source: "webui"})).be.rejectedWith({
+                name: "CleaningStartBlockedError",
+                statusCode: 409
+            });
+            should(robot.state.getFirstMatchingAttributeByConstructor(
+                stateAttrs.CleaningCommandStateAttribute
+            )).equal(null);
+        }
+
+        const robot = createRobot();
+        robot.capabilities.BasicControlCapability = {start: async () => {}};
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({value: "docked"}));
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.ActiveCleaningTaskStateAttribute({
+            id: "task-at-dock", state: "running", source: "matter", startedAt: new Date().toISOString()
+        }));
+        const service = new CleaningTaskService({robot: robot});
+
+        await should(service.startAll({source: "matter"})).be.rejectedWith({
+            name: "CleaningStartBlockedError",
+            statusCode: 409
+        });
+    });
+
+    it("should allow a new cleaning while docked, charging or drying", async function() {
+        for (const dockState of ["idle", "drying"]) {
+            const robot = createRobot();
+            let starts = 0;
+            robot.capabilities.BasicControlCapability = {
+                start: async () => {
+                    starts++;
+                }
+            };
+            robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({value: "docked"}));
+            robot.state.upsertFirstMatchingAttribute(new stateAttrs.DockStatusStateAttribute({value: dockState}));
+            const service = new CleaningTaskService({robot: robot});
+
+            await service.startAll({source: "webui"});
+
+            starts.should.equal(1);
+        }
+    });
+
+    it("should reject docked-resumable Start while mop cleaning is active", async function() {
+        const robot = createRobot();
+        let starts = 0;
+        robot.capabilities.BasicControlCapability = {
+            start: async () => {
+                starts++;
+                robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({value: "cleaning"}));
+            }
+        };
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
+            value: "docked", flag: "resumable"
+        }));
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.DockStatusStateAttribute({value: "cleaning"}));
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.ActiveCleaningTaskStateAttribute({
+            id: "resumable-task", state: "paused", source: "matter", startedAt: new Date().toISOString()
+        }));
+        const service = new CleaningTaskService({robot: robot, verificationTimeoutMs: 10});
+
+        await should(service.startAll({source: "matter"})).be.rejectedWith({
+            name: "CleaningStartBlockedError",
+            statusCode: 409
+        });
+
+        starts.should.equal(0);
+        should(robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.CleaningCommandStateAttribute
+        )).equal(null);
+    });
+
     it("should preserve firmware automatic mode for Basic whole-home Start", async function() {
         const robot = createRobot();
         robot.state.upsertFirstMatchingAttribute(new stateAttrs.PresetSelectionStateAttribute({

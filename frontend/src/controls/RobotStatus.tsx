@@ -74,7 +74,7 @@ import MapModeControls from "./MapModeControls";
 import PresetSelectionControl from "./PresetSelection";
 import {DeepRouteIcon, FanSpeedMediumIcon, IntensiveRouteIcon, NormalRouteIcon, QuickRouteIcon, WaterGradeLowIcon} from "../components/CustomIcons";
 import {getPresetIconOrLabel, presetFriendlyNames, sortPresets} from "../presetUtils";
-import {getConsumableName, STATUS_FLAG_LABELS} from "../utils";
+import {getConsumableName, isNewCleaningStartBlocked, STATUS_FLAG_LABELS} from "../utils";
 import RobotSettings from "./RobotSettings";
 
 const ActiveStates: StatusState["value"][] = ["cleaning", "returning", "moving"];
@@ -682,6 +682,12 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
         isPending: isBatteryPending,
         isError: isBatteryError,
     } = useRobotAttributeQuery(RobotAttributeClass.BatteryState);
+    const {data: dockStatus} = useRobotAttributeQuery(
+        RobotAttributeClass.DockStatusState, attrs => attrs[0]
+    );
+    const {data: activeTask} = useRobotAttributeQuery(
+        RobotAttributeClass.ActiveCleaningTaskState, attrs => attrs[0]
+    );
     const isPending = isStatusPending || isBatteryPending;
 
     const [basicControlSupported] = useCapabilitiesSupported(Capability.BasicControl);
@@ -692,6 +698,7 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
     const {hasPendingMapAction} = usePendingMapAction();
     const {isMapEditorOpen} = useMapEditorOpen();
     const {mode, setMode} = useLiveMapMode();
+    const newCleaningStartBlocked = isNewCleaningStartBlocked(status, dockStatus, activeTask);
 
     // Disable buttons until we observe status.value change from the SSE stream (or 5s pass).
     // Prevents a double-tap racing the ~200-500ms window between the mutation resolving and
@@ -750,7 +757,8 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
         if (status.value === "paused") {
             // Robot is paused: Resume/Start + Stop
             return [
-                {command: "start", enabled: !hasPendingMapAction, label: status.flag === "resumable" ? "Resume" : "Start", Icon: StartIcon, color: palette.green},
+                {command: "start", enabled: !hasPendingMapAction && !newCleaningStartBlocked,
+                    label: status.flag === "resumable" ? "Resume" : "Start", Icon: StartIcon, color: palette.green},
                 {command: "stop", enabled: true, Icon: StopIcon, label: "Stop", color: palette.crimson},
             ];
         }
@@ -760,7 +768,8 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
             // reports the error as resumable.
             if (status.flag === "resumable") {
                 return [
-                    {command: "start", enabled: !hasPendingMapAction, label: "Resume", Icon: StartIcon, color: palette.green},
+                    {command: "start", enabled: !hasPendingMapAction && !newCleaningStartBlocked,
+                        label: "Resume", Icon: StartIcon, color: palette.green},
                     {command: "stop", enabled: true, Icon: StopIcon, label: "Stop", color: palette.crimson},
                 ];
             }
@@ -772,7 +781,8 @@ export const RobotStatusCard = ({children, trailing}: {children?: React.ReactNod
 
         // idle, docked, or any other state: Start + Dock
         return [
-            {command: "start", enabled: !hasPendingMapAction, label: "Start", Icon: StartIcon, color: palette.green},
+            {command: "start", enabled: !hasPendingMapAction && !newCleaningStartBlocked,
+                label: "Start", Icon: StartIcon, color: palette.green},
             {command: "home", enabled: status.value !== "docked", Icon: HomeIcon, label: "Dock", color: palette.teal},
         ];
     })();

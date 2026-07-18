@@ -1,5 +1,5 @@
 //Adapted from https://stackoverflow.com/a/34270811/10951033
-import {ConsumableSubType, ConsumableType, ValetudoDataPoint} from "./api";
+import {ConsumableSubType, ConsumableType, DockStatusState, StatusState, ValetudoDataPoint} from "./api";
 import {useCallback, useLayoutEffect, useRef} from "react";
 
 export const STATUS_FLAG_LABELS: Record<string, string> = {
@@ -39,6 +39,36 @@ export const STATUS_LABELS: Record<string, string> = {
     manual_control: "Manual Control",
     moving: "Moving",
     error: "Error",
+};
+
+const TERMINAL_CLEANING_TASK_STATES = new Set(["completed", "cancelled", "stopped", "failed"]);
+const BLOCKING_DOCK_STATES = new Set(["cleaning", "emptying", "pause"]);
+const BLOCKING_MAINTENANCE_FLAGS = new Set([
+    "washing", "to_wash", "emptying", "to_empty", "draining", "to_drain", "add_water",
+    "changing_mop", "install_mop", "remove_mop", "auto_recleaning"
+]);
+const BLOCKING_ROBOT_STATES = new Set(["cleaning", "returning", "manual_control", "moving"]);
+
+export const isNewCleaningStartBlocked = (
+    status: StatusState | undefined,
+    dockStatus: DockStatusState | undefined,
+    task: {state: string} | undefined
+): boolean => {
+    const taskActive = task !== undefined && !TERMINAL_CLEANING_TASK_STATES.has(task.state);
+    const dockMaintenanceActive = BLOCKING_DOCK_STATES.has(dockStatus?.value ?? "") ||
+        BLOCKING_MAINTENANCE_FLAGS.has(status?.flag ?? "");
+    if (dockMaintenanceActive) {
+        return true;
+    }
+
+    const resuming = taskActive && (status?.value === "paused" ||
+        (status?.value === "error" && status.flag === "resumable"));
+    if (resuming) {
+        return false;
+    }
+
+    return taskActive ||
+        BLOCKING_ROBOT_STATES.has(status?.value ?? "");
 };
 
 export const getStatusColor = (

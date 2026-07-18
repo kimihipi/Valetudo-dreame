@@ -1,6 +1,6 @@
 {
   "name": "valetudo",
-  "version": "2026.5.0",
+  "version": "2026.7.1",
   "description": "Self-contained control webinterface for vacuum robots",
   "license": "Apache-2.0",
   "engines": {

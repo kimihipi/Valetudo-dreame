@@ -141,6 +141,102 @@ describe("MatterController", function() {
         closes.should.equal(1);
     });
 
+    it("should reclaim a Matter storage lock orphaned from a previous boot", async function() {
+        let currentBootId;
+        try {
+            currentBootId = fs.readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim();
+        } catch (e) {
+            this.skip();
+            return;
+        }
+
+        const controller = createController();
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "matter-lock-spec-"));
+        const nodeStorageDir = path.join(tmpDir, "valetudo");
+        fs.mkdirSync(nodeStorageDir, {recursive: true});
+        fs.writeFileSync(path.join(nodeStorageDir, "matter.lock"), "");
+        fs.writeFileSync(path.join(nodeStorageDir, "matter.pid"), "123 sometoken");
+        // A boot id that cannot match the real one - simulates a lock last held before a reboot.
+        fs.writeFileSync(path.join(nodeStorageDir, "valetudo-boot-id"), "00000000-0000-0000-0000-000000000000");
+        controller.getStorageLocation = () => tmpDir;
+
+        let attempts = 0;
+        let waits = 0;
+        const expectedNode = {id: "valetudo"};
+        function ServerNode() {
+            attempts++;
+            this.construction = {};
+            if (attempts === 1) {
+                const error = new Error("Storage is locked by another process (pid 1802)");
+                error.name = "StorageLockError";
+                this.construction.ready = Promise.reject(error);
+            } else {
+                Object.assign(this, expectedNode);
+                this.construction.ready = Promise.resolve();
+            }
+        }
+        ServerNode.prototype.close = async () => {};
+        controller.waitForMatterStorageLockRetry = async () => {
+            waits++;
+        };
+
+        const node = await controller.createServerNodeWithLockRetry(ServerNode, {id: "valetudo"});
+
+        node.id.should.equal(expectedNode.id);
+        attempts.should.equal(2);
+        waits.should.equal(0);
+        fs.existsSync(path.join(nodeStorageDir, "matter.lock")).should.equal(false);
+        fs.existsSync(path.join(nodeStorageDir, "matter.pid")).should.equal(false);
+        fs.readFileSync(path.join(nodeStorageDir, "valetudo-boot-id"), "utf8").should.equal(currentBootId);
+    });
+
+    it("should not reclaim a Matter storage lock last held during the current boot", async function() {
+        let currentBootId;
+        try {
+            currentBootId = fs.readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim();
+        } catch (e) {
+            this.skip();
+            return;
+        }
+
+        const controller = createController();
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "matter-lock-spec-"));
+        const nodeStorageDir = path.join(tmpDir, "valetudo");
+        fs.mkdirSync(nodeStorageDir, {recursive: true});
+        fs.writeFileSync(path.join(nodeStorageDir, "matter.lock"), "");
+        fs.writeFileSync(path.join(nodeStorageDir, "matter.pid"), "123 sometoken");
+        fs.writeFileSync(path.join(nodeStorageDir, "valetudo-boot-id"), currentBootId);
+        controller.getStorageLocation = () => tmpDir;
+
+        let attempts = 0;
+        let waits = 0;
+        const expectedNode = {id: "valetudo"};
+        function ServerNode() {
+            attempts++;
+            this.construction = {};
+            if (attempts < 3) {
+                const error = new Error("Storage is locked by another process (pid 1802)");
+                error.name = "StorageLockError";
+                this.construction.ready = Promise.reject(error);
+            } else {
+                Object.assign(this, expectedNode);
+                this.construction.ready = Promise.resolve();
+            }
+        }
+        ServerNode.prototype.close = async () => {};
+        controller.waitForMatterStorageLockRetry = async () => {
+            waits++;
+        };
+
+        const node = await controller.createServerNodeWithLockRetry(ServerNode, {id: "valetudo"});
+
+        node.id.should.equal(expectedNode.id);
+        attempts.should.equal(3);
+        waits.should.equal(2);
+        fs.existsSync(path.join(nodeStorageDir, "matter.lock")).should.equal(true);
+        fs.existsSync(path.join(nodeStorageDir, "matter.pid")).should.equal(true);
+    });
+
     it("should not infer successful completion from returning to the dock", async function() {
         const controller = createController();
 
@@ -602,6 +698,34 @@ describe("MatterController", function() {
         await should(controller.startMatterCleaning()).be.rejectedWith(
             "Select at least one room before starting segment cleaning"
         );
+    });
+
+    it("should reject Matter Start during dock maintenance without changing the target", async function() {
+        const controller = createController();
+        controller.robot.capabilities.BasicControlCapability = {
+            start: async () => {
+                throw new Error("should not execute");
+            }
+        };
+        controller.robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({value: "docked"}));
+        controller.robot.state.upsertFirstMatchingAttribute(new stateAttrs.DockStatusStateAttribute({value: "cleaning"}));
+        const targetBefore = controller.cleaningTaskService.getTarget();
+
+        let error;
+        try {
+            await controller.startMatterCleaning();
+        } catch (e) {
+            error = e;
+        }
+
+        error.should.match({name: "CleaningStartBlockedError", statusCode: 409});
+        controller.cleaningTaskService.getTarget().should.match({
+            revision: targetBefore.revision,
+            active: false
+        });
+        should(controller.robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.CleaningCommandStateAttribute
+        )).equal(null);
     });
 
     it("should stop Matter cleaning through the shared task service", async function() {
