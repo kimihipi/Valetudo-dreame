@@ -14,6 +14,7 @@ const Logger = require("../Logger");
 const env = require("../res/env");
 const notFoundPages = require("./res/404");
 
+const KillswitchRouter = require("./KillswitchRouter");
 const Middlewares = require("./middlewares");
 const RobotRouter = require("./RobotRouter");
 const ValetudoRouter = require("./ValetudoRouter");
@@ -25,7 +26,6 @@ const MQTTRouter = require("./MQTTRouter");
 const NetworkAdvertisementManagerRouter = require("./NetworkAdvertisementManagerRouter");
 const NTPClientRouter = require("./NTPClientRouter");
 const SSDPRouter = require("./SSDPRouter");
-const StreamerRouter = require("./StreamerRouter");
 const SystemRouter = require("./SystemRouter");
 const TimerRouter = require("./TimerRouter");
 const Tools = require("../utils/Tools");
@@ -46,7 +46,6 @@ class WebServer {
      * @param {import("../Configuration")} options.config
      * @param {import("../PhoenixManager")} options.phoenixManager
      * @param {import("../utils/ValetudoHelper")} options.valetudoHelper
-     * @param {import("../VideoMonitorManager")} options.videoMonitorManager
      * @param {import("../core/CleaningTaskManager")} options.cleaningTaskManager
      * @param {import("../core/CleaningTaskService")} options.cleaningTaskService
      */
@@ -82,6 +81,12 @@ class WebServer {
         }
 
         this.app.use(Middlewares.EggTermMiddleware);
+
+        // Intentionally bypasses auth
+        this.app.use(
+            "/_killswitch",
+            new KillswitchRouter({robot: this.robot}).getRouter()
+        );
 
         const authMiddleware = this.createAuthMiddleware();
         const dynamicAuth = dynamicMiddleware.create([]);
@@ -195,14 +200,6 @@ class WebServer {
 
         this.app.use("/_ssdp/", new SSDPRouter({config: this.config, robot: this.robot, valetudoHelper: this.valetudoHelper}).getRouter());
 
-        if (this.config.get("webserver").streamerProxy.enabled) {
-            this.streamerRouter = new StreamerRouter({
-                config: this.config,
-                videoMonitorManager: options.videoMonitorManager
-            });
-            this.app.use("/streamer/", this.streamerRouter.getRouter());
-        }
-
         this.app.use(express.static(path.join(__dirname, "../../..", "frontend/build")));
 
 
@@ -279,8 +276,6 @@ class WebServer {
             Logger.debug("Webserver shutdown in progress...");
             this.robotRouter.shutdown();
             this.valetudoRouter.shutdown();
-            this.streamerRouter?.shutdown();
-
             //closing the server
             this.webserver.close(() => {
                 Logger.debug("Webserver shutdown done");

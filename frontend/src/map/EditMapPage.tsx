@@ -8,9 +8,8 @@ import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import EditMap, { mode } from "./EditMap";
 import {SegmentEditHelp} from "./res/SegmentEditHelp";
 import {VirtualRestrictionEditHelp} from "./res/VirtualRestrictionEditHelp";
-import {VirtualThresholdEditHelp} from "./res/VirtualThresholdEditHelp";
-import {CurtainEditHelp} from "./res/CurtainEditHelp";
 import {CarpetEditHelp} from "./res/CarpetEditHelp";
+import {MapAnnotationsHelp} from "./res/MapAnnotationsHelp";
 import {useSnackbar} from "notistack";
 import React from "react";
 
@@ -41,8 +40,7 @@ const EditMapPage = (props: {
 
     const [
         combinedVirtualRestrictionsCapabilitySupported,
-        combinedVirtualThresholdsCapabilitySupported,
-        curtainsCapabilitySupported,
+        mapAnnotationsCapabilitySupported,
         carpetZonesCapabilitySupported,
 
         mapSegmentEditCapabilitySupported,
@@ -52,8 +50,7 @@ const EditMapPage = (props: {
         mapSegmentCleanOrderCapabilitySupported,
     ] = useCapabilitiesSupported(
         Capability.CombinedVirtualRestrictions,
-        Capability.CombinedVirtualThresholds,
-        Capability.Curtains,
+        Capability.MapAnnotations,
         Capability.CarpetZones,
 
         Capability.MapSegmentEdit,
@@ -72,10 +69,8 @@ const EditMapPage = (props: {
         helpText = SegmentEditHelp;
     } else if (props.mode === "virtual_restrictions") {
         helpText = VirtualRestrictionEditHelp;
-    } else if (props.mode === "virtual_thresholds") {
-        helpText = VirtualThresholdEditHelp;
-    } else if (props.mode === "curtains") {
-        helpText = CurtainEditHelp;
+    } else if (props.mode === "annotations") {
+        helpText = MapAnnotationsHelp;
     } else if (props.mode === "carpets") {
         helpText = CarpetEditHelp;
     }
@@ -128,8 +123,7 @@ const EditMapPage = (props: {
 
         supportedCapabilities={{
             [Capability.CombinedVirtualRestrictions]: combinedVirtualRestrictionsCapabilitySupported,
-            [Capability.CombinedVirtualThresholds]: combinedVirtualThresholdsCapabilitySupported,
-            [Capability.Curtains]: curtainsCapabilitySupported,
+            [Capability.MapAnnotations]: mapAnnotationsCapabilitySupported,
             [Capability.CarpetZones]: carpetZonesCapabilitySupported,
 
             [Capability.MapSegmentEdit]: mapSegmentEditCapabilitySupported,

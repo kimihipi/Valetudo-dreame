@@ -1,6 +1,7 @@
 {
   "__class": "ValetudoMap",
   "metaData": {
+    "vendorMapId": 7,
     "id": "0",
     "version": 2,
     "totalLayerArea": 293825
@@ -18,6 +19,21 @@
       },
       "type": "floor",
       "pixels": [],
+      "dimensions": {
+        "x": {
+          "min": 635,
+          "max": 665,
+          "mid": 650,
+          "avg": 649
+        },
+        "y": {
+          "min": 637,
+          "max": 655,
+          "mid": 646,
+          "avg": 646
+        },
+        "pixelCount": 449
+      },
       "compressedPixels": [
         635,
         637,
@@ -76,22 +92,7 @@
         656,
         655,
         7
-      ],
-      "dimensions": {
-        "x": {
-          "min": 635,
-          "max": 665,
-          "mid": 650,
-          "avg": 649
-        },
-        "y": {
-          "min": 637,
-          "max": 655,
-          "mid": 646,
-          "avg": 646
-        },
-        "pixelCount": 449
-      }
+      ]
     },
     {
       "__class": "MapLayer",
@@ -100,6 +101,21 @@
       },
       "type": "wall",
       "pixels": [],
+      "dimensions": {
+        "x": {
+          "min": 632,
+          "max": 636,
+          "mid": 634,
+          "avg": 634
+        },
+        "y": {
+          "min": 638,
+          "max": 652,
+          "mid": 645,
+          "avg": 646
+        },
+        "pixelCount": 38
+      },
       "compressedPixels": [
         634,
         638,
@@ -146,22 +162,7 @@
         634,
         652,
         2
-      ],
-      "dimensions": {
-        "x": {
-          "min": 632,
-          "max": 636,
-          "mid": 634,
-          "avg": 634
-        },
-        "y": {
-          "min": 638,
-          "max": 652,
-          "mid": 645,
-          "avg": 646
-        },
-        "pixelCount": 38
-      }
+      ]
     },
     {
       "__class": "MapLayer",
@@ -169,11 +170,26 @@
         "segmentId": "1",
         "active": false,
         "source": "rism",
-        "area": 17125,
-        "hidden": false
+        "hidden": false,
+        "area": 17125
       },
       "type": "segment",
       "pixels": [],
+      "dimensions": {
+        "x": {
+          "min": 638,
+          "max": 671,
+          "mid": 655,
+          "avg": 654
+        },
+        "y": {
+          "min": 605,
+          "max": 631,
+          "mid": 618,
+          "avg": 619
+        },
+        "pixelCount": 685
+      },
       "compressedPixels": [
         643,
         605,
@@ -328,22 +344,7 @@
         650,
         631,
         12
-      ],
-      "dimensions": {
-        "x": {
-          "min": 638,
-          "max": 671,
-          "mid": 655,
-          "avg": 654
-        },
-        "y": {
-          "min": 605,
-          "max": 631,
-          "mid": 618,
-          "avg": 619
-        },
-        "pixelCount": 685
-      }
+      ]
     },
     {
       "__class": "MapLayer",
@@ -351,11 +352,26 @@
         "segmentId": "2",
         "active": false,
         "source": "rism",
-        "area": 27575,
-        "hidden": false
+        "hidden": false,
+        "area": 27575
       },
       "type": "segment",
       "pixels": [],
+      "dimensions": {
+        "x": {
+          "min": 635,
+          "max": 669,
+          "mid": 652,
+          "avg": 652
+        },
+        "y": {
+          "min": 632,
+          "max": 664,
+          "mid": 648,
+          "avg": 648
+        },
+        "pixelCount": 1103
+      },
       "compressedPixels": [
         642,
         632,
@@ -465,22 +481,7 @@
         649,
         664,
         14
-      ],
-      "dimensions": {
-        "x": {
-          "min": 635,
-          "max": 669,
-          "mid": 652,
-          "avg": 652
-        },
-        "y": {
-          "min": 632,
-          "max": 664,
-          "mid": 648,
-          "avg": 648
-        },
-        "pixelCount": 1103
-      }
+      ]
     },
     {
       "__class": "MapLayer",
@@ -488,11 +489,26 @@
         "segmentId": "3",
         "active": false,
         "source": "rism",
-        "area": 236950,
-        "hidden": false
+        "hidden": false,
+        "area": 236950
       },
       "type": "segment",
       "pixels": [],
+      "dimensions": {
+        "x": {
+          "min": 591,
+          "max": 744,
+          "mid": 668,
+          "avg": 685
+        },
+        "y": {
+          "min": 615,
+          "max": 722,
+          "mid": 669,
+          "avg": 676
+        },
+        "pixelCount": 9478
+      },
       "compressedPixels": [
         684,
         615,
@@ -1292,22 +1308,7 @@
         705,
         722,
         35
-      ],
-      "dimensions": {
-        "x": {
-          "min": 591,
-          "max": 744,
-          "mid": 668,
-          "avg": 685
-        },
-        "y": {
-          "min": 615,
-          "max": 722,
-          "mid": 669,
-          "avg": 676
-        },
-        "pixelCount": 9478
-      }
+      ]
     }
   ],
   "entities": [

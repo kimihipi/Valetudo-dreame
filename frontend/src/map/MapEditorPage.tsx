@@ -2,8 +2,7 @@ import React from "react";
 import {SpeedDialAction} from "@mui/material";
 import {
     Dashboard as SegmentIcon,
-    Fence as ThresholdsIcon,
-    Blinds as CurtainsIcon,
+    EditNote as AnnotationsIcon,
     Texture as CarpetsIcon,
 } from "@mui/icons-material";
 import {VirtualRestrictionsIcon} from "../components/CustomIcons";
@@ -12,21 +11,19 @@ import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import EditMapPage from "./EditMapPage";
 import {NoTransition, StyledSpeedDial} from "./LiveMapModeSwitcher";
 
-type ManagementMode = "segments" | "virtual_restrictions" | "virtual_thresholds" | "curtains" | "carpets";
+type ManagementMode = "segments" | "virtual_restrictions" | "annotations" | "carpets";
 
 const modeIcon: Record<ManagementMode, React.ReactElement> = {
     "segments": <SegmentIcon/>,
     "virtual_restrictions": <VirtualRestrictionsIcon/>,
-    "virtual_thresholds": <ThresholdsIcon/>,
-    "curtains": <CurtainsIcon/>,
+    "annotations": <AnnotationsIcon/>,
     "carpets": <CarpetsIcon/>,
 };
 
 const modeLabel: Record<ManagementMode, string> = {
     "segments": "Segments",
     "virtual_restrictions": "Restrictions",
-    "virtual_thresholds": "Thresholds",
-    "curtains": "Curtains",
+    "annotations": "Annotations",
     "carpets": "Carpets",
 };
 
@@ -70,15 +67,13 @@ const MapEditorPage = (): React.ReactElement => {
         mapSegmentEditCapabilitySupported,
         mapSegmentRenameCapabilitySupported,
         combinedVirtualRestrictionsCapabilitySupported,
-        combinedVirtualThresholdsCapabilitySupported,
-        curtainsCapabilitySupported,
+        mapAnnotationsCapabilitySupported,
         carpetZonesCapabilitySupported,
     ] = useCapabilitiesSupported(
         Capability.MapSegmentEdit,
         Capability.MapSegmentRename,
         Capability.CombinedVirtualRestrictions,
-        Capability.CombinedVirtualThresholds,
-        Capability.Curtains,
+        Capability.MapAnnotations,
         Capability.CarpetZones,
     );
 
@@ -92,17 +87,14 @@ const MapEditorPage = (): React.ReactElement => {
         if (combinedVirtualRestrictionsCapabilitySupported) {
             modes.push("virtual_restrictions");
         }
-        if (combinedVirtualThresholdsCapabilitySupported) {
-            modes.push("virtual_thresholds");
-        }
-        if (curtainsCapabilitySupported) {
-            modes.push("curtains");
+        if (mapAnnotationsCapabilitySupported) {
+            modes.push("annotations");
         }
         if (carpetZonesCapabilitySupported) {
             modes.push("carpets");
         }
         return modes;
-    }, [segmentsSupported, combinedVirtualRestrictionsCapabilitySupported, combinedVirtualThresholdsCapabilitySupported, curtainsCapabilitySupported, carpetZonesCapabilitySupported]);
+    }, [segmentsSupported, combinedVirtualRestrictionsCapabilitySupported, mapAnnotationsCapabilitySupported, carpetZonesCapabilitySupported]);
 
     const [mode, setMode] = React.useState<ManagementMode>(() => availableModes[0] ?? "segments");
 

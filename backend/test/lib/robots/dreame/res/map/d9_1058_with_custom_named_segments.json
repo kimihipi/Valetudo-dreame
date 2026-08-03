@@ -3,7 +3,8 @@
   "metaData": {
     "id": "0",
     "version": 2,
-    "totalLayerArea": 429875
+    "totalLayerArea": 429875,
+    "vendorMapId": 1
   },
   "size": {
     "x": 6554,

@@ -37,7 +37,9 @@ class DreameMapParser {
 
         const layers = [];
         const entities = [];
-        const metaData = {};
+        const metaData = {
+            vendorMapId: parsedHeader.id
+        };
 
         if (mapType === MAP_DATA_TYPES.RISM) {
             metaData.id = `${parsedHeader.id}`;
@@ -206,13 +208,15 @@ class DreameMapParser {
                             ) {
                                 entities.push(e);
                             }
-                        } else if (e instanceof mapEntities.LineMapEntity && (
-                            e.type === mapEntities.LineMapEntity.TYPE.VIRTUAL_WALL ||
-                            e.type === mapEntities.LineMapEntity.TYPE.PASSABLE_THRESHOLD ||
-                            e.type === mapEntities.LineMapEntity.TYPE.IMPASSABLE_THRESHOLD ||
-                            e.type === mapEntities.LineMapEntity.TYPE.CURTAIN
-                        )) {
-                            entities.push(e);
+                        } else if (e instanceof mapEntities.LineMapEntity) {
+                            if (
+                                e.type === mapEntities.LineMapEntity.TYPE.VIRTUAL_WALL ||
+                                e.type === mapEntities.LineMapEntity.TYPE.THRESHOLD ||
+                                e.type === mapEntities.LineMapEntity.TYPE.IMPASSABLE_THRESHOLD ||
+                                e.type === mapEntities.LineMapEntity.TYPE.CURTAIN
+                            ) {
+                                entities.push(e);
+                            }
                         }
                     });
 
@@ -343,7 +347,7 @@ class DreameMapParser {
                         }));
                     });
                 }
-
+                // Apparently there's also .cliff?
             }
 
             if (additionalData.vws) {
@@ -352,7 +356,7 @@ class DreameMapParser {
                         ...DreameMapParser.PARSE_LINES(
                             parsedHeader,
                             additionalData.vws.vwsl,
-                            mapEntities.LineMapEntity.TYPE.PASSABLE_THRESHOLD
+                            mapEntities.LineMapEntity.TYPE.THRESHOLD
                         )
                     );
                 }
@@ -368,24 +372,12 @@ class DreameMapParser {
                 }
 
                 if (Array.isArray(additionalData.vws.ramp)) {
-                    additionalData.vws.ramp.forEach(a => {
-                        const pA = DreameMapParser.CONVERT_TO_VALETUDO_COORDINATES(a[0], a[1]);
-                        const pC = DreameMapParser.CONVERT_TO_VALETUDO_COORDINATES(a[2], a[3]);
-
-                        const xCoords = [pA.x, pC.x].sort((x1, x2) => x1 - x2);
-                        const yCoords = [pA.y, pC.y].sort((y1, y2) => y1 - y2);
-
-                        entities.push(new mapEntities.PolygonMapEntity({
-                            type: mapEntities.PolygonMapEntity.TYPE.RAMP,
-                            points: [
-                                xCoords[0], yCoords[0],
-                                xCoords[1], yCoords[0],
-                                xCoords[1], yCoords[1],
-                                xCoords[0], yCoords[1],
-                            ],
-                            metaData: {direction: a[4]}
-                        }));
-                    });
+                    entities.push(
+                        ...DreameMapParser.PARSE_RAMPS(
+                            parsedHeader,
+                            additionalData.vws.ramp
+                        )
+                    );
                 }
             }
 
@@ -400,6 +392,19 @@ class DreameMapParser {
                     );
                 }
             }
+
+            /*
+                rec_vw can be an object of recommendations by the robot firmware that may look like this:
+
+                {
+                    "vwsl":    [[x1, y1, x2, y2], ...],   // passable thresholds
+                    "npthrsd": [[x1, y1, x2, y2], ...],   // impassable thresholds
+                    "rect":    [[x1, y1, x2, y2], ...],   // no-go zones
+                    "mop":     [[x1, y1, x2, y2], ...],   // no-mop zones
+                    "line":    [[x1, y1, x2, y2], ...],   // virtual walls
+                    "carpet":  [[x1, y1, x2, y2], ...]    // carpets
+                }
+             */
 
             /*
                 TODO RESEARCH
@@ -969,6 +974,53 @@ class DreameMapParser {
             return new mapEntities.LineMapEntity({
                 type: type,
                 points: [pA.x,pA.y,pB.x,pB.y]
+            });
+        });
+    }
+
+    static PARSE_RAMPS(parsedHeader, ramps) {
+        return ramps.map(r => {
+            const pA = DreameMapParser.CONVERT_TO_VALETUDO_COORDINATES(r[0], r[1]);
+            const pB = DreameMapParser.CONVERT_TO_VALETUDO_COORDINATES(r[2], r[3]);
+            const angle = r[4];
+
+            const minX = Math.min(pA.x, pB.x);
+            const minY = Math.min(pA.y, pB.y);
+            const maxX = Math.max(pA.x, pB.x);
+            const maxY = Math.max(pA.y, pB.y);
+
+            const corners = [
+                { x: minX, y: minY },
+                { x: maxX, y: minY },
+                { x: maxX, y: maxY },
+                { x: minX, y: maxY }
+            ];
+
+            const centerX = (minX + maxX) / 2;
+            const centerY = (minY + maxY) / 2;
+            const angleRad = -angle * Math.PI / 180;
+
+            const rotatedCorners = corners.map(point => {
+                const translatedX = point.x - centerX;
+                const translatedY = point.y - centerY;
+
+                const rotatedX = translatedX * Math.cos(angleRad) - translatedY * Math.sin(angleRad);
+                const rotatedY = translatedX * Math.sin(angleRad) + translatedY * Math.cos(angleRad);
+
+                return {
+                    x: Math.round(rotatedX + centerX),
+                    y: Math.round(rotatedY + centerY)
+                };
+            });
+
+            return new mapEntities.PolygonMapEntity({
+                type: mapEntities.PolygonMapEntity.TYPE.RAMP,
+                points: [
+                    rotatedCorners[0].x, rotatedCorners[0].y,
+                    rotatedCorners[1].x, rotatedCorners[1].y,
+                    rotatedCorners[2].x, rotatedCorners[2].y,
+                    rotatedCorners[3].x, rotatedCorners[3].y
+                ]
             });
         });
     }

@@ -17,14 +17,7 @@
             "username": "admin",
             "password": "password"
         },
-        "blockExternalAccess": true,
-        "streamerProxy": {
-            "enabled": false,
-            "url": "http://127.0.0.1:1984",
-            "timeoutMs": 15000,
-            "manageProcesses": false,
-            "stopWhenIdle": false
-        }
+        "blockExternalAccess": true
     },
     "mqtt": {
         "enabled": false,
@@ -118,6 +111,9 @@
     },
     "oobe": {
         "welcomeDialogDismissed": false
+    },
+    "duststreaming": {
+        "enabled": false
     },
     "valetudo": {
         "customizations": {

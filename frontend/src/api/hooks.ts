@@ -141,6 +141,9 @@ import {
     fetchObstacleImagesProperties,
     fetchObstacleImagesState,
     sendObstacleImagesState,
+    fetchDuststreamingProperties,
+    fetchDuststreamingConfiguration,
+    sendDuststreamingConfiguration,
     fetchHighResolutionManualControlState,
     sendHighResolutionManualControlInteraction,
     fetchMopExtensionControlState,
@@ -186,6 +189,8 @@ import {
     fetchBatteryChargeLevelProperties,
     fetchBatteryChargeLevel,
     sendBatteryChargeLevel,
+    fetchMapAnnotationsProperties,
+    sendMapAnnotationsUpdate,
 } from "./client";
 import {
     PresetSelectionState,
@@ -198,6 +203,7 @@ import {
     AutoEmptyDockAutoEmptyDuration,
     AutoEmptyDockAutoEmptyInterval,
     Capability,
+    DuststreamingConfiguration,
     CarpetSensorMode,
     CleanRoute,
     CombinedVirtualRestrictionsUpdateRequestParameters,
@@ -231,6 +237,7 @@ import {
     ValetudoCustomizations,
     ValetudoEventInteractionContext,
     ValetudoInformation,
+    ValetudoMapAnnotation,
     VoicePackManagementCommand,
     WifiConfiguration,
     ZoneActionRequestParameters,
@@ -305,6 +312,8 @@ enum QueryKey {
     CarpetSensorModeProperties = "carpet_sensor_mode_properties",
     ObstacleImages = "obstacle_image",
     ObstacleImagesProperties = "obstacle_image_properties",
+    DuststreamingProperties = "duststreaming_properties",
+    DuststreamingConfiguration = "duststreaming_configuration",
     MopExtensionControl = "mop_extension_control",
     CameraLightControl = "camera_light_control",
     MopDockMopWashTemperature = "mop_dock_mop_wash_temperature",
@@ -332,6 +341,7 @@ enum QueryKey {
     MaintenanceControlProperties = "maintenance_control_properties",
     BatteryChargeLevel = "battery_charge_level",
     BatteryChargeLevelProperties = "battery_charge_level_properties",
+    MapAnnotationsProperties = "map_annotations_properties",
 }
 
 const useOnCommandError = (capability: Capability | string): ((error: unknown) => void) => {
@@ -2070,6 +2080,45 @@ export const prefetchObstacleImagesProperties = async (queryClient : QueryClient
     }
 };
 
+export const useDuststreamingPropertiesQuery = (options?: { enabled?: boolean }) => {
+    return useQuery( {
+        queryKey: [QueryKey.DuststreamingProperties],
+        queryFn: fetchDuststreamingProperties,
+
+        enabled: options?.enabled ?? true,
+        staleTime: Infinity,
+    });
+};
+
+export const useDuststreamingConfigurationQuery = (options?: { enabled?: boolean }) => {
+    return useQuery( {
+        queryKey: [QueryKey.DuststreamingConfiguration],
+        queryFn: fetchDuststreamingConfiguration,
+
+        enabled: options?.enabled ?? true,
+        staleTime: Infinity,
+    });
+};
+
+export const useDuststreamingConfigurationMutation = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (configuration: DuststreamingConfiguration) => {
+            return sendDuststreamingConfiguration(configuration).then(fetchDuststreamingConfiguration).then((configuration) => {
+                queryClient.setQueryData<DuststreamingConfiguration>([QueryKey.DuststreamingConfiguration], configuration, {
+                    updatedAt: Date.now(),
+                });
+
+                queryClient.invalidateQueries({
+                    queryKey: [QueryKey.DuststreamingProperties]
+                });
+            });
+        },
+        onError: useOnSettingsChangeError("Camera Streaming")
+    });
+};
+
 export const useMopDockMopWashTemperatureQuery = () => {
     return useQuery({
         queryKey: [QueryKey.MopDockMopWashTemperature],
@@ -2325,6 +2374,15 @@ export const useMaintenancePropertiesQuery = () => {
     });
 };
 
+export const useMapAnnotationsPropertiesQuery = () => {
+    return useQuery({
+        queryKey: [QueryKey.MapAnnotationsProperties],
+        queryFn: fetchMapAnnotationsProperties,
+
+        staleTime: Infinity
+    });
+};
+
 export const useMaintenanceMutation = () => {
     return useValetudoFetchingMutation({
         queryKey: [QueryKey.MaintenanceControlProperties],
@@ -2332,5 +2390,26 @@ export const useMaintenanceMutation = () => {
             return sendMaintenanceCommand(action);
         },
         onError: useOnCommandError(Capability.Maintenance)
+    });
+};
+
+export const useMapAnnotationsMutation = (
+    options?: UseMutationOptions<RobotAttribute[], unknown, Array<ValetudoMapAnnotation>>
+) => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (mapAnnotations: Array<ValetudoMapAnnotation>) => {
+            return sendMapAnnotationsUpdate(mapAnnotations).then(fetchStateAttributes);
+        },
+        onError: useOnCommandError(Capability.MapAnnotations),
+        ...options,
+        onSuccess: async (data, ...args) => {
+            queryClient.setQueryData<RobotAttribute[]>([QueryKey.Attributes], data, {
+                updatedAt: Date.now(),
+            });
+            await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
+            await options?.onSuccess?.(data, ...args);
+        },
     });
 };

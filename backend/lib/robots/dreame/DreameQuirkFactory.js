@@ -839,6 +839,7 @@ class DreameQuirkFactory {
                     }
                 });
             case DreameQuirkFactory.KNOWN_QUIRKS.SUCTION_MAX:
+            case DreameQuirkFactory.KNOWN_QUIRKS.FAN_SPEED_ONE_TIME_TURBO:
                 return new Quirk({
                     id: id,
                     title: "Suction Boost",
@@ -857,7 +858,7 @@ class DreameQuirkFactory {
                             case 0:
                                 return "off";
                             default:
-                                throw new Error(`Received invalid value ${deserializedResponse.SuctionMax}`);
+                                return "off";
                         }
                     },
                     setter: async (value) => {
@@ -873,7 +874,6 @@ class DreameQuirkFactory {
                             default:
                                 throw new Error(`Received invalid value ${value}`);
                         }
-
 
                         return this.robot.miotHelper.writeProperty(
                             DreameMiotServices["GEN2"].VACUUM_2.SIID,
@@ -1181,7 +1181,8 @@ DreameQuirkFactory.KNOWN_QUIRKS = {
     CLEAN_GENIUS_STAIN_AVOIDANCE: "d3c4e5f6-a7b8-9012-cdef-123456789012",
     SMART_MOP_WASHING: "e4d5f6a7-b8c9-0123-def0-234567890123",
     LARGE_PARTICLE_BOOST: "f5e6a7b8-c9d0-1234-ef01-345678901234",
-    AUTO_RESUME_CLEANING: "b2a3c8f4-9ca9-460c-9d62-f92092b17c4b"
+    AUTO_RESUME_CLEANING: "b2a3c8f4-9ca9-460c-9d62-f92092b17c4b",
+    FAN_SPEED_ONE_TIME_TURBO: "017c40b7-dc24-48e8-a6e0-19d66528fa6d"
 };
 
 module.exports = DreameQuirkFactory;

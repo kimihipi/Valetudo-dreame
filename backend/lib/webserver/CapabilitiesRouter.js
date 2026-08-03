@@ -58,6 +58,7 @@ class CapabilitiesRouter {
 
 const CAPABILITY_TYPE_TO_ROUTER_MAPPING = {
     [capabilities.BasicControlCapability.TYPE]: capabilityRouters.BasicControlCapabilityRouter,
+    [capabilities.DuststreamingCapability.TYPE]: capabilityRouters.DuststreamingCapabilityRouter,
     [capabilities.FanSpeedControlCapability.TYPE]: capabilityRouters.PresetSelectionCapabilityRouter,
     [capabilities.WaterUsageControlCapability.TYPE]: capabilityRouters.PresetSelectionCapabilityRouter,
     [capabilities.OperationModeControlCapability.TYPE]: capabilityRouters.PresetSelectionCapabilityRouter,
@@ -130,6 +131,7 @@ const CAPABILITY_TYPE_TO_ROUTER_MAPPING = {
     [capabilities.SuctionBoostControlCapability.TYPE]: capabilityRouters.SimpleToggleCapabilityRouter,
     [capabilities.MaintenanceCapability.TYPE]: capabilityRouters.MaintenanceCapabilityRouter,
     [capabilities.BatteryChargeLevelControlCapability.TYPE]: capabilityRouters.BatteryChargeLevelControlCapabilityRouter,
+    [capabilities.MapAnnotationsCapability.TYPE]: capabilityRouters.MapAnnotationsCapabilityRouter,
 };
 
 module.exports = CapabilitiesRouter;

@@ -19,7 +19,6 @@ export interface RawMapEntityMetaData {
     angle?: number;
     label?: string;
     id?: string;
-    direction?: number;
 }
 
 export interface RawMapLayer {
@@ -82,10 +81,10 @@ export enum RawMapEntityType {
     NoMopArea = "no_mop_area",
     ActiveZone = "active_zone",
     Carpet = "carpet",
-    PassableThreshold = "passable_threshold",
+    Threshold = "threshold",
     ImpassableThreshold = "impassable_threshold",
+    Curtain = "curtain",
     Ramp = "ramp",
-    Curtain = "curtain"
 }
 
 export interface RawMapDataMetaData {

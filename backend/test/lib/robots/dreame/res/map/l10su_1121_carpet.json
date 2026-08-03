@@ -4,7 +4,8 @@
     "id": "1",
     "rotation": 0,
     "version": 2,
-    "totalLayerArea": 405975
+    "totalLayerArea": 405975,
+    "vendorMapId": 2
   },
   "size": {
     "x": 6554,

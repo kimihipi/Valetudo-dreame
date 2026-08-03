@@ -13,9 +13,10 @@ import {median} from "../utils";
 import {PointCoordinates} from "./utils/types";
 import ObstacleMapStructure from "./structures/map_structures/ObstacleMapStructure";
 import CarpetMapStructure from "./structures/map_structures/CarpetMapStructure";
-import PassableThresholdMapStructure from "./structures/map_structures/PassableThresholdMapStructure";
+import ThresholdMapStructure from "./structures/map_structures/ThresholdMapStructure";
 import ImpassableThresholdMapStructure from "./structures/map_structures/ImpassableThresholdMapStructure";
 import CurtainMapStructure from "./structures/map_structures/CurtainMapStructure";
+import RampMapStructure from "./structures/map_structures/RampMapStructure";
 const MAP_STRUCTURES = [
     ActiveZoneMapStructure,
     CarpetMapStructure,
@@ -26,7 +27,8 @@ const MAP_STRUCTURES = [
     NoGoAreaMapStructure,
     NoMopAreaMapStructure,
     ObstacleMapStructure,
-    PassableThresholdMapStructure,
+    RampMapStructure,
+    ThresholdMapStructure,
     RobotPositionMapStructure,
     SegmentLabelMapStructure,
     VirtualWallMapStructure,
@@ -149,11 +151,11 @@ class StructureManager {
                     ));
                     break;
                 }
-                case RawMapEntityType.PassableThreshold: {
+                case RawMapEntityType.Threshold: {
                     const p0 = this.convertCMCoordinatesToPixelSpace({x: e.points[0], y: e.points[1]});
                     const p1 = this.convertCMCoordinatesToPixelSpace({x: e.points[2], y: e.points[3]});
 
-                    mapStructures.push(new PassableThresholdMapStructure(
+                    mapStructures.push(new ThresholdMapStructure(
                         p0.x, p0.y,
                         p1.x, p1.y
                     ));
@@ -176,6 +178,20 @@ class StructureManager {
                     mapStructures.push(new CurtainMapStructure(
                         p0.x, p0.y,
                         p1.x, p1.y
+                    ));
+                    break;
+                }
+                case RawMapEntityType.Ramp: {
+                    const p0 = this.convertCMCoordinatesToPixelSpace({x: e.points[0], y: e.points[1]});
+                    const p1 = this.convertCMCoordinatesToPixelSpace({x: e.points[2], y: e.points[3]});
+                    const p2 = this.convertCMCoordinatesToPixelSpace({x: e.points[4], y: e.points[5]});
+                    const p3 = this.convertCMCoordinatesToPixelSpace({x: e.points[6], y: e.points[7]});
+
+                    mapStructures.push(new RampMapStructure(
+                        p0.x, p0.y,
+                        p1.x, p1.y,
+                        p2.x, p2.y,
+                        p3.x, p3.y
                     ));
                     break;
                 }
@@ -320,7 +336,8 @@ const TYPE_SORT_MAPPING: Record<MapStructureType, number> = {
     [ImpassableThresholdMapStructure.TYPE]: 5,
     [NoGoAreaMapStructure.TYPE]: 5,
     [NoMopAreaMapStructure.TYPE]: 5,
-    [PassableThresholdMapStructure.TYPE]: 5,
+    [RampMapStructure.TYPE]: 6,
+    [ThresholdMapStructure.TYPE]: 6,
     [VirtualWallMapStructure.TYPE]: 5,
 
     [ObstacleMapStructure.TYPE]: 7,

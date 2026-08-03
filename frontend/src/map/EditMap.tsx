@@ -8,11 +8,11 @@ import VirtualWallClientStructure from "./structures/client_structures/VirtualWa
 import VirtualRestrictionActions from "./actions/edit_map_actions/VirtualRestrictionActions";
 import NoGoAreaClientStructure from "./structures/client_structures/NoGoAreaClientStructure";
 import NoMopAreaClientStructure from "./structures/client_structures/NoMopAreaClientStructure";
-import PassableThresholdClientStructure from "./structures/client_structures/PassableThresholdClientStructure";
+import ThresholdClientStructure from "./structures/client_structures/ThresholdClientStructure";
 import ImpassableThresholdClientStructure from "./structures/client_structures/ImpassableThresholdClientStructure";
-import VirtualThresholdActions from "./actions/edit_map_actions/VirtualThresholdActions";
 import CurtainClientStructure from "./structures/client_structures/CurtainClientStructure";
-import CurtainActions from "./actions/edit_map_actions/CurtainActions";
+import RampClientStructure from "./structures/client_structures/RampClientStructure";
+import MapAnnotationActions from "./actions/edit_map_actions/MapAnnotationActions";
 import CarpetClientStructure from "./structures/client_structures/CarpetClientStructure";
 import CarpetActions from "./actions/edit_map_actions/CarpetActions";
 import HelpDialog from "../components/HelpDialog";
@@ -22,13 +22,12 @@ import React from "react";
 import {CropFree as CropFreeIcon} from "@mui/icons-material";
 import {PathDrawer} from "./PathDrawer";
 
-export type mode = "segments" | "virtual_restrictions" | "virtual_thresholds" | "curtains" | "carpets";
+export type mode = "segments" | "virtual_restrictions" | "annotations" | "carpets";
 
 interface EditMapProps extends MapProps {
     supportedCapabilities: {
         [Capability.CombinedVirtualRestrictions]: boolean,
-        [Capability.CombinedVirtualThresholds]: boolean,
-        [Capability.Curtains]: boolean,
+        [Capability.MapAnnotations]: boolean,
         [Capability.CarpetZones]: boolean,
 
         [Capability.MapSegmentEdit]: boolean,
@@ -54,10 +53,10 @@ interface EditMapState extends MapState {
     noGoAreas: Array<NoGoAreaClientStructure>,
     noMopAreas: Array<NoMopAreaClientStructure>,
 
-    passableThresholds: Array<PassableThresholdClientStructure>,
+    thresholds: Array<ThresholdClientStructure>,
     impassableThresholds: Array<ImpassableThresholdClientStructure>,
-
     curtains: Array<CurtainClientStructure>,
+    ramps: Array<RampClientStructure>,
 
     carpets: Array<CarpetClientStructure>,
 
@@ -67,8 +66,7 @@ interface EditMapState extends MapState {
 class EditMap extends BaseMap<EditMapProps, EditMapState> {
     // Count of remaining map-update refreshes after a save (>1 handles the robot's intermediate map push before confirming)
     protected pendingVirtualRestrictionsStructuresUpdateCount = 0;
-    protected pendingVirtualThresholdsStructuresUpdateCount = 0;
-    protected pendingCurtainsStructuresUpdateCount = 0;
+    protected pendingMapAnnotationsStructuresUpdateCount = 0;
     protected pendingCarpetsStructuresUpdateCount = 0;
 
     constructor(props: EditMapProps) {
@@ -89,10 +87,10 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
             noGoAreas: [],
             noMopAreas: [],
 
-            passableThresholds: [],
+            thresholds: [],
             impassableThresholds: [],
-
             curtains: [],
+            ramps: [],
 
             carpets: [],
 
@@ -100,8 +98,7 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
         };
 
         this.updateVirtualRestrictionClientStructures(props.mode !== "virtual_restrictions");
-        this.updateVirtualThresholdClientStructures(props.mode !== "virtual_thresholds");
-        this.updateCurtainClientStructures(props.mode !== "curtains");
+        this.updateMapAnnotationsClientStructures(props.mode !== "annotations");
         this.updateCarpetClientStructures(props.mode !== "carpets");
     }
 
@@ -110,13 +107,11 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
             // Clear any pending reload counts from the previous mode so they don't
             // bleed into the new mode if a map update arrives after switching.
             this.pendingVirtualRestrictionsStructuresUpdateCount = 0;
-            this.pendingVirtualThresholdsStructuresUpdateCount = 0;
-            this.pendingCurtainsStructuresUpdateCount = 0;
+            this.pendingMapAnnotationsStructuresUpdateCount = 0;
             this.pendingCarpetsStructuresUpdateCount = 0;
 
             this.updateVirtualRestrictionClientStructures(this.props.mode !== "virtual_restrictions");
-            this.updateVirtualThresholdClientStructures(this.props.mode !== "virtual_thresholds");
-            this.updateCurtainClientStructures(this.props.mode !== "curtains");
+            this.updateMapAnnotationsClientStructures(this.props.mode !== "annotations");
             this.updateCarpetClientStructures(this.props.mode !== "carpets");
             this.updateInternalDrawableState();
         }
@@ -143,7 +138,7 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
 
         this.updateStructures(this.props.mode);
 
-        if (this.props.mode === "virtual_restrictions" || this.props.mode === "virtual_thresholds" || this.props.mode === "curtains" || this.props.mode === "carpets") {
+        if (this.props.mode === "virtual_restrictions" || this.props.mode === "annotations" || this.props.mode === "carpets") {
             const pathsImage = await PathDrawer.drawPaths( {
                 pathMapEntities: this.props.rawMap.entities.filter(e => {
                     return (
@@ -211,7 +206,7 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
             });
         }
 
-        if (mode === "virtual_restrictions" || mode === "virtual_thresholds" || mode === "curtains" || mode === "carpets") {
+        if (mode === "virtual_restrictions" || mode === "annotations" || mode === "carpets") {
             // remove all segment labels
             this.structureManager.getMapStructures().forEach(s => {
                 if (s.type === SegmentLabelMapStructure.TYPE) {
@@ -267,9 +262,9 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
                 }
             }) as Array<NoMopAreaClientStructure>,
 
-            passableThresholds: this.structureManager.getClientStructures().filter(s => {
-                return s.type === PassableThresholdClientStructure.TYPE;
-            }) as Array<PassableThresholdClientStructure>,
+            thresholds: this.structureManager.getClientStructures().filter(s => {
+                return s.type === ThresholdClientStructure.TYPE;
+            }) as Array<ThresholdClientStructure>,
             impassableThresholds: this.structureManager.getClientStructures().filter(s => {
                 return s.type === ImpassableThresholdClientStructure.TYPE;
             }) as Array<ImpassableThresholdClientStructure>,
@@ -277,6 +272,9 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
             curtains: this.structureManager.getClientStructures().filter(s => {
                 return s.type === CurtainClientStructure.TYPE;
             }) as Array<CurtainClientStructure>,
+            ramps: this.structureManager.getClientStructures().filter(s => {
+                return s.type === RampClientStructure.TYPE;
+            }) as Array<RampClientStructure>,
 
             carpets: this.structureManager.getClientStructures().filter(s => {
                 return s.type === CarpetClientStructure.TYPE;
@@ -346,23 +344,25 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
         }
     }
 
-    private updateVirtualThresholdClientStructures(remove: boolean) : void {
+    private updateMapAnnotationsClientStructures(remove: boolean) : void {
         if (remove) {
             this.structureManager.getClientStructures().forEach(s => {
                 switch (s.type) {
-                    case PassableThresholdClientStructure.TYPE:
+                    case ThresholdClientStructure.TYPE:
                     case ImpassableThresholdClientStructure.TYPE:
+                    case CurtainClientStructure.TYPE:
+                    case RampClientStructure.TYPE:
                         this.structureManager.removeClientStructure(s);
                 }
             });
         } else {
             this.props.rawMap.entities.forEach(e => {
                 switch (e.type) {
-                    case RawMapEntityType.PassableThreshold: {
+                    case RawMapEntityType.Threshold: {
                         const p0 = this.structureManager.convertCMCoordinatesToPixelSpace({x: e.points[0], y: e.points[1]});
                         const p1 = this.structureManager.convertCMCoordinatesToPixelSpace({x: e.points[2], y: e.points[3]});
 
-                        this.structureManager.addClientStructure(new PassableThresholdClientStructure(
+                        this.structureManager.addClientStructure(new ThresholdClientStructure(
                             p0.x, p0.y,
                             p1.x, p1.y,
                             false
@@ -380,30 +380,32 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
                         ));
                         break;
                     }
+                    case RawMapEntityType.Curtain: {
+                        const p0 = this.structureManager.convertCMCoordinatesToPixelSpace({x: e.points[0], y: e.points[1]});
+                        const p1 = this.structureManager.convertCMCoordinatesToPixelSpace({x: e.points[2], y: e.points[3]});
 
-                }
-            });
-        }
-    }
+                        this.structureManager.addClientStructure(new CurtainClientStructure(
+                            p0.x, p0.y,
+                            p1.x, p1.y,
+                            false
+                        ));
+                        break;
+                    }
+                    case RawMapEntityType.Ramp: {
+                        const p0 = this.structureManager.convertCMCoordinatesToPixelSpace({x: e.points[0], y: e.points[1]});
+                        const p1 = this.structureManager.convertCMCoordinatesToPixelSpace({x: e.points[2], y: e.points[3]});
+                        const p2 = this.structureManager.convertCMCoordinatesToPixelSpace({x: e.points[4], y: e.points[5]});
+                        const p3 = this.structureManager.convertCMCoordinatesToPixelSpace({x: e.points[6], y: e.points[7]});
 
-    private updateCurtainClientStructures(remove: boolean) : void {
-        if (remove) {
-            this.structureManager.getClientStructures().forEach(s => {
-                if (s.type === CurtainClientStructure.TYPE) {
-                    this.structureManager.removeClientStructure(s);
-                }
-            });
-        } else {
-            this.props.rawMap.entities.forEach(e => {
-                if (e.type === RawMapEntityType.Curtain) {
-                    const p0 = this.structureManager.convertCMCoordinatesToPixelSpace({x: e.points[0], y: e.points[1]});
-                    const p1 = this.structureManager.convertCMCoordinatesToPixelSpace({x: e.points[2], y: e.points[3]});
-
-                    this.structureManager.addClientStructure(new CurtainClientStructure(
-                        p0.x, p0.y,
-                        p1.x, p1.y,
-                        false
-                    ));
+                        this.structureManager.addClientStructure(new RampClientStructure(
+                            p0.x, p0.y,
+                            p1.x, p1.y,
+                            p2.x, p2.y,
+                            p3.x, p3.y,
+                            false
+                        ));
+                        break;
+                    }
                 }
             });
         }
@@ -479,32 +481,20 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
             }
         }
 
-        if (this.pendingVirtualThresholdsStructuresUpdateCount > 0 && this.props.mode === "virtual_thresholds") {
-            this.updateVirtualThresholdClientStructures(true);
-            this.updateVirtualThresholdClientStructures(false);
+        if (this.pendingMapAnnotationsStructuresUpdateCount > 0 && this.props.mode === "annotations") {
+            this.updateMapAnnotationsClientStructures(true);
+            this.updateMapAnnotationsClientStructures(false);
 
-            this.pendingVirtualThresholdsStructuresUpdateCount--;
-        } else if (this.props.mode === "virtual_thresholds") {
-            const hasThresholdStructures = this.structureManager.getClientStructures().some(s =>
-                s.type === PassableThresholdClientStructure.TYPE ||
-                s.type === ImpassableThresholdClientStructure.TYPE
+            this.pendingMapAnnotationsStructuresUpdateCount--;
+        } else if (this.props.mode === "annotations") {
+            const hasAnnotationStructures = this.structureManager.getClientStructures().some(s =>
+                s.type === ThresholdClientStructure.TYPE ||
+                s.type === ImpassableThresholdClientStructure.TYPE ||
+                s.type === CurtainClientStructure.TYPE ||
+                s.type === RampClientStructure.TYPE
             );
-            if (!hasThresholdStructures) {
-                this.updateVirtualThresholdClientStructures(false);
-            }
-        }
-
-        if (this.pendingCurtainsStructuresUpdateCount > 0 && this.props.mode === "curtains") {
-            this.updateCurtainClientStructures(true);
-            this.updateCurtainClientStructures(false);
-
-            this.pendingCurtainsStructuresUpdateCount--;
-        } else if (this.props.mode === "curtains") {
-            const hasCurtainStructures = this.structureManager.getClientStructures().some(s =>
-                s.type === CurtainClientStructure.TYPE
-            );
-            if (!hasCurtainStructures) {
-                this.updateCurtainClientStructures(false);
+            if (!hasAnnotationStructures) {
+                this.updateMapAnnotationsClientStructures(false);
             }
         }
 
@@ -775,129 +765,83 @@ class EditMap extends BaseMap<EditMapProps, EditMapState> {
                         />
                     }
                     {
-                        this.props.supportedCapabilities[Capability.CombinedVirtualThresholds] &&
-                        this.props.mode === "virtual_thresholds" &&
+                        this.props.supportedCapabilities[Capability.MapAnnotations] &&
+                        this.props.mode === "annotations" &&
 
-                        <VirtualThresholdActions
+                        <MapAnnotationActions
                             robotStatus={this.props.robotStatus}
-                            passableThresholds={this.state.passableThresholds}
+                            thresholds={this.state.thresholds}
                             impassableThresholds={this.state.impassableThresholds}
-
+                            curtains={this.state.curtains}
+                            ramps={this.state.ramps}
                             convertPixelCoordinatesToCMSpace={(coordinates) => {
                                 return this.structureManager.convertPixelCoordinatesToCMSpace(coordinates);
                             }}
-
-                            onAddPassableThreshold={() => {
+                            onAddThreshold={() => {
                                 const currentCenter = this.getCurrentViewportCenterCoordinatesInPixelSpace();
-
-                                this.structureManager.addClientStructure(new PassableThresholdClientStructure(
+                                this.structureManager.addClientStructure(new ThresholdClientStructure(
                                     currentCenter.x - 15, currentCenter.y - 15,
                                     currentCenter.x + 15, currentCenter.y + 15,
                                     true
                                 ));
-
                                 this.updateState();
                                 this.draw();
                             }}
                             onAddImpassableThreshold={() => {
                                 const currentCenter = this.getCurrentViewportCenterCoordinatesInPixelSpace();
-
                                 this.structureManager.addClientStructure(new ImpassableThresholdClientStructure(
                                     currentCenter.x - 15, currentCenter.y - 15,
                                     currentCenter.x + 15, currentCenter.y + 15,
                                     true
                                 ));
-
                                 this.updateState();
                                 this.draw();
                             }}
-                            onRefresh={() => {
-                                this.updateVirtualThresholdClientStructures(true);
-                                this.updateVirtualThresholdClientStructures(false);
-
-                                this.updateState();
-                                this.draw();
-                            }}
-                            onClear={() => {
-                                this.updateVirtualThresholdClientStructures(true);
-
-                                this.updateState();
-                                this.draw();
-                            }}
-                            onSave={() => {
-                                this.pendingVirtualThresholdsStructuresUpdateCount = 2;
-
-                                this.structureManager.getClientStructures().forEach(s => {
-                                    s.active = false;
-                                });
-                                this.draw();
-
-                                this.props.enqueueSnackbar("Saved successfully", {
-                                    preventDuplicate: true,
-                                    key: "virtual_thresholds_saved",
-                                    variant: "info",
-                                    autoHideDuration: 1000,
-                                });
-                            }}
-                            onRequestDraw={() => {
-                                this.draw();
-                            }}
-                        />
-                    }
-                    {
-                        this.props.supportedCapabilities[Capability.Curtains] &&
-                        this.props.mode === "curtains" &&
-
-                        <CurtainActions
-                            robotStatus={this.props.robotStatus}
-                            curtains={this.state.curtains}
-
-                            convertPixelCoordinatesToCMSpace={(coordinates) => {
-                                return this.structureManager.convertPixelCoordinatesToCMSpace(coordinates);
-                            }}
-
                             onAddCurtain={() => {
                                 const currentCenter = this.getCurrentViewportCenterCoordinatesInPixelSpace();
-
                                 this.structureManager.addClientStructure(new CurtainClientStructure(
                                     currentCenter.x - 15, currentCenter.y - 15,
                                     currentCenter.x + 15, currentCenter.y + 15,
                                     true
                                 ));
-
+                                this.updateState();
+                                this.draw();
+                            }}
+                            onAddRamp={() => {
+                                const currentCenter = this.getCurrentViewportCenterCoordinatesInPixelSpace();
+                                this.structureManager.addClientStructure(new RampClientStructure(
+                                    currentCenter.x - 5, currentCenter.y - 5,
+                                    currentCenter.x + 5, currentCenter.y - 5,
+                                    currentCenter.x + 5, currentCenter.y + 5,
+                                    currentCenter.x - 5, currentCenter.y + 5,
+                                    true
+                                ));
                                 this.updateState();
                                 this.draw();
                             }}
                             onRefresh={() => {
-                                this.updateCurtainClientStructures(true);
-                                this.updateCurtainClientStructures(false);
-
+                                this.updateMapAnnotationsClientStructures(true);
+                                this.updateMapAnnotationsClientStructures(false);
                                 this.updateState();
                                 this.draw();
                             }}
                             onClear={() => {
-                                this.updateCurtainClientStructures(true);
-
+                                this.updateMapAnnotationsClientStructures(true);
                                 this.updateState();
                                 this.draw();
                             }}
                             onSave={() => {
-                                this.pendingCurtainsStructuresUpdateCount = 2;
-
+                                this.pendingMapAnnotationsStructuresUpdateCount = 2;
                                 this.structureManager.getClientStructures().forEach(s => {
                                     s.active = false;
                                 });
                                 this.draw();
-
                                 this.props.enqueueSnackbar("Saved successfully", {
                                     preventDuplicate: true,
-                                    key: "curtains_saved",
+                                    key: "map_annotations_saved",
                                     variant: "info",
                                     autoHideDuration: 1000,
                                 });
-                            }}
-                            onRequestDraw={() => {
-                                this.draw();
                             }}
                         />
                     }

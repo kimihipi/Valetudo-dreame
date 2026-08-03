@@ -96,7 +96,7 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
         this.ephemeralState = {
             mode: 0, //Idle
             gen2StatusValue: undefined,
-            taskStatus: undefined,
+            taskStatus: 0, // None
             cleanupTaskActive: false,
             cleanupOutcomeExpectedUntil: 0,
             isCharging: false,
@@ -1234,6 +1234,18 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
                     this.ephemeralState.isCharging === true
                 ) {
                     statusValue = stateAttrs.StatusStateAttribute.VALUE.DOCKED;
+                }
+
+                if (
+                    this.ephemeralState.taskStatus !== 0 &&
+                    (
+                        statusValue === stateAttrs.StatusStateAttribute.VALUE.DOCKED ||
+                        statusValue === stateAttrs.StatusStateAttribute.VALUE.RETURNING ||
+                        statusValue === stateAttrs.StatusStateAttribute.VALUE.PAUSED ||
+                        statusValue === stateAttrs.StatusStateAttribute.VALUE.IDLE
+                    )
+                ) {
+                    statusFlag = stateAttrs.StatusStateAttribute.FLAG.RESUMABLE;
                 }
             } else {
                 if (this.ephemeralState.errorCode === "68") { // Docked with mop still attached. For some reason, dreame decided to have this as an error

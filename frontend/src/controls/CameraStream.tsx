@@ -1,37 +1,77 @@
-import { Grid2 } from "@mui/material";
+import {Grid2} from "@mui/material";
+import {CRTCompositor, FetchSource, Player} from "jsmpeg";
+import type {JSMpegOptions} from "jsmpeg";
 import React from "react";
-import { useGo2RtcStreamsQuery } from "../api/go2rtc";
+import {
+    Capability,
+    useDuststreamingConfigurationQuery,
+    useDuststreamingPropertiesQuery,
+    valetudoAPIBaseURL,
+} from "../api";
+import {useCapabilitiesSupported} from "../CapabilitiesProvider";
+
+const STREAM_URL = `${valetudoAPIBaseURL}/robot/capabilities/${Capability.Duststreaming}/stream`;
 
 const CameraStream = (props: { iframeStyle?: React.CSSProperties; setVisible?: (value: boolean) => void }): React.ReactElement => {
     const { iframeStyle, setVisible } = props;
-    const { data: streams } = useGo2RtcStreamsQuery();
+    const canvasRef = React.useRef<HTMLCanvasElement>(null);
+    const [duststreamingSupported] = useCapabilitiesSupported(Capability.Duststreaming);
+    const {data: configuration} = useDuststreamingConfigurationQuery({
+        enabled: duststreamingSupported,
+    });
+    const {data: properties} = useDuststreamingPropertiesQuery({
+        enabled: duststreamingSupported,
+    });
 
-    const firstStreamKey = React.useMemo(() => {
-        return Object.keys(streams ?? {}).at(0);
-    }, [streams]);
+    const visible = duststreamingSupported &&
+        configuration?.enabled === true &&
+        properties?.duststreamerInstalled === true;
 
     React.useEffect(() => {
-        setVisible?.(!!firstStreamKey);
-    }, [firstStreamKey, setVisible]);
+        setVisible?.(visible);
+    }, [setVisible, visible]);
 
-    const handleIFrameLoad = (e: React.SyntheticEvent<HTMLIFrameElement>) => {
-        const video = e.currentTarget.contentDocument?.querySelector("video");
-        if (video) {
-            video.muted = true;
-            video.removeAttribute("controls");
+    React.useEffect(() => {
+        if (!visible || !properties || !canvasRef.current) {
+            return;
         }
-    };
 
-    if (!firstStreamKey) {
+        const options: JSMpegOptions = {
+            source: FetchSource,
+            canvas: canvasRef.current,
+            autoplay: true,
+            reconnectInterval: 3,
+            decodeFirstFrame: false,
+            videoWidth: properties.width,
+            videoHeight: properties.height,
+            createRenderer: (rendererOptions) => new CRTCompositor(rendererOptions, {label: "VALETUDO+"}),
+        };
+        const player = new Player(STREAM_URL, options);
+
+        return () => {
+            try {
+                player.destroy();
+            } catch (e) {
+                // intentional
+            }
+        };
+    }, [properties, visible]);
+
+    if (!visible || !properties) {
         return <></>;
     }
 
     return (
-        <Grid2 display="flex" sx={{minHeight: 0, flex: 1}}>
-            <iframe
-                style={{flexGrow: 1, border: 0, height: "100%", ...iframeStyle}}
-                src={`/streamer/stream.html?src=${firstStreamKey}`}
-                onLoad={handleIFrameLoad}
+        <Grid2
+            display="flex"
+            sx={{minHeight: 0, flex: 1, bgcolor: "#000"}}
+            style={iframeStyle}
+        >
+            <canvas
+                ref={canvasRef}
+                width={properties.width}
+                height={properties.height}
+                style={{width: "100%", height: "100%", objectFit: "contain", display: "block"}}
             />
         </Grid2>
     );

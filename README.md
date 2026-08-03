@@ -31,7 +31,7 @@ Please read the supported devices section for more information.
 - Segment clean order.
 - Segment hiding.
 - Threshhold and curtain editing.
-- View robot camera stream in the UI (via go2rtc).
+- View the robot camera stream in the UI using Duststreamer.
 - On-demand playback of custom audio.
 - MQTT support for map switching.
 - MQTT support for custom audio playback.
@@ -79,31 +79,16 @@ webserver.https.enabled: true
 
 Doing this will automatically enforce HTTPS redirection on the HTTP port.
 
-### Part 3 (Vaccumstreamer) [Optional]
+### Part 3 (Duststreamer) [Optional]
 
-These steps adds camera streaming support to Valetudo. It is optional and the camera UI components will automatically be hidden if you choose not to use it.
+These steps add camera streaming support to Valetudo. It is optional and the camera UI components are automatically hidden when it is unavailable or disabled.
 
-> **Please note**: The steps use precompiled binaries from the following projects, updated versions can be built / downloaded if required:
-> - https://github.com/tihmstar/vacuumstreamer/
-> - https://github.com/AlexxIT/go2rtc/
+1. Obtain a compatible `duststreamer` executable for the robot.
+2. Copy it alongside the Valetudo executable, for example to `/data/valetudo/duststreamer`.
+3. Run `chmod +x /data/valetudo/duststreamer`.
+4. Open Valetudo's settings and enable Duststreaming.
 
-1. Get a copy of streamer.tar.gz from a release build or build your own following instructions under "Development"
-2. SCP `streamer.tar.gz` to your robot
-3. Run `cd /data/valetudo`
-4. Move `streamer.tar.gz` into this directory and run `tar xzf streamer.tar.gz`
-5. Remove `streamer.tar.gz` as it is no longer needed
-6. Run `cd streamer`
-7. Run `cp -r /mnt/private/ mnt_private-copy`
-8. Run `touch mnt_private-copy/certificate.bin`
-9. Edit `go2rtc.yaml` to update the placeholder RTSP password
-10. Run `chmod +x video_monitor go2rtc`
-11. Edit `/data/valetudo/valetudo_config.json` updating the following option so that Valetudo launches the streamer processes:
-
-```
-webserver.streamerProxy.manageProcesses: true
-```
-
-> **Optional**: Additionally setting `webserver.streamerProxy.stopWhenIdle: true` will only run the streamer processes while the robot is in an active state (cleaning, returning, etc.) and stop them otherwise. This offers some privacy advantages and some robots may require this to operate correctly such as recent Dreame X40 firmwares.
+Duststreamer starts when the first viewer opens the camera and stops after the last viewer disconnects and the idle cooldown expires. It does not require the robot to be cleaning.
 
 ### Part 4 (Custom audio playback) [Optional]
 
@@ -183,12 +168,6 @@ Build for all platforms at once:
 
 ```
 $ npm run build
-```
-
-Build streamer.tar.gz:
-
-```
-$ npm run build:streamer
 ```
 
 All builds can be found in the `build` directory.

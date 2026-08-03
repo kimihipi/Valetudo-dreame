@@ -3,6 +3,7 @@ const DreameMiotServices = require("./DreameMiotServices");
 const DreameMopValetudoRobot = require("./DreameMopValetudoRobot");
 const DreameValetudoRobot = require("./DreameValetudoRobot");
 const fs = require("fs");
+const LinuxDuststreamingCapability = require("../common/linuxCapabilities/LinuxDuststreamingCapability");
 const MiioValetudoRobot = require("../MiioValetudoRobot");
 const stateAttrs = require("../../entities/state/attributes");
 const ValetudoSelectionPreset = require("../../entities/core/ValetudoSelectionPreset");
@@ -42,6 +43,16 @@ class DreameW10ProValetudoRobot extends DreameMopValetudoRobot {
         ].forEach(capability => {
             this.registerCapability(new capability({robot: this}));
         });
+
+        this.registerCapability(new LinuxDuststreamingCapability({
+            robot: this,
+            platform: LinuxDuststreamingCapability.PLATFORM.DREAME_MR813,
+            device: "/dev/video0",
+            dimensions: {
+                width: 640,
+                height: 480
+            }
+        }));
 
         this.registerCapability(new capabilities.DreameOperationModeControlCapability({
             robot: this,

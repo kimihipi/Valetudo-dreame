@@ -10,16 +10,19 @@ import {Divider} from "@mui/material";
 import {UpdaterSection} from "../valetudo/Updater";
 import {
     UpdaterConfiguration,
+    Capability,
     useRestoreDefaultConfigurationMutation,
     useUpdaterConfigurationMutation,
     useUpdaterConfigurationQuery,
     useValetudoCustomizationsMutation,
     useValetudoCustomizationsQuery
 } from "../api";
+import {useCapabilitiesSupported} from "../CapabilitiesProvider";
 import {ButtonListMenuItem} from "../components/list_menu/ButtonListMenuItem";
 import {SelectListMenuItem, SelectListMenuItemOption} from "../components/list_menu/SelectListMenuItem";
 import {SpacerListMenuItem} from "../components/list_menu/SpacerListMenuItem";
 import { TextEditModalListMenuItem } from "../components/list_menu/TextEditModalListMenuItem";
+import { DuststreamingListMenuItem } from "../components/list_menu/DuststreamingListMenuItem";
 
 
 const ConfigRestoreButtonListMenuItem = (): React.ReactElement => {
@@ -134,6 +137,10 @@ const UpdateProviderSelectListMenuItem = (): React.ReactElement => {
 };
 
 const ValetudoOptions = (): React.ReactElement => {
+    const [duststreamingCapabilitySupported] = useCapabilitiesSupported(
+        Capability.Duststreaming,
+    );
+
     const listItems = React.useMemo(() => {
         const items = [
             <ConfigRestoreButtonListMenuItem key={"configRestoreAction"}/>,
@@ -142,8 +149,14 @@ const ValetudoOptions = (): React.ReactElement => {
             <UpdateProviderSelectListMenuItem key={"updateProviderSelect"}/>,
         ];
 
+        if (duststreamingCapabilitySupported) {
+            items.push(
+                <SpacerListMenuItem key={"spacer1"}/>,
+                <DuststreamingListMenuItem key={"duststreaming"}/>
+            );
+        }
         return items;
-    }, []);
+    }, [duststreamingCapabilitySupported]);
 
     return (
         <PaperContainer>

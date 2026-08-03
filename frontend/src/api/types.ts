@@ -72,7 +72,9 @@ export enum Capability {
     ObstacleImages = "ObstacleImagesCapability",
     CarpetZones = "CarpetZonesCapability",
     Curtains = "CurtainsCapability",
-    Maintenance = "MaintenanceCapability"
+    Maintenance = "MaintenanceCapability",
+    MapAnnotations = "MapAnnotationsCapability",
+    Duststreaming = "DuststreamingCapability",
 }
 
 export type Point = {
@@ -480,6 +482,10 @@ export interface NTPClientConfiguration {
     timeout: number;
 }
 
+export interface DuststreamingConfiguration {
+    enabled: boolean;
+}
+
 export interface ValetudoEvent {
     __class: string;
     id: string;
@@ -773,6 +779,12 @@ export interface ObstacleImagesProperties {
     }
 }
 
+export interface DuststreamingProperties {
+    width: number,
+    height: number,
+    duststreamerInstalled: boolean
+}
+
 export type MopDockMopWashTemperature = "cold" | "warm" | "hot" | "scalding" | "boiling";
 
 export interface MopDockMopWashTemperaturePayload {
@@ -781,6 +793,23 @@ export interface MopDockMopWashTemperaturePayload {
 
 export interface MopDockMopWashTemperatureProperties {
     supportedTemperatures: Array<MopDockMopWashTemperature>;
+}
+
+export enum ValetudoMapAnnotationType {
+    Threshold = "threshold",
+    ImpassableThreshold = "impassable_threshold",
+    Curtain = "curtain",
+
+    Ramp = "ramp",
+}
+
+export interface ValetudoMapAnnotation {
+    type: ValetudoMapAnnotationType,
+    points: Array<Point>
+}
+
+export interface MapAnnotationsProperties {
+    supportedAnnotationTypes: Array<ValetudoMapAnnotationType>
 }
 
 
