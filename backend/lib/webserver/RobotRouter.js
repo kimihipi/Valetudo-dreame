@@ -25,7 +25,7 @@ class RobotRouter {
         this.cleaningTaskManager = options.cleaningTaskManager;
         this.cleaningTaskService = options.cleaningTaskService ?? new CleaningTaskService({robot: this.robot});
 
-        /** @type {{timestamp: string, robotStatus: string, robotFlag: string, dockStatus: string|null, batteryLevel: number|null, batteryFlag: string|null, dockActivities?: {timestamp: string, robotFlag: string, dockStatus: string|null, batteryLevel: number|null, batteryFlag: string|null}[]}[]} */
+        /** @type {{timestamp: string, robotStatus: string, robotFlag: string, dockStatus: string|null, batteryLevel: number|null, batteryFlag: string|null, error?: import("../entities/core/ValetudoRobotError"), dockActivities?: {timestamp: string, robotFlag: string, dockStatus: string|null, batteryLevel: number|null, batteryFlag: string|null}[]}[]} */
         this.activityHistory = [];
         /** @type {string|null} */
         this.prevStatusKey = null;
@@ -199,12 +199,12 @@ class RobotRouter {
 
         this.activityHistoryListener = () => {
             const attrs = this.robot.state.attributes;
-            const status = /** @type {{value: string, flag: string}|undefined} */ (/** @type {unknown} */ (attrs.find(a => a.__class === "StatusStateAttribute")));
+            const status = /** @type {{value: string, flag: string, error?: import("../entities/core/ValetudoRobotError")}|undefined} */ (/** @type {unknown} */ (attrs.find(a => a.__class === "StatusStateAttribute")));
             if (!status) {
                 return;
             }
 
-            const currentKey = `${status.value}:${status.flag}`;
+            const currentKey = `${status.value}:${status.flag}:${status.error?.vendorErrorCode ?? ""}`;
 
             // Status returned to last committed state — cancel any pending transient entry
             if (currentKey === this.prevStatusKey) {
@@ -226,6 +226,7 @@ class RobotRouter {
                 dockStatus:  dock && dock.value !== "idle" ? dock.value : null,
                 batteryLevel: battery ? Math.round(battery.level) : null,
                 batteryFlag:  battery ? battery.flag : null,
+                error: status.error ? structuredClone(status.error) : undefined,
                 /** @type {{timestamp: string, robotFlag: string, dockStatus: string|null, batteryLevel: number|null, batteryFlag: string|null}[]|undefined} */
                 dockActivities: undefined,
             };
@@ -236,7 +237,7 @@ class RobotRouter {
                 clearTimeout(this.activityHistoryDebounceTimer);
             }
 
-            this.activityHistoryDebounceTimer = setTimeout(() => {
+            const commitPendingEntry = () => {
                 this.activityHistoryDebounceTimer = null;
                 this.prevStatusKey = pendingKey;
 
@@ -284,7 +285,14 @@ class RobotRouter {
                         this.activityHistory.length = 500;
                     }
                 }
-            }, 5000);
+            };
+
+            // Errors need to remain visible even if the robot recovers before the normal debounce expires.
+            if (pendingEntry.error) {
+                commitPendingEntry();
+            } else {
+                this.activityHistoryDebounceTimer = setTimeout(commitPendingEntry, 5000);
+            }
         };
 
         this.robot.onStateUpdated(this.stateUpdateListener);

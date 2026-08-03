@@ -326,6 +326,182 @@ describe("CleaningTaskManager", function() {
         manager.shutdown();
     });
 
+    it("should restart room ordinals for the mopping pass of vacuum-then-mop", async function() {
+        const robot = createRobot();
+        const {position, cleaningPath} = setTwoRoomMap(robot);
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.PresetSelectionStateAttribute({
+            type: stateAttrs.PresetSelectionStateAttribute.TYPE.OPERATION_MODE,
+            value: stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_THEN_MOP
+        }));
+        const manager = new CleaningTaskManager({
+            robot: robot,
+            config: {location: path.join(os.tmpdir(), `valetudo-task-two-pass-${Date.now()}`, "config.json")}
+        });
+
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
+            value: stateAttrs.StatusStateAttribute.VALUE.CLEANING,
+            flag: stateAttrs.StatusStateAttribute.FLAG.VACUUMING,
+            metaData: {completedPercent: 50, cleaningElapsedSeconds: 100}
+        }));
+        await new Promise(resolve => setImmediate(resolve));
+
+        cleaningPath.points.push(100, 50);
+        manager.handleMapUpdate(true);
+        position.points = [250, 50];
+        cleaningPath.points.push(150, 50, 200, 50, 250, 50);
+        manager.handleMapUpdate(true);
+
+        let task = robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.ActiveCleaningTaskStateAttribute
+        );
+        task.progress.should.match({
+            completedSegmentIds: ["1"],
+            currentRoomNumber: 2,
+            totalRooms: 2,
+            sequential: true
+        });
+
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
+            value: stateAttrs.StatusStateAttribute.VALUE.RETURNING,
+            flag: stateAttrs.StatusStateAttribute.FLAG.TO_WASH
+        }));
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
+            value: stateAttrs.StatusStateAttribute.VALUE.DOCKED,
+            flag: stateAttrs.StatusStateAttribute.FLAG.RESUMABLE
+        }));
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
+            value: stateAttrs.StatusStateAttribute.VALUE.CLEANING,
+            flag: stateAttrs.StatusStateAttribute.FLAG.MOPPING,
+            metaData: {completedPercent: 50, cleaningElapsedSeconds: 120}
+        }));
+
+        task = robot.state.getFirstMatchingAttributeByConstructor(stateAttrs.ActiveCleaningTaskStateAttribute);
+        task.progress.completedSegmentIds.should.deepEqual([]);
+        should(task.progress.currentRoomNumber).equal(null);
+
+        position.points = [100, 50];
+        const moppingPath = new PathMapEntity({
+            type: PathMapEntity.TYPE.MOP_PATH,
+            points: [50, 50, 100, 50]
+        });
+        robot.state.map.entities.push(moppingPath);
+        manager.handleMapUpdate(true);
+
+        task = robot.state.getFirstMatchingAttributeByConstructor(stateAttrs.ActiveCleaningTaskStateAttribute);
+        task.progress.should.match({
+            completedSegmentIds: [],
+            currentRoomNumber: 1,
+            totalRooms: 2,
+            sequential: true
+        });
+
+        robot.emitOutcome("completed");
+        await new Promise(resolve => setImmediate(resolve));
+        manager.getHistory().should.have.length(1);
+        manager.getHistory()[0].rooms.should.match([
+            {segmentId: "1", visits: 2},
+            {segmentId: "2", visits: 1}
+        ]);
+        manager.getHistory()[0].estimatedDurationSeconds.should.equal(440);
+        manager.shutdown();
+    });
+
+    it("should keep one room ordinal pass for simultaneous vacuum-and-mop", async function() {
+        const robot = createRobot();
+        const {position, cleaningPath} = setTwoRoomMap(robot);
+        cleaningPath.type = PathMapEntity.TYPE.VACUUM_AND_MOP_PATH;
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.PresetSelectionStateAttribute({
+            type: stateAttrs.PresetSelectionStateAttribute.TYPE.OPERATION_MODE,
+            value: stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_AND_MOP
+        }));
+        const manager = new CleaningTaskManager({
+            robot: robot,
+            config: {location: path.join(os.tmpdir(), `valetudo-task-combined-pass-${Date.now()}`, "config.json")}
+        });
+
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
+            value: stateAttrs.StatusStateAttribute.VALUE.CLEANING,
+            flag: stateAttrs.StatusStateAttribute.FLAG.VACUUMING_AND_MOPPING
+        }));
+        await new Promise(resolve => setImmediate(resolve));
+
+        cleaningPath.points.push(100, 50);
+        manager.handleMapUpdate(true);
+        position.points = [250, 50];
+        cleaningPath.points.push(150, 50, 200, 50, 250, 50);
+        manager.handleMapUpdate(true);
+
+        manager.activeTask.currentPhase.should.equal(stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_AND_MOP);
+        let task = robot.state.getFirstMatchingAttributeByConstructor(
+            stateAttrs.ActiveCleaningTaskStateAttribute
+        );
+        task.progress.should.match({
+            completedSegmentIds: ["1"],
+            currentRoomNumber: 2,
+            totalRooms: 2,
+            sequential: true
+        });
+
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
+            value: stateAttrs.StatusStateAttribute.VALUE.CLEANING,
+            flag: stateAttrs.StatusStateAttribute.FLAG.MOPPING
+        }));
+
+        manager.activeTask.currentPhase.should.equal(stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_AND_MOP);
+        task = robot.state.getFirstMatchingAttributeByConstructor(stateAttrs.ActiveCleaningTaskStateAttribute);
+        task.progress.should.match({
+            completedSegmentIds: ["1"],
+            currentRoomNumber: 2,
+            totalRooms: 2,
+            sequential: true
+        });
+        manager.shutdown();
+    });
+
+    it("should keep vacuum-then-mop as one history record across the dock handoff", async function() {
+        const robot = createRobot();
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.PresetSelectionStateAttribute({
+            type: stateAttrs.PresetSelectionStateAttribute.TYPE.OPERATION_MODE,
+            value: stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_THEN_MOP
+        }));
+        robot.capabilities.CurrentStatisticsCapability = {
+            getStatistics: async () => [{type: "time", value: 1}]
+        };
+        const manager = new CleaningTaskManager({
+            robot: robot,
+            config: {location: path.join(os.tmpdir(), `valetudo-task-shared-cycle-${Date.now()}`, "config.json")}
+        });
+
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
+            value: stateAttrs.StatusStateAttribute.VALUE.CLEANING,
+            flag: stateAttrs.StatusStateAttribute.FLAG.VACUUMING
+        }));
+        await new Promise(resolve => setImmediate(resolve));
+        manager.activeTask.startedAtMs -= 60000;
+
+        robot.emitOutcome("completed");
+        should(manager.activeTask).not.equal(null);
+        manager.getHistory().should.be.empty();
+
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
+            value: stateAttrs.StatusStateAttribute.VALUE.DOCKED
+        }));
+        should(manager.activeTask).not.equal(null);
+
+        robot.state.upsertFirstMatchingAttribute(new stateAttrs.StatusStateAttribute({
+            value: stateAttrs.StatusStateAttribute.VALUE.CLEANING,
+            flag: stateAttrs.StatusStateAttribute.FLAG.MOPPING
+        }));
+        robot.emitOutcome("completed");
+        await new Promise(resolve => setImmediate(resolve));
+
+        should(manager.activeTask).equal(null);
+        manager.getHistory().should.have.length(1);
+        manager.getHistory()[0].outcome.should.equal("completed");
+        manager.getHistory()[0].totalDurationSeconds.should.be.above(59);
+        manager.shutdown();
+    });
+
     it("should not complete a resumable dock visit", async function() {
         const robot = createRobot();
         robot.state.map.layers = [

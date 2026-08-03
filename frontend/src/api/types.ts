@@ -834,6 +834,18 @@ export interface BatteryChargeLevelProperties {
     supportedLevels: Array<string>;
 }
 
+export interface ValetudoRobotError {
+    __class: "ValetudoRobotError";
+    metaData: Record<string, unknown>;
+    severity: {
+        kind: string;
+        level: string;
+    };
+    subsystem: string;
+    message: string;
+    vendorErrorCode: string;
+}
+
 export interface ActivityHistoryEntry {
     timestamp: string;
     robotStatus: string;
@@ -841,6 +853,7 @@ export interface ActivityHistoryEntry {
     dockStatus: string | null;
     batteryLevel: number | null;
     batteryFlag: string | null;
+    error?: ValetudoRobotError;
     dockActivities?: DockSubActivity[];
 }
 

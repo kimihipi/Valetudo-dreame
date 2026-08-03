@@ -963,6 +963,13 @@ DreameValetudoRobot.MAP_ERROR_CODE = (vendorErrorCode) => {
             parameters.message = "Failed to attach mop pads";
             break;
 
+        case "78":
+            parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
+            parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;
+            parameters.subsystem = ValetudoRobotError.SUBSYSTEM.NAVIGATION;
+            parameters.message = "Robot cannot start task in no-go zone";
+            break;
+
         case "82":
             parameters.severity.kind = ValetudoRobotError.SEVERITY_KIND.TRANSIENT;
             parameters.severity.level = ValetudoRobotError.SEVERITY_LEVEL.WARNING;

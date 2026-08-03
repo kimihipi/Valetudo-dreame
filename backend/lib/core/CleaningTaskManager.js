@@ -32,6 +32,18 @@ const MID_CYCLE_FLAGS = new Set([
     stateAttrs.StatusStateAttribute.FLAG.REMOVE_MOP,
     stateAttrs.StatusStateAttribute.FLAG.AUTO_RECLEANING,
 ]);
+const CLEANING_PHASE_BY_STATUS_FLAG = new Map([
+    [stateAttrs.StatusStateAttribute.FLAG.VACUUMING, stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM],
+    [stateAttrs.StatusStateAttribute.FLAG.MOPPING, stateAttrs.PresetSelectionStateAttribute.MODE.MOP],
+    [
+        stateAttrs.StatusStateAttribute.FLAG.VACUUMING_AND_MOPPING,
+        stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_AND_MOP
+    ],
+]);
+const SEPARATE_CLEANING_PHASES = new Set([
+    stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM,
+    stateAttrs.PresetSelectionStateAttribute.MODE.MOP,
+]);
 
 // Entity types that represent trace the robot has actually driven (as opposed to PREDICTED_PATH,
 // which is a projected go-to route). Used to detect whether the robot is still laying new path.
@@ -108,6 +120,12 @@ class CleaningTaskManager {
         this.mapListener = () => this.handleMapUpdate();
         this.robot.onMapUpdated(this.mapListener);
         this.outcomeListener = outcome => {
+            if (outcome === "completed" && this.isAwaitingMoppingPhase()) {
+                // Dreame reports the vacuum pass as a completed cleanup before it docks and starts
+                // the mop pass. That is a phase outcome, not the outcome of the shared task.
+                this.pendingOutcome = null;
+                return;
+            }
             this.pendingOutcome = outcome;
             if (this.activeTask && !this.finishing) {
                 this.clearTerminalStatusTimer();
@@ -220,6 +238,10 @@ class CleaningTaskManager {
         const trackedSegmentIds = segmentIds.length > 0 ? [...segmentIds] : (this.robot.state.map?.layers ?? [])
             .filter(layer => layer.type === MapLayer.TYPE.SEGMENT && !layer.metaData.hidden)
             .map(layer => String(layer.metaData.segmentId));
+        const effectiveOperationMode = target?.profile?.operationMode ?? operationMode ?? null;
+        const currentPhase = effectiveOperationMode === stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_AND_MOP ?
+            stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_AND_MOP :
+            (CLEANING_PHASE_BY_STATUS_FLAG.get(status.flag) ?? null);
         this.activeTask = {
             id: crypto.randomUUID(),
             state: "running",
@@ -239,7 +261,7 @@ class CleaningTaskManager {
             },
             trackedSegmentIds: trackedSegmentIds,
             profile: {
-                operationMode: target?.profile?.operationMode ?? operationMode ?? null,
+                operationMode: effectiveOperationMode,
                 fanPreset: target?.profile?.fanPreset ?? fanPreset ?? null,
                 waterPreset: target?.profile?.waterPreset ?? waterPreset ?? null,
                 cleanRoute: target?.profile?.cleanRoute ?? route,
@@ -248,13 +270,13 @@ class CleaningTaskManager {
             rooms: {},
             completedSegmentIds: [],
             currentSegmentId: null,
-            // Non-sequential jobs revisit rooms instead of finishing them one at a time, so the
-            // "left the room => room done" heuristic under-counts remaining time and over-counts
-            // completed rooms. vacuum_then_mop is known to be non-sequential up front; Carpet First
-            // (a firmware setting we can't cheaply read here) is detected empirically on first revisit.
-            nonSequential: (target?.profile?.operationMode ?? operationMode) ===
-                stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_THEN_MOP,
+            currentPhase: currentPhase,
+            passVisitedSegmentIds: [],
+            // A revisit within the same vacuuming or mopping pass means the task is not proceeding
+            // room-by-room (e.g. Carpet First), so exact room ordinals are no longer reliable.
+            nonSequential: false,
             estimatedDurationSeconds: null,
+            phaseEstimatedDurationSeconds: {},
             outcome: null,
             statusFlag: status.flag
         };
@@ -285,6 +307,9 @@ class CleaningTaskManager {
             // The command service owns this transition and publishes a terminal outcome only
             // after firmware verification. Do not race it with status-based inference.
             return;
+        }
+        if (active) {
+            this.updateCleaningPhase(status.flag);
         }
         if (status.value === stateAttrs.StatusStateAttribute.VALUE.ERROR) {
             this.clearTerminalStatusTimer();
@@ -340,6 +365,17 @@ class CleaningTaskManager {
             this.publish();
             return;
         }
+        if (status.value === stateAttrs.StatusStateAttribute.VALUE.DOCKED && this.isAwaitingMoppingPhase()) {
+            // Some Dreame firmwares briefly expose an unflagged docked state between the vacuum
+            // and mop passes. Keep the shared task open until mopping starts.
+            this.clearTerminalStatusTimer();
+            if (this.activeTask.pausedAt === null) {
+                this.activeTask.pausedAt = Date.now();
+            }
+            this.activeTask.state = "paused";
+            this.publish();
+            return;
+        }
         if (this.pendingOutcome) {
             const outcome = this.pendingOutcome;
             this.pendingOutcome = null;
@@ -353,6 +389,51 @@ class CleaningTaskManager {
         const vendorFallbackOutcome = TASK_TERMINAL_STATES.includes(status.metaData.operationOutcomeFallback) ?
             status.metaData.operationOutcomeFallback : "stopped";
         this.scheduleUnconfirmedTerminalStatus(vendorGraceMs, vendorFallbackOutcome);
+    }
+
+    isAwaitingMoppingPhase() {
+        return this.activeTask?.profile.operationMode ===
+                stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_THEN_MOP &&
+            this.activeTask.currentPhase === stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM;
+    }
+
+    updateCleaningPhase(statusFlag) {
+        if (!this.activeTask) {
+            return;
+        }
+        const operationMode = this.activeTask.profile.operationMode;
+        const nextPhase = operationMode === stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_AND_MOP ?
+            stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_AND_MOP :
+            CLEANING_PHASE_BY_STATUS_FLAG.get(statusFlag);
+        if (nextPhase === undefined) {
+            return;
+        }
+        if (this.activeTask.currentPhase === null) {
+            this.activeTask.currentPhase = nextPhase;
+            return;
+        }
+        if (this.activeTask.currentPhase === nextPhase) {
+            return;
+        }
+
+        const shouldRestartRoomOrdinals =
+            operationMode === stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_THEN_MOP &&
+            SEPARATE_CLEANING_PHASES.has(this.activeTask.currentPhase) &&
+            SEPARATE_CLEANING_PHASES.has(nextPhase);
+        if (shouldRestartRoomOrdinals && Number.isFinite(this.activeTask.estimatedDurationSeconds)) {
+            this.activeTask.phaseEstimatedDurationSeconds[this.activeTask.currentPhase] =
+                this.activeTask.estimatedDurationSeconds;
+        }
+        this.activeTask.currentPhase = nextPhase;
+        if (!shouldRestartRoomOrdinals) {
+            return;
+        }
+        this.activeTask.completedSegmentIds = [];
+        this.activeTask.currentSegmentId = null;
+        this.activeTask.passVisitedSegmentIds = [];
+        this.roomCandidate = null;
+        this.roomCandidateSince = 0;
+        this.resetPathTracking();
     }
 
     scheduleUnconfirmedTerminalStatus(vendorGraceMs, fallbackOutcome = "stopped") {
@@ -657,11 +738,14 @@ class CleaningTaskManager {
             !this.activeTask.completedSegmentIds.includes(this.activeTask.currentSegmentId)) {
             this.activeTask.completedSegmentIds.push(this.activeTask.currentSegmentId);
         }
-        if (this.activeTask.rooms[detected] !== undefined) {
-            // Re-entering a room we already tracked => the robot is not cleaning room-by-room
-            // (e.g. Carpet First). Stop inferring exact room completion for this task.
+        if (this.activeTask.passVisitedSegmentIds.includes(detected)) {
+            // Re-entering a room during the same pass => the robot is not cleaning room-by-room
+            // (e.g. Carpet First). A vacuum-then-mop phase change resets the pass-local list.
             this.activeTask.nonSequential = true;
             this.activeTask.completedSegmentIds = [];
+        }
+        if (!this.activeTask.passVisitedSegmentIds.includes(detected)) {
+            this.activeTask.passVisitedSegmentIds.push(detected);
         }
         const room = this.activeTask.rooms[detected] ?? {
             segmentId: detected,
@@ -784,8 +868,13 @@ class CleaningTaskManager {
                 Number.isFinite(cleaningElapsedSeconds) && cleaningElapsedSeconds > 0;
             const total = firmwareCalibrated ? cleaningElapsedSeconds + estimate :
                 this.getFallbackTotalEstimateSeconds();
-            if (total !== null) {
+            const mayUpdateTaskEstimate = status?.value === stateAttrs.StatusStateAttribute.VALUE.CLEANING ||
+                this.activeTask.estimatedDurationSeconds === null;
+            if (total !== null && mayUpdateTaskEstimate) {
                 this.activeTask.estimatedDurationSeconds = Math.round(total);
+                if (this.activeTask.currentPhase !== null) {
+                    this.activeTask.phaseEstimatedDurationSeconds[this.activeTask.currentPhase] = Math.round(total);
+                }
             }
         }
         const trackedSegmentIds = this.getTrackedSegmentIds();
@@ -839,6 +928,15 @@ class CleaningTaskManager {
             });
         }
         const completedAt = new Date().toISOString();
+        const separatePhaseEstimates = [
+            stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM,
+            stateAttrs.PresetSelectionStateAttribute.MODE.MOP
+        ].map(phase => finishedTask.phaseEstimatedDurationSeconds[phase]);
+        const estimatedDurationSeconds =
+            finishedTask.profile.operationMode === stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_THEN_MOP &&
+            separatePhaseEstimates.every(Number.isFinite) ?
+                separatePhaseEstimates.reduce((total, estimate) => total + estimate, 0) :
+                finishedTask.estimatedDurationSeconds;
         const record = {
             id: finishedTask.id,
             startedAt: finishedTask.startedAt,
@@ -848,7 +946,7 @@ class CleaningTaskManager {
             target: finishedTask.target,
             profile: finishedTask.profile,
             rooms: Object.values(finishedTask.rooms),
-            estimatedDurationSeconds: finishedTask.estimatedDurationSeconds,
+            estimatedDurationSeconds: estimatedDurationSeconds,
             totalDurationSeconds: Math.max(0, Math.round((Date.now() - finishedTask.startedAtMs -
                 finishedTask.pausedMs) / 1000))
         };
@@ -865,7 +963,10 @@ class CleaningTaskManager {
             if (statisticsTimer !== null) {
                 clearTimeout(statisticsTimer);
             }
-            if (Number.isFinite(firmwareDuration) && firmwareDuration > 0) {
+            // Dreame resets its current-cleaning timer between the vacuum and mop passes. Using
+            // that value here would store only the final phase instead of the full shared task.
+            if (finishedTask.profile.operationMode !== stateAttrs.PresetSelectionStateAttribute.MODE.VACUUM_THEN_MOP &&
+                Number.isFinite(firmwareDuration) && firmwareDuration > 0) {
                 record.totalDurationSeconds = Math.round(firmwareDuration);
             }
             this.history.push(record);

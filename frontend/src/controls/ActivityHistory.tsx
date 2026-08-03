@@ -259,6 +259,22 @@ const ActivityEntryRow = ({entry, duration}: {entry: ActivityHistoryEntry; durat
                     </Typography>
                 )}
             </Box>
+            {entry.error && (
+                <Box display="flex" gap={1}>
+                    <Typography
+                        variant="caption"
+                        sx={{fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", flexShrink: 0, visibility: "hidden"}}
+                    >
+                        {timeStr}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        {entry.error.message}
+                        <Box component="span" sx={{color: "text.disabled"}}>
+                            {` · Code ${entry.error.vendorErrorCode}`}
+                        </Box>
+                    </Typography>
+                </Box>
+            )}
             {dockOps && (
                 <Box display="flex" gap={1}>
                     <Typography
