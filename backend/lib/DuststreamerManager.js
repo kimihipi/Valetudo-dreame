@@ -42,6 +42,7 @@ class DuststreamerManager {
         this.spawnGraceTimer = null;
         this.watchdogTimer = null;
         this.stopTimer = null;
+        this.restartAfterExit = false;
 
         this.onShutdown = () => {
             if (this.process) {
@@ -118,9 +119,10 @@ class DuststreamerManager {
         const args = this.buildDuststreamerArgs();
         Logger.debug("Spawning duststreamer at", this.duststreamerPath, "with args", args);
 
-        this.process = child_process.spawn(this.duststreamerPath, args, {
+        const duststreamerProcess = child_process.spawn(this.duststreamerPath, args, {
             stdio: ["ignore", "pipe", "pipe"]
         });
+        this.process = duststreamerProcess;
 
         this.pipelineState = "spawning";
         this.lastDatagramAt = 0;
@@ -152,28 +154,52 @@ class DuststreamerManager {
             });
         }
 
-        this.process.once("error", (err) => {
+        duststreamerProcess.once("error", (err) => {
             Logger.warn("Error while spawning duststreamer", err);
-            this.process = null;
-
-            this.removeShutdownHandlers();
-            this.closeSubscribers();
+            this.finalizeProcess(duststreamerProcess);
         });
 
-        this.process.once("exit", (code, signal) => {
+        duststreamerProcess.once("exit", (code, signal) => {
             if (code === 0) {
                 Logger.debug("duststreamer exited cleanly");
             } else {
                 Logger.debug("duststreamer exited unexpectedly with code", code, "and signal", signal);
             }
-            this.process = null;
-            this.pipelineState = "stopped";
-
-            this.stopSpawnGrace();
-            this.stopWatchdog();
-            this.removeShutdownHandlers();
-            this.closeSubscribers();
+            this.finalizeProcess(duststreamerProcess);
         });
+    }
+
+    /**
+     * @private
+     * @param {import("child_process").ChildProcess} duststreamerProcess
+     */
+    finalizeProcess(duststreamerProcess) {
+        // A delayed event from a previously stopped child must not tear down a
+        // replacement that has already been spawned.
+        if (this.process !== duststreamerProcess) {
+            return;
+        }
+
+        const shouldRestart = this.restartAfterExit;
+        this.restartAfterExit = false;
+        this.process = null;
+        this.pipelineState = "stopped";
+
+        this.stopSpawnGrace();
+        this.stopWatchdog();
+        this.removeShutdownHandlers();
+        this.closeSubscribers();
+
+        if (shouldRestart) {
+            this.ensureDuststreamer();
+
+            // The old HTTP clients were closed to make them reconnect to the
+            // fresh MPEG-TS sequence header. Stop again after the usual
+            // cooldown if none of them return.
+            if (this.subscribers.size === 0) {
+                this.scheduleStop();
+            }
+        }
     }
 
     /**
@@ -224,6 +250,7 @@ class DuststreamerManager {
 
         this.stopSpawnGrace();
         this.stopWatchdog();
+        this.restartAfterExit = false;
         this.removeShutdownHandlers();
         this.closeSubscribers();
         this.closeReceiverSocket();
@@ -381,11 +408,31 @@ class DuststreamerManager {
             }
 
             if (Date.now() - this.lastDatagramAt > UPSTREAM_IDLE_TIMEOUT_MS) {
-                Logger.debug(`Upstream idle for ${UPSTREAM_IDLE_TIMEOUT_MS}ms. Closing subscribers.`);
-
-                this.closeSubscribers();
+                this.restartStalledPipeline();
             }
         }, 1000);
+    }
+
+    /**
+     * @private
+     */
+    restartStalledPipeline() {
+        if (!this.process) {
+            return;
+        }
+
+        const hadSubscribers = this.subscribers.size > 0;
+        Logger.warn(
+            `Duststreamer upstream idle for ${UPSTREAM_IDLE_TIMEOUT_MS}ms. ` +
+            (hadSubscribers ? "Restarting pipeline." : "Stopping idle pipeline.")
+        );
+
+        this.restartAfterExit = hadSubscribers;
+        this.stopSpawnGrace();
+        this.stopWatchdog();
+        this.closeSubscribers();
+        this.pipelineState = "stopped";
+        this.process.kill("SIGTERM");
     }
 
     /**

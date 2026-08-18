@@ -25,6 +25,8 @@ class LinuxDuststreamingCapability extends DuststreamingCapability {
     constructor(options) {
         super(options);
 
+        this.bitrate = options.bitrate ?? 1_000_000;
+
         this.manager = new DuststreamerManager({
             duststreamerPath: BINARY_PATH,
             platform: options.platform,
@@ -32,8 +34,12 @@ class LinuxDuststreamingCapability extends DuststreamingCapability {
             width: options.dimensions.width,
             height: options.dimensions.height,
             framerate: options.framerate ?? 30,
-            bitrate: options.bitrate ?? 1_000_000
+            bitrate: this.bitrate
         });
+    }
+
+    getBitrate() {
+        return this.bitrate;
     }
 
     isDuststreamerInstalled() {
@@ -48,6 +54,10 @@ class LinuxDuststreamingCapability extends DuststreamingCapability {
 
     register(subscriber) {
         this.manager.register(subscriber);
+    }
+
+    stop() {
+        this.manager.stop();
     }
 
     async selfDestruct() {

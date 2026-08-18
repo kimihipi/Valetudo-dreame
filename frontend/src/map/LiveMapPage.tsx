@@ -21,7 +21,7 @@ const Container = styled(Box)({
     alignItems: "center",
 });
 
-const LiveMapPage = (): React.ReactElement => {
+const LiveMapPage = ({cameraStreamActive = true}: {cameraStreamActive?: boolean}): React.ReactElement => {
     const queryClient = useQueryClient();
     const palette = useValetudoColors();
     const {
@@ -129,7 +129,7 @@ const LiveMapPage = (): React.ReactElement => {
     if (manualControlOpen) {
         return (
             <Box sx={{ position: "relative", height: "100%", width: "100%", display: "flex", flexDirection: "column", justifyContent: "center", overflow: "auto" }}>
-                <ManualControl />
+                <ManualControl cameraStreamActive={cameraStreamActive}/>
                 <ActionButton
                     color="inherit"
                     size="small"

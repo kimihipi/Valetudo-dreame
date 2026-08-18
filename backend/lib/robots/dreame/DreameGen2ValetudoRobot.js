@@ -15,7 +15,6 @@ const MopAttachmentReminderValetudoEvent = require("../../valetudo_events/events
 const MopDockDetergentControlCapability = require("../../core/capabilities/MopDockDetergentControlCapability");
 const MopDockMopCleaningFrequencyControlCapability = require("../../core/capabilities/MopDockMopCleaningFrequencyControlCapability");
 const MopDockMopWashIntensityControlCapability = require("../../core/capabilities/MopDockMopWashIntensityControlCapability");
-const SuctionBoostControlCapability = require("../../core/capabilities/SuctionBoostControlCapability");
 const ValetudoRestrictedZone = require("../../entities/core/ValetudoRestrictedZone");
 const ValetudoSelectionPreset = require("../../entities/core/ValetudoSelectionPreset");
 
@@ -940,12 +939,6 @@ class DreameGen2ValetudoRobot extends DreameValetudoRobot {
                                 ).catch(e => {
                                     Logger.warn("Error while confirming water hookup test result", e);
                                 });
-                            }
-
-                            if (this.capabilities[SuctionBoostControlCapability.TYPE]) {
-                                // SuctionMax is read via capability.isEnabled() for state queries,
-                                // but we can also publish it here for consistency on poll
-                                // (optional, but helpful for MQTT subscribers)
                             }
 
                             break;

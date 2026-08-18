@@ -838,7 +838,6 @@ class DreameQuirkFactory {
                         );
                     }
                 });
-            case DreameQuirkFactory.KNOWN_QUIRKS.SUCTION_MAX:
             case DreameQuirkFactory.KNOWN_QUIRKS.FAN_SPEED_ONE_TIME_TURBO:
                 return new Quirk({
                     id: id,
@@ -1175,7 +1174,6 @@ DreameQuirkFactory.KNOWN_QUIRKS = {
     CARPET_FIRST: "3d6cd658-c72a-48d9-ba54-38cf2d26e2f6",
     MULTI_MAP: "bd9e34f6-6780-4507-ad32-20e80f5c6b8d",
     INTELLIGENT_MAP_RECOGNITION: "ee22d7ed-e5ec-45ab-bfa6-df7258eb19eb",
-    SUCTION_MAX: "4d7df230-78d7-4a88-bf92-cf97a69607bb",
     CLEAN_GENIUS_AUTO_RECLEANING: "b1a2c3d4-e5f6-7890-abcd-ef1234567890",
     CLEAN_GENIUS_AUTO_REWASHING: "c2b3d4e5-f6a7-8901-bcde-f12345678901",
     CLEAN_GENIUS_STAIN_AVOIDANCE: "d3c4e5f6-a7b8-9012-cdef-123456789012",

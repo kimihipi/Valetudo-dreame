@@ -183,16 +183,26 @@ class ValetudoRouter {
         });
 
         this.router.get("/config/interfaces/http/auth/basic", (req, res) => {
-            res.json({...this.config.get("webserver").basicAuth, password: ""});
+            const webserverConfig = this.config.get("webserver");
+
+            res.json({
+                ...webserverConfig.basicAuth,
+                password: "",
+                blockExternalAccess: webserverConfig.blockExternalAccess
+            });
         });
 
         this.router.put("/config/interfaces/http/auth/basic", this.validator, (req, res) => {
             if (
                 typeof req.body.enabled === "boolean" &&
                 typeof req.body.username === "string" &&
-                typeof req.body.password === "string"
+                typeof req.body.password === "string" &&
+                (
+                    req.body.blockExternalAccess === undefined ||
+                    typeof req.body.blockExternalAccess === "boolean"
+                )
             ) {
-                const webserverConfig = this.config.get("webserver");
+                const webserverConfig = structuredClone(this.config.get("webserver"));
 
                 const options = {
                     enabled: req.body.enabled,
@@ -204,7 +214,15 @@ class ValetudoRouter {
                 if (!options.password && (webserverConfig.basicAuth.enabled === false && options.enabled === true)) {
                     res.sendStatus(400);
                 } else {
+                    if (!options.password) {
+                        options.password = webserverConfig.basicAuth.password;
+                    }
+
                     webserverConfig.basicAuth = options;
+
+                    if (typeof req.body.blockExternalAccess === "boolean") {
+                        webserverConfig.blockExternalAccess = req.body.blockExternalAccess;
+                    }
 
                     this.config.set("webserver", webserverConfig);
                     res.sendStatus(200);

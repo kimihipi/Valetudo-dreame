@@ -45,6 +45,9 @@
               },
               "blockExternalAccess": {
                 "type": "boolean"
+              },
+              "streamerProxy": {
+                "$ref": "#/components/schemas/StreamerConfigDTO"
               }
             }
           },
@@ -332,6 +335,30 @@
           }
         }
       },
+      "StreamerConfigDTO": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "url",
+          "timeoutMs"
+        ],
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "timeoutMs": {
+            "type": "number"
+          },
+          "manageProcesses": {
+            "type": "boolean",
+            "description": "Legacy go2rtc process-management setting retained for configuration compatibility."
+          },
+          "stopWhenIdle": {
+            "type": "boolean",
+            "description": "Legacy go2rtc idle-management setting retained for configuration compatibility."
+          }
+        }
+      },
       "BasicAuthConfigDTO": {
         "type": "object",
         "additionalProperties": false,
@@ -349,6 +376,29 @@
           },
           "password": {
             "type": "string"
+          }
+        }
+      },
+      "HTTPAccessConfigDTO": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enabled",
+          "username",
+          "password"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "username": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "blockExternalAccess": {
+            "type": "boolean"
           }
         }
       },

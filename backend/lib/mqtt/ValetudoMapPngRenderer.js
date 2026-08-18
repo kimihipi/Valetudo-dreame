@@ -327,7 +327,7 @@ function render(map) {
         switch (e.type) {
             case LineMapEntity.TYPE.VIRTUAL_WALL: color = P.RED; break;
             case LineMapEntity.TYPE.IMPASSABLE_THRESHOLD: color = P.RED; break;
-            case LineMapEntity.TYPE.PASSABLE_THRESHOLD: color = P.GREEN; break;
+            case LineMapEntity.TYPE.THRESHOLD: color = P.GREEN; break;
             case LineMapEntity.TYPE.CURTAIN: color = P.GOLD; break;
             default: continue;
         }

@@ -1,10 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     Box,
-    Card,
-    CardContent,
     FormControlLabel,
-    Grid2,
     Skeleton,
     Switch,
     Typography,
@@ -24,9 +21,9 @@ import {
     HighResolutionManualControlInteraction,
 } from "../api";
 import { useCapabilitiesSupported } from "../CapabilitiesProvider";
-import { FullHeightGrid } from "../components/FullHeightGrid";
 import PaperContainer from "../components/PaperContainer";
 import CameraStream from "../controls/CameraStream";
+import {useIsMobileView} from "../hooks";
 import { VirtualControllerProvider, InputMode, MovementCommandSender, useVirtualController } from "./manual_control/VirtualController";
 import { MovementSampler } from "./manual_control/MovementSampler";
 import { InputModeToggle } from "./manual_control/InputModeToggle";
@@ -192,23 +189,19 @@ const HighResolutionManualControlInternal: React.FunctionComponent = (): React.R
     const { isPending: stateLoading, isError: stateError } = useHighResolutionManualControlStateQuery();
 
     return (
-        <FullHeightGrid container direction="column">
-            <Grid2 flexGrow={1}>
-                <Box>
-                    {stateLoading ? (
-                        <Skeleton height={"12rem"} />
-                    ) : (
-                        <>
-                            {stateError && <Typography color="error">Error loading manual controls</Typography>}
-                            <Box sx={{ display: "flex", justifyContent: "center", mb: 3 }}>
-                                <HighResolutionControlToggle />
-                            </Box>
-                            <HighResolutionMovementControls />
-                        </>
-                    )}
-                </Box>
-            </Grid2>
-        </FullHeightGrid>
+        <Box>
+            {stateLoading ? (
+                <Skeleton height={"12rem"} />
+            ) : (
+                <>
+                    {stateError && <Typography color="error">Error loading manual controls</Typography>}
+                    <Box sx={{ display: "flex", justifyContent: "center", mb: 3 }}>
+                        <HighResolutionControlToggle />
+                    </Box>
+                    <HighResolutionMovementControls />
+                </>
+            )}
+        </Box>
     );
 };
 
@@ -220,33 +213,28 @@ const ManualControlInternal: React.FunctionComponent = (): React.ReactElement =>
     const hasError = stateError || propertiesError;
 
     return (
-        <FullHeightGrid container direction="column">
-            <Grid2 flexGrow={1}>
-                <Box>
-                    {loading ? (
-                        <Skeleton height={"12rem"} />
-                    ) : (
-                        <>
-                            {hasError && <Typography color="error">Error loading manual controls</Typography>}
-                            <Box sx={{ display: "flex", justifyContent: "center", mb: 3 }}>
-                                <StandardControlToggle />
-                            </Box>
-                            <StandardMovementControls />
-                        </>
-                    )}
-                </Box>
-            </Grid2>
-        </FullHeightGrid>
+        <Box>
+            {loading ? (
+                <Skeleton height={"12rem"} />
+            ) : (
+                <>
+                    {hasError && <Typography color="error">Error loading manual controls</Typography>}
+                    <Box sx={{ display: "flex", justifyContent: "center", mb: 3 }}>
+                        <StandardControlToggle />
+                    </Box>
+                    <StandardMovementControls />
+                </>
+            )}
+        </Box>
     );
 };
 
-const ManualControl = (): React.ReactElement => {
+const ManualControl = ({cameraStreamActive = true}: {cameraStreamActive?: boolean}): React.ReactElement => {
     const [highResSupported, standardSupported] = useCapabilitiesSupported(
         Capability.HighResolutionManualControl,
         Capability.ManualControl
     );
-
-    const [cameraVisible, setCameraVisible] = React.useState(false);
+    const mobileView = useIsMobileView();
 
     let controlComponent;
     if (highResSupported) {
@@ -258,31 +246,31 @@ const ManualControl = (): React.ReactElement => {
     }
 
     return (
-        <PaperContainer paperStyle={{ userSelect: "none" } as React.CSSProperties}>
-            <Grid2 container spacing={2} direction="column">
-                <Card
-                    style={{display: !cameraVisible ? "none" : undefined}}
-                    sx={{boxShadow: 3}}
-                >
-                    <CardContent style={{paddingBottom: "16px"}}>
-                        <CameraStream iframeStyle={{minHeight: "25vh"}} setVisible={setCameraVisible} />
-                    </CardContent>
-                </Card>
-
-                {cameraVisible && (
-                    <Card
-                        sx={{boxShadow: 3}}
-                    >
-                        <CardContent style={{paddingBottom: "16px"}}>
-                            {controlComponent}
-                        </CardContent>
-                    </Card>
-                )}
-                {!cameraVisible && (
-                    controlComponent
-                )}
-            </Grid2>
-        </PaperContainer>
+        <Box sx={{width: "100%", maxHeight: "100%"}}>
+            {mobileView && cameraStreamActive && <CameraStream/>}
+            <PaperContainer
+                paperStyle={{userSelect: "none"} as React.CSSProperties}
+                containerSx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    flex: "0 1 auto",
+                    maxHeight: "100%",
+                    minHeight: 0,
+                }}
+                paperSx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    flex: "0 1 auto",
+                    maxHeight: "100%",
+                    minHeight: 0,
+                    overflow: "hidden",
+                }}
+            >
+                <Box sx={{flexShrink: 0}}>
+                    {controlComponent}
+                </Box>
+            </PaperContainer>
+        </Box>
     );
 };
 

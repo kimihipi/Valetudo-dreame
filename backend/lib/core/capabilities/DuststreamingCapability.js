@@ -37,9 +37,27 @@ class DuststreamingCapability extends ValetudoBasedCapability {
 
     /**
      * @abstract
+     */
+    stop() {
+        throw new NotImplementedError();
+    }
+
+    /**
+     * @abstract
      * @returns {Promise<void>}
      */
     async selfDestruct() {
+        throw new NotImplementedError();
+    }
+
+    /**
+     * The configured stream bitrate in bit/s. Used e.g. to size the
+     * client backpressure buffer relative to the actual data rate.
+     *
+     * @abstract
+     * @returns {number}
+     */
+    getBitrate() {
         throw new NotImplementedError();
     }
 

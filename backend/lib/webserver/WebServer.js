@@ -26,6 +26,7 @@ const MQTTRouter = require("./MQTTRouter");
 const NetworkAdvertisementManagerRouter = require("./NetworkAdvertisementManagerRouter");
 const NTPClientRouter = require("./NTPClientRouter");
 const SSDPRouter = require("./SSDPRouter");
+const StreamerRouter = require("./StreamerRouter");
 const SystemRouter = require("./SystemRouter");
 const TimerRouter = require("./TimerRouter");
 const Tools = require("../utils/Tools");
@@ -76,9 +77,13 @@ class WebServer {
         this.app.use(Middlewares.VersionMiddleware);
         this.app.use(Middlewares.ServerMiddleware);
 
-        if (this.webserverConfig.blockExternalAccess) {
-            this.app.use(Middlewares.ExternalAccessCheckMiddleware);
-        }
+        this.app.use((req, res, next) => {
+            if (this.webserverConfig.blockExternalAccess) {
+                Middlewares.ExternalAccessCheckMiddleware(req, res, next);
+            } else {
+                next();
+            }
+        });
 
         this.app.use(Middlewares.EggTermMiddleware);
 
@@ -199,6 +204,8 @@ class WebServer {
         this.app.use("/api/v2/updater/", new UpdaterRouter({config: this.config, updater: options.updater, validator: this.validator}).getRouter());
 
         this.app.use("/_ssdp/", new SSDPRouter({config: this.config, robot: this.robot, valetudoHelper: this.valetudoHelper}).getRouter());
+
+        this.app.use("/streamer/", new StreamerRouter({config: this.config}).getRouter());
 
         this.app.use(express.static(path.join(__dirname, "../../..", "frontend/build")));
 

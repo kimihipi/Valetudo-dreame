@@ -34,7 +34,7 @@ const HomePage = (): React.ReactElement => {
         return (
             <Box sx={{height: "100%", width: "100%", overflow: "hidden"}}>
                 <Box sx={{height: `calc(100% - ${GLOBAL_CONTROLS_BAR_HEIGHT}px)`, display: mobileControlsOpen ? "none" : "inherit"}}>
-                    <LiveMapPage/>
+                    <LiveMapPage cameraStreamActive={!mobileControlsOpen}/>
                 </Box>
                 <Box sx={{height: "5%", display: mobileControlsOpen ? "inherit" : "none"}}>
                     &nbsp;
@@ -47,7 +47,7 @@ const HomePage = (): React.ReactElement => {
                         }}
                     >
                         <Box p={1} sx={{overflow: mobileControlsOpen ? "auto" : "hidden", height: "100%"}}>
-                            <ControlsBody/>
+                            <ControlsBody showCamera={mobileControlsOpen}/>
                         </Box>
                     </ControlsSheetContainer>
                     <GlobalControlsBar onDrawerToggle={() => setMobileControlsOpen(!mobileControlsOpen)}/>

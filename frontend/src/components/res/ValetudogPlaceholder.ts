@@ -1,9 +1,23 @@
-export function getScaledConfusedPlaceholderDog(newWidth: number, newHeight: number): string {
+export function getScaledConfusedPlaceholderDog(newWidth: number, newHeight: number, fillViewport = false): string {
     const oldWidth = 56;
     const oldHeight = 50;
 
-    const viewBoxWidth = newWidth / 4;
-    const viewBoxHeight = newHeight / 4;
+    let viewBoxWidth = newWidth / 4;
+    let viewBoxHeight = newHeight / 4;
+
+    if (fillViewport) {
+        const targetFill = 0.9;
+        const viewportAspectRatio = newWidth / newHeight;
+        const artworkAspectRatio = oldWidth / oldHeight;
+
+        if (viewportAspectRatio >= artworkAspectRatio) {
+            viewBoxHeight = oldHeight / targetFill;
+            viewBoxWidth = viewBoxHeight * viewportAspectRatio;
+        } else {
+            viewBoxWidth = oldWidth / targetFill;
+            viewBoxHeight = viewBoxWidth / viewportAspectRatio;
+        }
+    }
 
     const viewBoxX = (viewBoxWidth - oldWidth) / 2;
     const viewBoxY = (viewBoxHeight - oldHeight) / 2;

@@ -275,7 +275,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BasicAuthConfigDTO"
+                "$ref": "#/components/schemas/HTTPAccessConfigDTO"
               }
             }
           }
@@ -291,7 +291,7 @@
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/BasicAuthConfigDTO"
+              "$ref": "#/components/schemas/HTTPAccessConfigDTO"
             }
           }
         }

@@ -35,6 +35,7 @@ const AuthSettings = (): React.ReactElement => {
     const {mutate: updateConfiguration, isPending: configurationUpdating} = useHTTPBasicAuthConfigurationMutation();
 
     const [enabled, setEnabled] = React.useState(false);
+    const [blockExternalAccess, setBlockExternalAccess] = React.useState(true);
     const [username, setUsername] = React.useState("");
     const [password, setPassword] = React.useState("");
 
@@ -44,6 +45,7 @@ const AuthSettings = (): React.ReactElement => {
     React.useEffect(() => {
         if (storedConfiguration) {
             setEnabled(storedConfiguration.enabled);
+            setBlockExternalAccess(storedConfiguration.blockExternalAccess);
             setUsername(storedConfiguration.username);
             setPassword(storedConfiguration.password);
         }
@@ -120,6 +122,20 @@ const AuthSettings = (): React.ReactElement => {
                 </Grid2>
             </Grid2>
 
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={blockExternalAccess}
+                        onChange={e => {
+                            setBlockExternalAccess(e.target.checked);
+                            setConfigurationModified(true);
+                        }}
+                    />
+                }
+                label="Block external access"
+                sx={{mb: 1}}
+            />
+
             <InfoBox
                 boxShadow={5}
                 style={{
@@ -153,7 +169,8 @@ const AuthSettings = (): React.ReactElement => {
                             updateConfiguration({
                                 enabled: enabled,
                                 username: username,
-                                password: password
+                                password: password,
+                                blockExternalAccess: blockExternalAccess
                             });
                             setConfigurationModified(false);
                         }}

@@ -31,6 +31,17 @@
     }
   },
   "/api/v2/robot/capabilities/DuststreamingCapability/stream": {
+    "delete": {
+      "tags": [
+        "DuststreamingCapability"
+      ],
+      "summary": "Stop the active Duststreamer pipeline",
+      "responses": {
+        "200": {
+          "description": "Ok"
+        }
+      }
+    },
     "get": {
       "tags": [
         "DuststreamingCapability"

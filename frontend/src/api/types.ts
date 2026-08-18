@@ -14,7 +14,6 @@ export enum Capability {
     CleanRouteControl = "CleanRouteControlCapability",
     CollisionAvoidantNavigation = "CollisionAvoidantNavigationControlCapability",
     CombinedVirtualRestrictions = "CombinedVirtualRestrictionsCapability",
-    CombinedVirtualThresholds = "CombinedVirtualThresholdsCapability",
     ConsumableMonitoring = "ConsumableMonitoringCapability",
     CurrentStatistics = "CurrentStatisticsCapability",
     DoNotDisturb = "DoNotDisturbCapability",
@@ -71,7 +70,6 @@ export enum Capability {
     Quirks = "QuirksCapability",
     ObstacleImages = "ObstacleImagesCapability",
     CarpetZones = "CarpetZonesCapability",
-    Curtains = "CurtainsCapability",
     Maintenance = "MaintenanceCapability",
     MapAnnotations = "MapAnnotationsCapability",
     Duststreaming = "DuststreamingCapability",
@@ -450,6 +448,7 @@ export interface HTTPBasicAuthConfiguration {
     enabled: boolean;
     username: string;
     password: string;
+    blockExternalAccess: boolean;
 }
 
 export interface NetworkAdvertisementConfiguration {
@@ -659,31 +658,6 @@ export interface CombinedVirtualRestrictionsUpdateRequestParameters {
 
 export interface CombinedVirtualRestrictionsProperties {
     supportedRestrictedZoneTypes: Array<ValetudoRestrictedZoneType>
-}
-
-export interface CombinedVirtualThresholdsUpdateRequestParameters {
-    passableThresholds: Array<{
-        points: {
-            pA: Point,
-            pB: Point
-        }
-    }>,
-    impassableThresholds: Array<{
-        points: {
-            pA: Point,
-            pB: Point
-        }
-    }>,
-    ramps: Array<never>
-}
-
-export interface CurtainsUpdateRequestParameters {
-    curtains: Array<{
-        points: {
-            pA: Point,
-            pB: Point
-        }
-    }>
 }
 
 export interface CarpetZonesUpdateRequestParameters {

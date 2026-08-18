@@ -22,9 +22,7 @@ import {
     CleaningHistoryRecord,
     CombinedVirtualRestrictionsProperties,
     CombinedVirtualRestrictionsUpdateRequestParameters,
-    CombinedVirtualThresholdsUpdateRequestParameters,
     CarpetZonesUpdateRequestParameters,
-    CurtainsUpdateRequestParameters,
     ConsumableId,
     ConsumableProperties,
     ConsumableState,
@@ -1264,24 +1262,6 @@ export const sendCombinedVirtualRestrictionsUpdate = async (
 ): Promise<void> => {
     await valetudoAPI.put(
         `/robot/capabilities/${Capability.CombinedVirtualRestrictions}`,
-        parameters
-    );
-};
-
-export const sendCombinedVirtualThresholdsUpdate = async (
-    parameters: CombinedVirtualThresholdsUpdateRequestParameters
-): Promise<void> => {
-    await valetudoAPI.put(
-        `/robot/capabilities/${Capability.CombinedVirtualThresholds}`,
-        parameters
-    );
-};
-
-export const sendCurtainsUpdate = async (
-    parameters: CurtainsUpdateRequestParameters
-): Promise<void> => {
-    await valetudoAPI.put(
-        `/robot/capabilities/${Capability.Curtains}`,
         parameters
     );
 };

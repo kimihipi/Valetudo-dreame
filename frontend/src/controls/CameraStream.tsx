@@ -1,20 +1,15 @@
-import {Grid2} from "@mui/material";
-import {CRTCompositor, FetchSource, Player} from "jsmpeg";
-import type {JSMpegOptions} from "jsmpeg";
+import {Box, Grid2, Paper} from "@mui/material";
 import React from "react";
 import {
     Capability,
     useDuststreamingConfigurationQuery,
     useDuststreamingPropertiesQuery,
-    valetudoAPIBaseURL,
 } from "../api";
 import {useCapabilitiesSupported} from "../CapabilitiesProvider";
+import {useGo2RtcStreamsQuery} from "../api/go2rtc";
+import {DuststreamCanvas, LegacyCameraStream} from "../robot/Duststream";
 
-const STREAM_URL = `${valetudoAPIBaseURL}/robot/capabilities/${Capability.Duststreaming}/stream`;
-
-const CameraStream = (props: { iframeStyle?: React.CSSProperties; setVisible?: (value: boolean) => void }): React.ReactElement => {
-    const { iframeStyle, setVisible } = props;
-    const canvasRef = React.useRef<HTMLCanvasElement>(null);
+const CameraStream = (): React.ReactElement | null => {
     const [duststreamingSupported] = useCapabilitiesSupported(Capability.Duststreaming);
     const {data: configuration} = useDuststreamingConfigurationQuery({
         enabled: duststreamingSupported,
@@ -22,58 +17,47 @@ const CameraStream = (props: { iframeStyle?: React.CSSProperties; setVisible?: (
     const {data: properties} = useDuststreamingPropertiesQuery({
         enabled: duststreamingSupported,
     });
+    const {
+        data: legacyStreams,
+        isError: legacyProbeError,
+        isPending: legacyProbePending,
+    } = useGo2RtcStreamsQuery();
 
-    const visible = duststreamingSupported &&
+    const legacyStreamKey = legacyProbeError ? undefined : Object.keys(legacyStreams ?? {})[0];
+
+    const duststreamVisible = duststreamingSupported &&
         configuration?.enabled === true &&
         properties?.duststreamerInstalled === true;
+    const visible = !!legacyStreamKey || (!legacyProbePending && duststreamVisible);
+    const dimensions = properties ?? {width: 640, height: 480};
 
-    React.useEffect(() => {
-        setVisible?.(visible);
-    }, [setVisible, visible]);
-
-    React.useEffect(() => {
-        if (!visible || !properties || !canvasRef.current) {
-            return;
-        }
-
-        const options: JSMpegOptions = {
-            source: FetchSource,
-            canvas: canvasRef.current,
-            autoplay: true,
-            reconnectInterval: 3,
-            decodeFirstFrame: false,
-            videoWidth: properties.width,
-            videoHeight: properties.height,
-            createRenderer: (rendererOptions) => new CRTCompositor(rendererOptions, {label: "VALETUDO+"}),
-        };
-        const player = new Player(STREAM_URL, options);
-
-        return () => {
-            try {
-                player.destroy();
-            } catch (e) {
-                // intentional
-            }
-        };
-    }, [properties, visible]);
-
-    if (!visible || !properties) {
-        return <></>;
+    if (!visible) {
+        return null;
     }
 
     return (
-        <Grid2
-            display="flex"
-            sx={{minHeight: 0, flex: 1, bgcolor: "#000"}}
-            style={iframeStyle}
-        >
-            <canvas
-                ref={canvasRef}
-                width={properties.width}
-                height={properties.height}
-                style={{width: "100%", height: "100%", objectFit: "contain", display: "block"}}
-            />
-        </Grid2>
+        <Paper sx={{position: "relative", overflow: "hidden", flexShrink: 0}}>
+            <Box px={1.5} py={1.5}>
+                <Grid2
+                    display="flex"
+                    sx={{
+                        position: "relative",
+                        width: "100%",
+                        aspectRatio: `${dimensions.width} / ${dimensions.height}`,
+                        minHeight: "25vh",
+                        flex: 1,
+                        bgcolor: "#000",
+                        overflow: "hidden",
+                    }}
+                >
+                    {legacyStreamKey ? (
+                        <LegacyCameraStream streamKey={legacyStreamKey}/>
+                    ) : (
+                        <DuststreamCanvas dimensions={dimensions}/>
+                    )}
+                </Grid2>
+            </Box>
+        </Paper>
     );
 };
 

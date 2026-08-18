@@ -27,6 +27,7 @@ import {
 import ConfirmationDialog from "../ConfirmationDialog";
 import {DuststreamingLecture, DuststreamingInstallInstructions} from "./res/Duststreaming";
 import style from "./DuststreamingListMenuItem.module.css";
+import {useGo2RtcStreamsQuery} from "../../api/go2rtc";
 
 const CONFIRMATION_COOLDOWN_SECONDS = 60;
 const SKIP_COOLDOWN_CODE = "skip";
@@ -195,6 +196,11 @@ const DuststreamingInstructionsDialog: React.FunctionComponent<{
 
 export const DuststreamingListMenuItem = (): React.ReactElement => {
     const {
+        data: legacyStreams,
+        isError: legacyProbeError,
+    } = useGo2RtcStreamsQuery();
+
+    const {
         data: properties,
         isPending: propertiesPending,
         isError: propertiesError,
@@ -215,6 +221,7 @@ export const DuststreamingListMenuItem = (): React.ReactElement => {
     const [instructionsDialogOpen, setInstructionsDialogOpen] = React.useState(false);
 
     const capabilitySupported = properties !== undefined;
+    const go2rtcActive = !legacyProbeError && Object.keys(legacyStreams ?? {}).length > 0;
     const enabled = configuration?.enabled === true;
     const duststreamerInstalled = properties?.duststreamerInstalled === true;
     const duststreamerPath = runtimeInfo?.execPath ? (() => {
@@ -224,7 +231,9 @@ export const DuststreamingListMenuItem = (): React.ReactElement => {
     })() : undefined;
 
     let secondaryLabel: React.ReactNode | undefined;
-    if (!enabled) {
+    if (go2rtcActive) {
+        secondaryLabel = "Using go2rtc";
+    } else if (!enabled) {
         secondaryLabel = "See what your robot sees";
     } else if (!duststreamerInstalled) {
         secondaryLabel = (
@@ -240,10 +249,10 @@ export const DuststreamingListMenuItem = (): React.ReactElement => {
             </Link>
         );
     } else {
-        secondaryLabel = "Rockwell - Somebody's Watching Me ♫";
+        secondaryLabel = "Enabled";
     }
 
-    const toggleDisabled = !capabilitySupported || configurationPending || configurationUpdating;
+    const toggleDisabled = go2rtcActive || !capabilitySupported || configurationPending || configurationUpdating;
 
     const handleEnableConfirm = () => {
         setEnableDialogOpen(false);
@@ -262,8 +271,10 @@ export const DuststreamingListMenuItem = (): React.ReactElement => {
     return (
         <>
             <ListItem
+                aria-disabled={go2rtcActive}
                 style={{
-                    userSelect: "none"
+                    userSelect: "none",
+                    opacity: go2rtcActive ? 0.38 : 1,
                 }}
             >
                 <ListItemAvatar>

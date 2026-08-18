@@ -75,4 +75,47 @@ describe("Configuration", function() {
         should(fs.existsSync(configPath + ".backup")).equal(false);
         configuration.get("valetudo").customizations.friendlyName.should.equal("Downstairs");
     });
+
+    it("should preserve both camera streamer configurations during an update", function() {
+        const previousConfig = structuredClone(DEFAULT_SETTINGS);
+        previousConfig._version = "2026.7.0";
+        previousConfig.webserver.streamerProxy = {
+            url: "http://127.0.0.1:2984",
+            timeoutMs: 9000,
+            manageProcesses: true,
+            stopWhenIdle: true
+        };
+        previousConfig.duststreaming.enabled = true;
+        previousConfig.valetudo.customizations.friendlyName = "Camera Robot";
+
+        const configPath = path.join(dataPath, "valetudo_config.json");
+        fs.writeFileSync(configPath, JSON.stringify(previousConfig, null, 2));
+
+        const configuration = new Configuration();
+        const persistedConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+
+        persistedConfig.webserver.streamerProxy.should.deepEqual(previousConfig.webserver.streamerProxy);
+        persistedConfig.duststreaming.enabled.should.equal(true);
+        persistedConfig.valetudo.customizations.friendlyName.should.equal("Camera Robot");
+        should(fs.existsSync(configPath + ".backup")).equal(false);
+        configuration.get("webserver").streamerProxy.should.deepEqual(previousConfig.webserver.streamerProxy);
+    });
+
+    it("should add missing streamer defaults without replacing existing settings", function() {
+        const previousConfig = structuredClone(DEFAULT_SETTINGS);
+        previousConfig._version = "2026.7.0";
+        previousConfig.valetudo.customizations.friendlyName = "Existing Robot";
+        delete previousConfig.webserver.streamerProxy;
+
+        const configPath = path.join(dataPath, "valetudo_config.json");
+        fs.writeFileSync(configPath, JSON.stringify(previousConfig, null, 2));
+
+        const configuration = new Configuration();
+        const persistedConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+
+        persistedConfig.webserver.streamerProxy.should.deepEqual(DEFAULT_SETTINGS.webserver.streamerProxy);
+        persistedConfig.valetudo.customizations.friendlyName.should.equal("Existing Robot");
+        should(fs.existsSync(configPath + ".backup")).equal(false);
+        configuration.get("webserver").streamerProxy.should.deepEqual(DEFAULT_SETTINGS.webserver.streamerProxy);
+    });
 });

@@ -44,42 +44,6 @@ class DreameX40UltraValetudoRobot extends DreameGen4ValetudoRobot {
             )
         );
 
-        this.registerCapability(new capabilities.DreameCombinedVirtualThresholdsCapability({
-            robot: this,
-            miot_actions: {
-                map_edit: {
-                    siid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.SIID,
-                    aiid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.ACTIONS.EDIT.AIID
-                }
-            },
-            miot_properties: {
-                mapDetails: {
-                    piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.PROPERTIES.MAP_DETAILS.PIID
-                },
-                actionResult: {
-                    piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.PROPERTIES.ACTION_RESULT.PIID
-                }
-            }
-        }));
-
-        this.registerCapability(new capabilities.DreameCurtainsCapability({
-            robot: this,
-            miot_actions: {
-                map_edit: {
-                    siid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.SIID,
-                    aiid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.ACTIONS.EDIT.AIID
-                }
-            },
-            miot_properties: {
-                mapDetails: {
-                    piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.PROPERTIES.MAP_DETAILS.PIID
-                },
-                actionResult: {
-                    piid: DreameGen2ValetudoRobot.MIOT_SERVICES.MAP.PROPERTIES.ACTION_RESULT.PIID
-                }
-            }
-        }));
-
         this.registerCapability(new capabilities.DreameMapSegmentationCapability({
             robot: this,
             miot_actions: {
@@ -482,7 +446,6 @@ class DreameX40UltraValetudoRobot extends DreameGen4ValetudoRobot {
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.CLEAN_GENIUS_STAIN_AVOIDANCE),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.LARGE_PARTICLE_BOOST),
                 quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.AUTO_RESUME_CLEANING),
-                quirkFactory.getQuirk(DreameQuirkFactory.KNOWN_QUIRKS.FAN_SPEED_ONE_TIME_TURBO),
             ]
         }));
 

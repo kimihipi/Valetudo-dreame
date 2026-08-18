@@ -67,9 +67,7 @@ import {
     sendCleanSegmentsCommand,
     sendCleanZonesCommand,
     sendCombinedVirtualRestrictionsUpdate,
-    sendCombinedVirtualThresholdsUpdate,
     sendCarpetZonesUpdate,
-    sendCurtainsUpdate,
     sendConsumableReset,
     sendDoNotDisturbConfiguration,
     sendEnergySavingChargingConfiguration,
@@ -207,9 +205,7 @@ import {
     CarpetSensorMode,
     CleanRoute,
     CombinedVirtualRestrictionsUpdateRequestParameters,
-    CombinedVirtualThresholdsUpdateRequestParameters,
     CarpetZonesUpdateRequestParameters,
-    CurtainsUpdateRequestParameters,
     ConsumableId,
     DoNotDisturbConfiguration,
     HighResolutionManualControlInteraction,
@@ -1682,44 +1678,6 @@ export const useCombinedVirtualRestrictionsMutation = (
             return sendCombinedVirtualRestrictionsUpdate(parameters);
         },
         onError: useOnCommandError(Capability.CombinedVirtualRestrictions),
-        ...options,
-        onSuccess: async (data, ...args) => {
-            // Set the pending count before invalidating so onMapUpdate fires with it already set
-            await options?.onSuccess?.(data, ...args);
-            await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
-        },
-    });
-};
-
-export const useCombinedVirtualThresholdsMutation = (
-    options?: UseMutationOptions<void, unknown, CombinedVirtualThresholdsUpdateRequestParameters>
-) => {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: (parameters: CombinedVirtualThresholdsUpdateRequestParameters) => {
-            return sendCombinedVirtualThresholdsUpdate(parameters);
-        },
-        onError: useOnCommandError(Capability.CombinedVirtualThresholds),
-        ...options,
-        onSuccess: async (data, ...args) => {
-            // Set the pending count before invalidating so onMapUpdate fires with it already set
-            await options?.onSuccess?.(data, ...args);
-            await queryClient.invalidateQueries({ queryKey: [QueryKey.Map] });
-        },
-    });
-};
-
-export const useCurtainsMutation = (
-    options?: UseMutationOptions<void, unknown, CurtainsUpdateRequestParameters>
-) => {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: (parameters: CurtainsUpdateRequestParameters) => {
-            return sendCurtainsUpdate(parameters);
-        },
-        onError: useOnCommandError(Capability.Curtains),
         ...options,
         onSuccess: async (data, ...args) => {
             // Set the pending count before invalidating so onMapUpdate fires with it already set
